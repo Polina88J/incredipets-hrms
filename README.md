@@ -26,3 +26,6 @@ Replaces the scattered HR Google Sheets (recruitment sheet stays for sourcing; e
 
 ## Stack (target)
 Static front-end now → Supabase (Postgres + Auth + Storage, RLS) + Vercel.
+
+## Deploy
+Auto-deploys to the live URL on every push to `main` (Vercel ↔ GitHub git integration, connected 2026-06-03).
