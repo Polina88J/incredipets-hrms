@@ -259,7 +259,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v3';
+const KEY='incredipets_hrms_v4';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -283,9 +283,9 @@ function seed(){
   ];
   const employees=[
     {id:'E1',code:'IN-001',name:'Jiten Kakar',desig:'Founder & CEO',dept:"Founder's Office",level:'L6',location:'Gurugram, Delhi NCR',doj:'2021-04-01',managerId:null,phone:'+91 90000 00001',email:'jiten@incredipets.in',status:'active',onboarded:true},
-    {id:'E2',code:'IN-014',name:'Priya Perral',desig:'General Manager — HR',dept:'People & Ops',level:'L5',location:'Gurugram, Delhi NCR',doj:'2023-02-15',managerId:'E1',phone:'+91 90000 00014',email:'priya@incredipets.in',status:'active',onboarded:true},
-    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L2',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E1',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,positionId:'P1'},
-    {id:'E4',code:'IN-319',name:'Sneha Iyer',desig:'CRM Associate',dept:'Customer Care',level:'L2',location:'Gurugram, Delhi NCR',doj:'2026-06-09',managerId:'E1',phone:'+91 98111 23319',email:'sneha@incredipets.in',status:'onboarding',onboarded:false,positionId:'P2'}
+    {id:'E2',code:'IN-014',name:'Priya Perral',desig:'General Manager — HR',dept:'People & Ops',level:'L5',location:'Gurugram, Delhi NCR',doj:'2023-02-15',managerId:'E1',phone:'+91 90000 00014',email:'priya@incredipets.in',status:'active',onboarded:true,track:'HR & People Ops',ladderTitle:'Head of HR & People Ops'},
+    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L1',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E1',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,track:'Field Sales',ladderTitle:'Field Sales Executive',positionId:'P1'},
+    {id:'E4',code:'IN-319',name:'Sneha Iyer',desig:'CRM Associate',dept:'Customer Care',level:'L1',location:'Gurugram, Delhi NCR',doj:'2026-06-09',managerId:'E1',phone:'+91 98111 23319',email:'sneha@incredipets.in',status:'onboarding',onboarded:false,track:'CRM',ladderTitle:'CRM Executive',positionId:'P2'}
   ];
   const offers=[
     {id:'O1',employeeId:'E3',positionId:'P1',ctc:360000,status:'accepted',releasedBy:'Anushka',approvedBy:'Priya Perral',createdAt:'2025-08-20'},
@@ -623,33 +623,62 @@ function vGrowth(){
    </div>`;
 }
 
+// ---- L1–L6 framework + career-ladder tracks (from the Career Ladders tab + Priya's matrix) ----
+const LEVELS=[
+  {lv:'L1',title:'[Function] Executive / Associate',scope:'Entry IC, no reports',comp:'< ₹4.2L'},
+  {lv:'L2',title:'Senior [Function] Exec / Specialist / Lead',scope:'Experienced IC, mentors',comp:'₹4.2–6L'},
+  {lv:'L3',title:'Assistant Manager → Manager – [Dept]',scope:'First-line mgr (3–8 reports)',comp:'₹6–12L'},
+  {lv:'L4',title:'Senior / Regional Manager – [Dept]',scope:'Middle mgmt (multiple teams)',comp:'₹12–22L'},
+  {lv:'L5',title:'Head of [Dept]',scope:'Function head, strategy',comp:'₹22–45L'},
+  {lv:'L6',title:'Director / VP / C-suite',scope:'Company-wide / exec',comp:'₹45L+'}
+];
+const LADDERS={
+  'Field Sales':[['Field Sales Trainee','L1-'],['Field Sales Executive','L1'],['Senior Field Sales Executive','L2'],['Field Sales Lead','L2+'],['Assistant Manager – Field Sales','L3-'],['Manager – Field Sales','L3'],['Senior Manager – Field Sales','L4-'],['Regional Sales Manager','L4'],['Head of Field Sales','L4+'],['Director – Sales','L5'],['VP – Sales','L6-'],['Chief Revenue Officer','L6']],
+  'Inside Sales':[['Inside Sales Trainee','L1-'],['Inside Sales Executive','L1'],['Senior Inside Sales Executive','L2'],['Inside Sales Lead','L2+'],['Assistant Manager – Inside Sales','L3-'],['Manager – Inside Sales','L3'],['Senior Manager – Inside Sales','L4-'],['Head of Inside Sales','L4'],['Director – Sales','L5'],['VP – Sales','L6-'],['Chief Revenue Officer','L6']],
+  'Customer Support':[['Support Trainee','L1-'],['Customer Support Executive','L1'],['Senior Customer Support Executive','L2'],['Support Lead','L2+'],['Assistant Manager – Support','L3-'],['Manager – Customer Support','L3'],['Senior Manager – Support','L4-'],['Head of Customer Support','L4+'],['Director – Customer Experience','L5'],['VP – Customer Experience','L6-'],['Chief Customer Officer','L6']],
+  'Quality (Field Ops)':[['Quality Trainee','L1-'],['Quality Executive','L1'],['Quality Specialist','L2'],['Senior Quality Specialist','L2+'],['Assistant Manager – Quality','L3-'],['Manager – Quality','L3'],['Senior Manager – Quality','L4-'],['Area Quality Manager','L4'],['Head of Field Operations','L4+'],['Director – Operations','L5'],['VP – Operations','L6-'],['Chief Operating Officer','L6']],
+  'Marketing':[['Marketing Trainee','L1-'],['Marketing Executive','L1'],['Marketing Specialist','L2'],['Senior Marketing Specialist','L2+'],['Assistant Manager – Marketing','L3-'],['Manager – Marketing','L3'],['Senior Manager – Marketing','L4-'],['Head of Marketing','L4'],['Director – Marketing','L5'],['VP – Marketing','L6-'],['Chief Marketing Officer','L6']],
+  'HR & People Ops':[['HR Trainee','L1-'],['HR Executive','L1'],['HR Specialist','L2'],['Senior HR Specialist','L2+'],['Assistant Manager – HR','L3-'],['HR Manager','L3'],['Senior HR Manager','L4-'],['Head of HR','L4+'],['Head of HR & People Ops','L5'],['Director – People','L6-'],['Chief People Officer','L6']],
+  'Supply Chain':[['Supply Trainee','L1-'],['Supply Associate','L1'],['Senior Supply Associate','L2'],['Supply Lead','L2+'],['Assistant Manager – Supply','L3-'],['Manager – Supply','L3'],['Senior Manager – Supply','L4-'],['Head of Supply','L4+'],['Director – Supply','L5'],['VP – Supply','L6-'],['Chief Supply Chain Officer','L6']],
+  'Finance':[['Finance Trainee','L1-'],['Finance Associate','L1'],['Senior Finance Associate','L2'],['Finance Lead','L2+'],['Assistant Manager – Finance','L3-'],['Manager – Finance','L3'],['Finance Manager','L4-'],['Financial Controller','L4'],['Head of Finance','L5'],['VP – Finance','L6-'],['Chief Financial Officer','L6']],
+  'Audit':[['Audit Trainee','L1-'],['Audit Associate','L1'],['Internal Auditor','L2'],['Senior Internal Auditor','L2+'],['Assistant Manager – Audit','L3-'],['Audit Manager','L3'],['Senior Audit Manager','L4-'],['Head of Internal Audit','L5']],
+  'CRM':[['CRM Trainee','L1-'],['CRM Executive','L1'],['Senior CRM Executive','L2'],['CRM Lead','L2+'],['Assistant Manager – CRM','L3-'],['Manager – CRM','L3'],['Senior Manager – CRM','L4-'],['Head of CRM','L4'],['Director – CRM','L5'],['VP – CRM','L6-']],
+  'Operations':[['Operations Trainee','L1-'],['Operations Associate','L1'],['Senior Operations Associate','L2'],['Operations Lead','L2+'],['Assistant Manager – Operations','L3-'],['Manager – Operations','L3'],['Senior Manager – Operations','L4-'],['Head of Operations','L4+'],['Director – Operations','L5'],['Chief Operating Officer','L6']],
+  'Engineering (SDE)':[['Associate Software Engineer','L1-'],['Software Engineer I (SD1)','L2'],['Software Engineer II (SD2)','L3-'],['Senior Software Engineer (SD3)','L3'],['Lead Software Engineer (SD4)','L4-'],['Staff Software Engineer (SD5)','L4'],['Engineering Manager','L4+'],['Senior Staff Engineer / Senior EM','L5-'],['Principal Engineer / Director of Engineering','L5'],['VP Engineering','L6-'],['Chief Technology Officer','L6']],
+  'Design':[['Associate Designer','L1-'],['UI/UX Designer','L2'],['Senior UI/UX Designer','L3'],['Design Lead','L4-'],['Design Manager','L4'],['Head of Design','L5'],['Director of Design','L6-'],['VP Design','L6']],
+  'Product':[['Associate Product Manager','L3'],['Product Manager','L4-'],['Senior Product Manager','L4'],['Group Product Manager','L5-'],['Director of Product','L5'],['VP Product','L6-'],['Chief Product Officer','L6']],
+  'Data / MIS':[['Technology / MIS Associate','L1'],['Senior MIS Executive','L2'],['Data Specialist','L2+'],['Assistant Manager – Data','L3-'],['Manager – Data / MIS','L3'],['Senior Manager – Data','L4-'],['Head of Data','L5'],['Director – Data','L6-']],
+  'Paravet (Veterinary)':[['Trainee Paravet','L1-'],['Paravet','L1'],['Senior Paravet','L2'],['Paravet Specialist','L2+'],['Lead Paravet','L3-'],['Paravet Supervisor','L3'],['Manager – Paravet Services','L4'],['Head of Paravet Services','L5']]
+};
 function vLadder(){
   const emp=empById(SES.employeeId),t=tenure(emp.doj);
-  const req=DB.ladderReq[emp.level];
-  const curIdx=DB.levels.findIndex(l=>l.level===emp.level);
+  const track=emp.track||'Field Sales',ladder=LADDERS[track];
+  if(track==='Founder'||!ladder){
+    $('view').innerHTML=`<div><h1 class="page">Career Ladder</h1></div><div class="card card-pad muted small">You sit above the level ladder — growth here is company scale, not title.</div>`;return;}
+  let idx=ladder.findIndex(r=>r[0]===(emp.ladderTitle||emp.desig));
+  if(idx<0)idx=ladder.findIndex(r=>r[1].replace(/[-+]/g,'')===emp.level);
+  if(idx<0)idx=0;
+  const cur=ladder[idx],next=ladder[idx+1],MIN=12,MAX=24;
   $('view').innerHTML=`
-   <div><h1 class="page">Career Ladder</h1><p class="page-sub">Where you are, what's next, and exactly what it takes to get there.</p></div>
-   ${req?`<div class="card card-pad">
-     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.ladder}</svg></div><h2>Your next move: ${esc(req.toTitle)} (${esc(req.toLevel)})</h2></div>
-     <p class="small muted" style="margin-bottom:14px">Typical time in role before promotion: <b>${req.minMonths}–${req.maxMonths} months</b>. You're at <b>${t.totalMonths} months</b>.</p>
-     <div style="margin-bottom:6px"><b class="small">Tenure toward eligibility</b></div>
-     <div class="bar ${t.totalMonths>=req.minMonths?'green':''}" style="margin-bottom:16px"><i style="width:${Math.min(100,Math.round(t.totalMonths/req.minMonths*100))}%"></i></div>
-     <div class="grid2">
-       <div><b class="small" style="display:block;margin-bottom:8px">KPIs required</b>
-         ${req.kpis.map(k=>`<div class="req"><span class="ck ${k.met?'ok':'no'}">${k.met?'✓':'•'}</span>${esc(k.name)}</div>`).join('')}</div>
-       <div><b class="small" style="display:block;margin-bottom:8px">Recognition required</b>
-         ${req.achievements.map(k=>`<div class="req"><span class="ck ${k.met?'ok':'no'}">${k.met?'✓':'•'}</span>${esc(k.name)}</div>`).join('')}
-         <div class="req"><span class="ck ${t.totalMonths>=req.minMonths?'ok':'no'}">${t.totalMonths>=req.minMonths?'✓':'•'}</span>Minimum ${req.minMonths} months in role</div>
-       </div>
-     </div>
-   </div>`:'<div class="card card-pad muted small">Career path for your level is being finalised — your HR team will publish it shortly.</div>'}
+   <div><h1 class="page">Career Ladder</h1><p class="page-sub">Your track: <b>${esc(track)}</b> · a promotion is one rung up at the annual appraisal.</p></div>
+   ${next?`<div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.ladder}</svg></div><h2>Your next move: ${esc(next[0])} <span class="pill active" style="margin-left:4px">${esc(next[1])}</span></h2></div>
+     <p class="small muted" style="margin-bottom:12px">You're a <b>${esc(cur[0])}</b> (${esc(cur[1])}). Typical time in a rung before promotion: <b>${MIN}–${MAX} months</b> — you're at <b>${t.totalMonths} month${t.totalMonths===1?'':'s'}</b>.</p>
+     <div class="bar ${t.totalMonths>=MIN?'green':''}"><i style="width:${Math.min(100,Math.round(t.totalMonths/MIN*100))}%"></i></div>
+     <p class="small muted" style="margin-top:10px">To be promoted: hit your KPIs (see <b>My Growth</b>), earn at least one recognition, and complete the minimum ${MIN} months in role. Detailed KPI targets per rung are being finalised.</p>
+   </div>`:`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.ladder}</svg></div><h2>You're at the top of the ${esc(track)} track 🎉</h2></div></div>`}
    <div class="card card-pad">
-     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.ladder}</svg></div><h2>The full ladder</h2></div>
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.ladder}</svg></div><h2>The ${esc(track)} ladder</h2></div>
      <div class="ladder">
-       ${DB.levels.map((l,i)=>{const cls=i===curIdx?'cur':(i===curIdx+1?'next':'');return `
-         <div class="rung ${cls}"><div class="lv">${l.level}</div><div class="lt"><b>${esc(l.title)}</b>${cls==='cur'?' <span class="pill offered" style="margin-left:6px">You are here</span>':(cls==='next'?' <span class="pill active" style="margin-left:6px">Next</span>':'')}<div class="ld">${esc(l.designations.join(' · '))}</div></div></div>`;}).join('')}
+       ${ladder.map((r,i)=>{const cls=i===idx?'cur':(i===idx+1?'next':'');return `<div class="rung ${cls}"><div class="lv">${esc(r[1])}</div><div class="lt"><b>${esc(r[0])}</b>${cls==='cur'?' <span class="pill offered" style="margin-left:6px">You are here</span>':(cls==='next'?' <span class="pill active" style="margin-left:6px">Next</span>':'')}</div></div>`;}).join('')}
      </div>
-     <p class="small muted" style="margin-top:12px">Levels, designations and KPIs shown are a working draft — Priya will plug in the finalised matrix.</p>
+   </div>
+   <div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.growth}</svg></div><h2>The L1–L6 framework</h2></div>
+     <table class="list"><tr><th>Level</th><th>Title pattern</th><th>Scope</th><th>Comp anchor</th></tr>
+       ${LEVELS.map(l=>{const here=l.lv===emp.level;return `<tr${here?' style="background:var(--pale)"':''}><td><b>${l.lv}</b>${here?' <span class="pill offered">You</span>':''}</td><td>${esc(l.title)}</td><td class="small muted">${esc(l.scope)}</td><td class="num">${esc(l.comp)}</td></tr>`;}).join('')}
+     </table>
+     <p class="small muted" style="margin-top:10px">Levels derive from CTC bands (bucketed), never raw salary. Reconstructed from your Career Ladders tab — spot-check the titles.</p>
    </div>`;
 }
 
