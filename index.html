@@ -49,6 +49,9 @@
   .demo-btn .d{font-size:11.5px;color:var(--muted)}
   .login .foot{margin-top:18px;font-size:11px;color:#b9b3c0;text-align:center}
   .login .foot a{cursor:pointer;text-decoration:underline}
+  .emailbox{margin-top:16px;border-top:1px dashed var(--rule);padding-top:14px;text-align:center}
+  .emailbox .toggle{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted)}
+  .emailbox .toggle:hover{color:var(--amaranth)}
 
   /* ---- app shell ---- */
   .app{display:grid;grid-template-columns:242px 1fr;min-height:100dvh}
@@ -211,15 +214,20 @@
   <div class="login-card">
     <div class="lg-brand"><div class="mark">IP</div><div class="wm"><b>Incredi</b>Pets</div></div>
     <div class="sub">HRMS · Employee Lifecycle</div>
-    <div id="loginErr" class="err hidden"></div>
-    <div class="field" style="margin-bottom:12px"><label>Work email</label><input id="li_email" type="email" placeholder="you@incredipets.in" autocomplete="username"></div>
-    <div class="field" style="margin-bottom:16px"><label>Password</label><input id="li_pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <button class="btn btn-primary btn-block" onclick="doLogin()">Sign in</button>
-    <div class="demo-box">
-      <div class="lbl">Demo accounts — tap to sign in</div>
+    <div class="demo-box" style="border-top:none;padding-top:0">
+      <div class="lbl">Open a portal — tap to enter</div>
       <div class="demo-grid" id="demoGrid"></div>
     </div>
-    <div class="foot">Prototype · data is saved in this browser only · no real employee data.<br><a onclick="resetDemo()">Reset demo data</a></div>
+    <div class="emailbox">
+      <a class="toggle" id="emailToggle" onclick="toggleEmail()">Sign in with work email instead</a>
+      <div id="emailFields" class="hidden" style="margin-top:14px;text-align:left">
+        <div id="loginErr" class="err hidden"></div>
+        <div class="field" style="margin-bottom:12px"><label>Work email</label><input id="li_email" type="email" placeholder="you@incredipets.in" autocomplete="username"></div>
+        <div class="field" style="margin-bottom:16px"><label>Password</label><input id="li_pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <button class="btn btn-primary btn-block" onclick="doLogin()">Sign in</button>
+      </div>
+    </div>
+    <div class="foot">Prototype · data is saved in this browser only · no real employee data.<br>Real email/password login comes later · <a onclick="resetDemo()">Reset demo data</a></div>
   </div>
 </div>
 
@@ -230,7 +238,7 @@
     <div id="nav"></div>
     <div class="side-foot">
       <div class="me"><div class="avatar sm" id="meAv">?</div><div><div class="nm" id="meName">—</div><div class="rl" id="meRole">—</div></div></div>
-      <button class="nav-item" onclick="logout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Sign out</button>
+      <button class="nav-item" onclick="logout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Switch portal</button>
     </div>
   </aside>
   <div class="main">
@@ -333,7 +341,7 @@ function seed(){
 let DB;
 function load(){try{DB=JSON.parse(localStorage.getItem(KEY));}catch(e){DB=null;} if(!DB){DB=seed();save();}}
 function save(){localStorage.setItem(KEY,JSON.stringify(DB));}
-function resetDemo(){localStorage.removeItem(KEY);load();toast('Demo data reset');renderDemoButtons();logout();}
+function resetDemo(){localStorage.removeItem(KEY);load();toast('Demo data reset');renderPortals();logout();}
 
 /* ---------- helpers ---------- */
 const empById=id=>DB.employees.find(e=>e.id===id);
@@ -352,28 +360,38 @@ function tenure(doj){
 }
 function dfmt(s){if(!s)return'—';return new Date(s).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}
 
-/* ---------- session ---------- */
-let SES=null; // {email, role, employeeId}
-const ROLEMETA={employee:{tag:'Employee',title:'My Portal'},hr:{tag:'HR Admin',title:'HR Admin'},recruiter:{tag:'Recruiter',title:'Recruitment'}};
+/* ---------- session & portals ---------- */
+let SES=null; // {role(viewset), label, employeeId}
+const ROLEMETA={employee:{title:'My Portal'},hr:{title:'HR Admin'},recruiter:{title:'Recruitment'}};
+// The four sign-in portals on the starter page — role-based, no personal names.
+const PORTALS=[
+  {key:'employee',label:'Employee',          viewset:'employee', employeeId:'E3',  desc:'My profile, pay, leave, growth & career ladder'},
+  {key:'hrbp',    label:'HRBP',              viewset:'hr',       employeeId:null, desc:'Day-to-day lifecycle · approvals · documents'},
+  {key:'gm',      label:'General Manager',   viewset:'hr',       employeeId:null, desc:'Full HR oversight · all records'},
+  {key:'ta',      label:'TA — Talent Acquisition', viewset:'recruiter', employeeId:null, desc:'Positions · candidates · offers'}
+];
 
 function doLogin(){
   const email=$('li_email').value.trim().toLowerCase(),pass=$('li_pass').value;
   const u=DB.users.find(x=>x.email===email&&x.pass===pass);
-  if(!u){$('loginErr').textContent='Wrong email or password. Try a demo account below.';$('loginErr').classList.remove('hidden');return;}
-  $('loginErr').classList.add('hidden');startSession(u);
+  if(!u){$('loginErr').textContent='Wrong email or password — or just tap a portal above.';$('loginErr').classList.remove('hidden');return;}
+  $('loginErr').classList.add('hidden');
+  const labelMap={employee:'Employee',hr:'HR Admin',recruiter:'TA — Talent Acquisition'};
+  startSession({viewset:u.role,label:labelMap[u.role]||'Employee',employeeId:u.employeeId});
 }
-function quickLogin(email){const u=DB.users.find(x=>x.email===email);if(u)startSession(u);}
-function startSession(u){
-  SES={email:u.email,role:u.role,employeeId:u.employeeId};
-  const emp=u.employeeId?empById(u.employeeId):null;
-  const name=emp?emp.name:(u.role==='recruiter'?'Anushka (Recruiter)':u.email);
+function enterPortal(key){const p=PORTALS.find(x=>x.key===key);if(p)startSession(p);}
+function toggleEmail(){const f=$('emailFields'),t=$('emailToggle');f.classList.toggle('hidden');t.textContent=f.classList.contains('hidden')?'Sign in with work email instead':'Hide email sign-in';}
+function startSession(p){
+  SES={role:p.viewset,label:p.label,employeeId:p.employeeId};
+  const emp=p.employeeId?empById(p.employeeId):null;
+  const ident=(p.viewset==='employee'&&emp)?emp.name:p.label;
   $('login').classList.add('hidden');$('app').classList.remove('hidden');
-  $('roleTag').textContent=ROLEMETA[u.role].tag;
-  $('topAvatar').textContent=initials(name);
-  $('meAv').textContent=initials(name);$('meName').textContent=name;$('meRole').textContent=ROLEMETA[u.role].tag;
+  $('roleTag').textContent=p.label;
+  $('topAvatar').textContent=initials(ident);
+  $('meAv').textContent=initials(ident);$('meName').textContent=ident;$('meRole').textContent=p.label;
   buildNav();
 }
-function logout(){SES=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');$('li_pass').value='';}
+function logout(){SES=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
 
 /* ---------- nav ---------- */
 const NAVS={
@@ -852,16 +870,17 @@ function vHrDocs(){
 function toast(msg){const t=document.createElement('div');t.className='toast';t.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#A4F4C6"><path d="M20 6L9 17l-5-5"/></svg>'+esc(msg);document.body.appendChild(t);setTimeout(()=>t.remove(),2600);}
 
 /* ---------- demo login buttons ---------- */
-function renderDemoButtons(){
-  const meta={'rohit@incredipets.in':['Employee — Rohit (active)','Full portal: pay, leave, growth, ladder'],
-    'sneha@incredipets.in':['Employee — Sneha (new joiner)','First login: document onboarding'],
-    'priya@incredipets.in':['HR Admin — Priya','Approvals, board, directory, documents'],
-    'anushka@incredipets.in':['Recruiter — Anushka','Positions, candidates, offers']};
-  $('demoGrid').innerHTML=DB.users.filter(u=>meta[u.email]).map(u=>`<button class="demo-btn" onclick="quickLogin('${u.email}')"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></div><div><div class="t">${meta[u.email][0]}</div><div class="d">${meta[u.email][1]}</div></div></button>`).join('');
+function renderPortals(){
+  const ic={
+    employee:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 14h5"/>',
+    hrbp:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>',
+    gm:'<circle cx="12" cy="7" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M19 3l1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>',
+    ta:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-2-2"/>'};
+  $('demoGrid').innerHTML=PORTALS.map(p=>`<button class="demo-btn" onclick="enterPortal('${p.key}')"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ic[p.key]||ic.employee}</svg></div><div><div class="t">${p.label}</div><div class="d">${p.desc}</div></div></button>`).join('');
 }
 
 /* ---------- boot ---------- */
-load();renderDemoButtons();
+load();renderPortals();
 </script>
 </body>
 </html>
