@@ -459,8 +459,8 @@ function vHome(){
    </div>
    ${!emp.onboarded?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)">
      <div class="sec-h"><div class="si">!</div><h2>Finish your onboarding</h2></div>
-     <p class="small muted" style="margin-bottom:12px">You have <b>${docsLeft}</b> document${docsLeft===1?'':'s'} left to upload. Your HR team needs these to complete your joining.</p>
-     <button class="btn btn-primary btn-sm" onclick="go('onboard',document.querySelector('[data-pg=onboard]'))">Upload documents</button>
+     <p class="small muted" style="margin-bottom:12px">Please complete your onboarding form so your HR team can finish your joining.</p>
+     <button class="btn btn-primary btn-sm" onclick="go('onboard',document.querySelector('[data-pg=onboard]'))">Open onboarding form</button>
    </div>`:''}
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.home}</svg></div><h2>Quick view</h2></div>
@@ -475,27 +475,57 @@ function vHome(){
    </div>`;
 }
 
+// Onboarding form fields (mirrors the IncrediPets "On-Boarding Form"). g = section group.
+const ONBOARD_FIELDS=[
+  {k:'empId',l:'Employee ID',ro:1,g:1},
+  {k:'fullName',l:'Full Name',ro:1,g:1},
+  {k:'contact',l:'Contact Details',t:'tel',g:1,req:1,ph:'+91 ...'},
+  {k:'personalMail',l:'Personal Mail Id',t:'email',g:1,req:1},
+  {k:'officialMail',l:'Official Mail Id',ro:1,g:1},
+  {k:'doj',l:'Date of Joining',t:'date',ro:1,g:1},
+  {k:'department',l:'Department',ro:1,g:1},
+  {k:'designation',l:'Designation',ro:1,g:1},
+  {k:'ctc',l:'CTC — annual (₹)',ro:1,g:2},
+  {k:'basic',l:'Basic — monthly (₹)',ro:1,g:2},
+  {k:'hra',l:'HRA — monthly (₹)',ro:1,g:2},
+  {k:'special',l:'Special allowance — monthly (₹)',ro:1,g:2},
+  {k:'pf',l:'PF Applicable',sel:['Yes','No'],g:2},
+  {k:'esic',l:'ESIC Applicable',sel:['Yes','No'],g:2},
+  {k:'bonus',l:'Bonus (if any)',g:2,ph:'optional'},
+  {k:'bankName',l:'Bank Name',g:3,req:1},
+  {k:'account',l:'Account Number',g:3,req:1},
+  {k:'ifsc',l:'IFSC Code',g:3,req:1,ph:'e.g. HDFC0001234'},
+  {k:'pan',l:'PAN Number',g:3,req:1,ph:'ABCDE1234F'},
+  {k:'uan',l:'UAN Number',g:3,ph:'optional'},
+  {k:'aadhaar',l:'Aadhaar Number',g:3,req:1,ph:'12-digit'}
+];
+function obInput(f,v){
+  v=(v==null?'':v);
+  if(f.sel)return `<select id="ob_${f.k}">${f.sel.map(o=>`<option ${String(v)===o?'selected':''}>${o}</option>`).join('')}</select>`;
+  return `<input id="ob_${f.k}" type="${f.t||'text'}" value="${esc(v)}"${f.ro?' readonly style="background:var(--soft);color:var(--muted)"':''}${f.ph?` placeholder="${esc(f.ph)}"`:''}>`;
+}
 function vOnboard(){
-  const emp=empById(SES.employeeId),docs=docsForEmp(emp.id);
-  const done=docs.filter(d=>d.status!=='requested').length,pct=Math.round(done/docs.length*100);
+  const emp=empById(SES.employeeId),off=offerForEmp(emp.id),c=off?calc(off.ctc):null,docs=docsForEmp(emp.id),saved=emp.onboardingData||{};
+  const pre={empId:emp.code,fullName:emp.name,contact:emp.phone||'',personalMail:'',officialMail:emp.email||'',doj:emp.doj||'',department:emp.dept||'',designation:emp.desig||'',
+    ctc:off?off.ctc:'',basic:c?Math.round(c.basic):'',hra:c?Math.round(c.hra):'',special:c?Math.round(c.spl):'',pf:'Yes',esic:(c&&c.m<=21000)?'Yes':'No'};
+  const val=k=>(saved[k]!=null&&saved[k]!=='')?saved[k]:(pre[k]!=null?pre[k]:'');
+  const sec={1:['Your details',''],2:['Compensation','Auto-filled from your offer — your pay, fully transparent.'],3:['Bank & statutory details','Needed for payroll, PF / ESIC and statutory compliance.']};
+  const grp=n=>`<div class="sec-h"${n>1?' style="margin-top:24px"':''}><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${n===1?ICONS.team:(n===2?ICONS.pay:ICONS.onboard)}</svg></div><h2>${sec[n][0]}</h2></div>${sec[n][1]?`<p class="small muted" style="margin:-6px 0 12px">${sec[n][1]}</p>`:''}<div class="grid2">${ONBOARD_FIELDS.filter(f=>f.g===n).map(f=>`<div class="field"><label>${f.l}${f.req?' <span style="color:var(--rose)">*</span>':''}</label>${obInput(f,val(f.k))}</div>`).join('')}</div>`;
   $('view').innerHTML=`
-   <div><h1 class="page">Welcome to IncrediPets, ${esc(emp.name.split(' ')[0])}!</h1><p class="page-sub">Upload your joining documents to complete onboarding. These go straight to your HR team.</p></div>
+   <div><h1 class="page">Welcome to IncrediPets, ${esc(emp.name.split(' ')[0])}! 🎉</h1><p class="page-sub">Complete your onboarding form so HR can finish your joining. Fields from your offer are pre-filled.</p></div>
    <div class="card card-pad">
-     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-size:13px">Onboarding progress</b><span class="small muted">${done} of ${docs.length} uploaded</span></div>
-     <div class="bar green"><i style="width:${pct}%"></i></div>
+     ${grp(1)}${grp(2)}${grp(3)}
+     <div class="lock-row" style="margin-top:16px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Your details are private — visible only to you and your HR team.</div>
+     <div style="margin-top:18px"><button class="btn btn-green" onclick="submitOnboarding()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>Submit & complete onboarding</button></div>
    </div>
    <div class="card card-pad">
-     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Document checklist</h2></div>
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Document uploads <span class="small muted" style="font-weight:600">· optional for now</span></h2></div>
      ${docs.map(d=>`<div class="doc">
         <div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div>
         <div class="dt"><b>${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Not uploaded yet':(d.status==='verified'?'Verified by HR · '+esc(d.fileName):'Uploaded '+dfmt(d.uploadedAt)+' · '+esc(d.fileName))}</div></div>
-        ${d.status==='requested'
-          ?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>`
-          :`<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}
+        ${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}
       </div>`).join('')}
-     <div class="lock-row" style="margin-top:14px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Your documents are private — visible only to you and your HR team.</div>
-   </div>
-   ${done===docs.length?`<div style="text-align:center"><button class="btn btn-green" onclick="finishOnboarding()">I've uploaded everything — finish onboarding</button></div>`:''}`;
+   </div>`;
 }
 function uploadDoc(id){
   const d=DB.documents.find(x=>x.id===id);if(!d)return;
@@ -503,9 +533,14 @@ function uploadDoc(id){
   inp.onchange=()=>{d.status='uploaded';d.fileName=(inp.files[0]&&inp.files[0].name)||'document.pdf';d.uploadedAt=new Date().toISOString().slice(0,10);save();toast('Uploaded: '+d.type);buildNav();go('onboard',document.querySelector('[data-pg=onboard]'));};
   inp.click();
 }
-function finishOnboarding(){
-  const emp=empById(SES.employeeId);emp.onboarded=true;emp.status='active';save();
-  toast('Onboarding complete — welcome aboard!');buildNav();
+function submitOnboarding(){
+  const emp=empById(SES.employeeId),data={},missing=[];
+  ONBOARD_FIELDS.forEach(f=>{const el=$('ob_'+f.k);if(!el)return;const v=(el.value||'').trim();data[f.k]=v;if(f.req&&!v)missing.push(f.l);});
+  if(missing.length){toast('Please fill: '+missing.slice(0,3).join(', ')+(missing.length>3?' …':''));return;}
+  data.submittedAt=new Date().toISOString().slice(0,10);
+  emp.onboardingData=data;if(data.contact)emp.phone=data.contact;
+  emp.onboarded=true;emp.status='active';save();
+  toast('Onboarding submitted — welcome aboard!');buildNav();go('home');
 }
 
 function vPay(){
@@ -828,6 +863,7 @@ function vDirectory(){
 }
 function openEmp(id){_emp360=id;go('directory');setTimeout(()=>renderEmp360(id),10);}
 let _emp360=null;
+function maskPII(k,v){v=String(v);if(k==='aadhaar')return v.length>4?'XXXX XXXX '+v.slice(-4):v;if(k==='account')return v.length>4?'••••'+v.slice(-4):v;return v;}
 function renderEmp360(id){
   const e=empById(id);if(!e)return;const off=offerForEmp(id),t=tenure(e.doj),docs=docsForEmp(id);
   const mgr=e.managerId?empById(e.managerId):null;
@@ -849,7 +885,11 @@ function renderEmp360(id){
      ${off?`<div class="breakup"><div class="bl"><span>Annual CTC</span><span class="num">${fmt(off.ctc)}</span></div><div class="bl tot"><span>Monthly gross</span><span class="num">${fmt(calc(off.ctc).m)}</span></div></div>`:'<div class="empty">No offer on record.</div>'}
    </div>
    <div class="card card-pad">
-     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Documents</h2></div>
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Onboarding form</h2>${e.onboardingData?`<span class="pill verified" style="margin-left:auto">Submitted ${dfmt(e.onboardingData.submittedAt)}</span>`:''}</div>
+     ${e.onboardingData?`<div class="info-grid">${ONBOARD_FIELDS.filter(f=>e.onboardingData[f.k]!=null&&e.onboardingData[f.k]!=='').map(f=>`<div class="info-cell"><div class="k">${f.l}</div><div class="v" style="font-size:13px">${esc(maskPII(f.k,e.onboardingData[f.k]))}</div></div>`).join('')}</div>`:'<div class="empty">Not submitted yet — waiting on the employee.</div>'}
+   </div>
+   <div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Document uploads</h2></div>
      ${docs.length?docs.map(d=>`<div class="doc"><div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div>
         <div class="dt"><b>${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Awaiting upload':((d.fileName||'')+' · '+dfmt(d.uploadedAt))}</div></div>
         ${d.status==='uploaded'?`<button class="btn btn-green btn-sm" onclick="verifyDoc('${d.id}','${id}')">Verify</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':(d.status==='requested'?'Pending':'Uploaded')}</span>`}
