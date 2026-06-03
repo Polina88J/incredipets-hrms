@@ -396,7 +396,7 @@ function logout(){SES=null;$('app').classList.add('hidden');$('login').classList
 /* ---------- nav ---------- */
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['team','My Team']],
-  hr:[['approvals','Approvals'],['board','Lifecycle Board'],['directory','Directory'],['hrdocs','Documents']],
+  hr:[['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['newoffer','New Candidate / Offer'],['offers','My Offers']]
 };
 const ICONS={
@@ -408,6 +408,7 @@ const ICONS={
   ladder:'<path d="M8 3v18M16 3v18M8 7h8M8 12h8M8 17h8"/>',
   team:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
   approvals:'<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>',
+  hronboard:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M15 11l2 2 4-4"/>',
   board:'<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/>',
   directory:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
   hrdocs:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
@@ -417,6 +418,7 @@ const ICONS={
 };
 function navBadge(page){
   if(SES.role==='hr'&&page==='approvals'){const n=DB.offers.filter(o=>o.status==='pending_approval').length;return n||0;}
+  if(SES.role==='hr'&&page==='hronboard'){const n=DB.employees.filter(e=>e.status==='offered'||e.status==='onboarding').length;return n||0;}
   if(SES.role==='employee'&&page==='onboard'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded){const left=docsForEmp(emp.id).filter(d=>d.status==='requested').length;return left||0;}}
   return 0;
 }
@@ -433,12 +435,12 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',approvals:'Approvals',board:'Lifecycle Board',directory:'Directory',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function go(page,el){
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
   const fn={home:vHome,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
-    approvals:vApprovals,board:vBoard,directory:vDirectory,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
+    approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
 }
 
@@ -899,6 +901,27 @@ function renderEmp360(id){
 }
 function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){d.status='verified';save();toast('Document verified');}renderEmp360(eid);}
 
+function vHrOnboard(){
+  const joiners=DB.employees.filter(e=>e.status==='offered'||e.status==='onboarding');
+  const recent=DB.employees.filter(e=>e.onboardingData&&e.status==='active');
+  const card=e=>{const docs=docsForEmp(e.id),v=docs.filter(d=>d.status==='verified').length,up=docs.filter(d=>d.status==='uploaded').length,sub=!!e.onboardingData;
+    return `<div class="card card-pad">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:11px"><div class="avatar sm">${initials(e.name)}</div><div><b style="font-size:14.5px">${esc(e.name)}</b><div class="small muted">${esc(e.desig)} · ${esc(e.code)} · joining ${dfmt(e.doj)}</div></div></div>
+        <span class="pill ${e.status}">${esc(e.status)}</span></div>
+      <div class="row" style="margin-top:14px;gap:28px">
+        <div><div class="small muted">Onboarding form</div>${sub?'<span class="pill verified">Submitted</span>':'<span class="pill requested">Pending</span>'}</div>
+        <div><div class="small muted">Documents</div><b class="num">${v}/${docs.length} verified</b>${up?` <span class="pill uploaded">${up} to review</span>`:''}</div>
+      </div>
+      <div style="margin-top:14px;display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="openEmp('${e.id}')">Review record</button>
+        ${e.status!=='active'?`<button class="btn btn-green btn-sm" onclick="confirmOnboard('${e.id}')">Confirm &amp; activate</button>`:''}
+      </div></div>`;};
+  $('view').innerHTML=`<div><h1 class="page">Onboarding</h1><p class="page-sub">New joiners and where they are. Review their form &amp; documents, then confirm them in.</p></div>
+   ${joiners.length?joiners.map(card).join(''):'<div class="card"><div class="empty">No one is currently onboarding.</div></div>'}
+   ${recent.length?'<div class="nav-label" style="padding:14px 2px 4px">Recently onboarded</div>'+recent.map(card).join(''):''}`;
+}
+function confirmOnboard(id){const e=empById(id);if(e){e.onboarded=true;e.status='active';save();toast('Onboarding confirmed — '+e.name+' is now active');}vHrOnboard();}
 function vHrDocs(){
   const rows=DB.employees.map(e=>{const docs=docsForEmp(e.id);if(!docs.length)return'';const v=docs.filter(d=>d.status==='verified').length,u=docs.filter(d=>d.status==='uploaded').length;
     return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)}</div></td><td><span class="pill ${e.status}">${esc(e.status)}</span></td><td class="num">${v}/${docs.length} verified</td><td>${u?`<span class="pill uploaded">${u} to review</span>`:'<span class="small muted">—</span>'}</td></tr>`;}).join('');
