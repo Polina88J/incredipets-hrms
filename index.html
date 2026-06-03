@@ -546,11 +546,11 @@ function submitOnboarding(){
 }
 
 function vPay(){
-  const emp=empById(SES.employeeId),off=offerForEmp(emp.id);
-  if(!off){$('view').innerHTML='<div class="empty">No compensation on record yet.</div>';return;}
-  const c=calc(off.ctc);
+  const emp=empById(SES.employeeId),off=offerForEmp(emp.id),c=off?calc(off.ctc):null;
+  const pfNote=emp.migrated?`<div class="lock-row" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> PF note: provident-fund status can't be changed here. If you're already enrolled, opting out isn't permitted by law; if you aren't, new PF enrolment isn't offered to existing employees — please contact HR.</div>`:'';
   $('view').innerHTML=`
-   <div><h1 class="page">My Pay</h1><p class="page-sub">Your compensation, broken down — fully transparent. Visible only to you.</p></div>
+   <div><h1 class="page">My Pay</h1><p class="page-sub">Your compensation, broken down — visible only to you.</p></div>
+   ${off?`
    <div class="stats">
      <div class="stat"><div class="k">Annual CTC</div><div class="v num">${fmt(off.ctc)}</div></div>
      <div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(c.m)}</div></div>
@@ -565,8 +565,12 @@ function vPay(){
        <div class="bl"><span>Special allowance (7%)</span><span class="num">${fmt(c.spl)}</span></div>
        <div class="bl tot"><span>Monthly gross</span><span class="num">${fmt(c.m)}</span></div>
        <div class="bl"><span class="small muted">PF on min(Basic, ₹15,000) · ESI if gross ≤ ₹21,000 · TDS as applicable</span><span></span></div>
-     </div>
-   </div>
+     </div>${pfNote}
+   </div>`:`
+   <div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Compensation</h2></div>
+     <div class="empty">Your salary breakdown will appear here soon.</div>${pfNote}
+   </div>`}
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>Salary slips</h2></div>
      ${DB.payslips.filter(p=>p.employeeId===emp.id).map(p=>`<div class="doc">
@@ -577,7 +581,7 @@ function vPay(){
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>My offer letter</h2></div>
-     ${offerLetterHTML(emp,off,'approved')}
+     ${off?offerLetterHTML(emp,off,'approved'):'<div class="empty">Your offer letter will be available here soon.</div>'}
    </div>`;
 }
 
