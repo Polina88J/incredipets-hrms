@@ -204,6 +204,11 @@
   .empty{color:#b9b3c0;font-size:13px;text-align:center;padding:26px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;gap:10px;align-items:center;z-index:100;max-width:90vw}
 
+  /* org chart */
+  .orgtree{display:flex;flex-direction:column;gap:10px;min-width:max-content}
+  .orgcard{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--rule);border-radius:11px;padding:8px 12px;cursor:pointer;background:#fff;transition:all .15s}
+  .orgcard:hover{border-color:var(--rose);background:#fff5fa}
+  .orgchildren{margin-left:22px;border-left:2px solid var(--rule);padding-left:16px;margin-top:8px;display:flex;flex-direction:column;gap:8px}
   @media (max-width:820px){.app{grid-template-columns:1fr}.side{display:none}.grid2,.grid3{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr}}
 </style>
 </head>
@@ -396,7 +401,7 @@ function logout(){SES=null;$('app').classList.add('hidden');$('login').classList
 /* ---------- nav ---------- */
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['team','My Team']],
-  hr:[['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['hrdocs','Documents']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['newoffer','New Candidate / Offer'],['offers','My Offers']]
 };
 const ICONS={
@@ -409,6 +414,8 @@ const ICONS={
   team:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
   approvals:'<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>',
   hronboard:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M15 11l2 2 4-4"/>',
+  dashboard:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+  org:'<rect x="9" y="3" width="6" height="5" rx="1"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M5 16v-2h14v2"/>',
   board:'<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/>',
   directory:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
   hrdocs:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
@@ -435,12 +442,12 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function go(page,el){
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
   const fn={home:vHome,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
-    approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
+    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
 }
 
@@ -945,6 +952,34 @@ function hrEditKpi(id,i){const k=(DB.kpis[id]||[])[i];if(!k)return;const v=promp
 function hrAddAch(id){const title=prompt('Achievement / recognition');if(!title)return;(DB.achievements[id]=DB.achievements[id]||[]).push({title:title.trim(),date:new Date().toISOString().slice(0,10)});save();toast('Achievement logged');renderEmp360(id);}
 function hrPromote(id){const e=empById(id),ladder=e.track&&LADDERS[e.track];if(!ladder){toast('No ladder mapped for this track');return;}let idx=ladder.findIndex(r=>r[0]===(e.ladderTitle||e.desig));if(idx<0)idx=ladder.findIndex(r=>r[1].replace(/[-+]/g,'')===e.level);const next=ladder[idx+1];if(!next){toast(e.name+' is already at the top of the track');return;}if(!confirm('Promote '+e.name+' to '+next[0]+' ('+next[1]+')?'))return;e.ladderTitle=next[0];e.desig=next[0];e.level=next[1].replace(/[-+]/g,'');save();toast('Promoted '+e.name+' to '+next[0]);renderEmp360(id);}
 
+function distRows(obj){const vals=Object.values(obj),max=Math.max(1,...(vals.length?vals:[1]));return Object.keys(obj).sort().map(k=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;margin-bottom:4px"><span class="small">${esc(k)}</span><span class="small num">${obj[k]}</span></div><div class="bar"><i style="width:${Math.round(obj[k]/max*100)}%"></i></div></div>`).join('')||'<div class="empty">—</div>';}
+function vDashboard(){
+  const emps=DB.employees;
+  const active=emps.filter(e=>e.status==='active').length;
+  const onboarding=emps.filter(e=>e.status==='onboarding'||e.status==='offered').length;
+  const openPos=DB.positions.filter(p=>p.status==='Open').length;
+  const pending=DB.offers.filter(o=>o.status==='pending_approval').length;
+  const depts={},levels={};
+  emps.forEach(e=>{depts[e.dept]=(depts[e.dept]||0)+1;levels[e.level]=(levels[e.level]||0)+1;});
+  $('view').innerHTML=`<div><h1 class="page">Dashboard</h1><p class="page-sub">People &amp; lifecycle at a glance.</p></div>
+   <div class="stats">
+     <div class="stat"><div class="k">Headcount (active)</div><div class="v num">${active}</div></div>
+     <div class="stat"><div class="k">Onboarding</div><div class="v num">${onboarding}</div><div class="sub">joining / in progress</div></div>
+     <div class="stat"><div class="k">Open positions</div><div class="v num">${openPos}</div></div>
+     <div class="stat"><div class="k">Pending approvals</div><div class="v num">${pending}</div></div>
+   </div>
+   <div class="grid2">
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.directory}</svg></div><h2>By department</h2></div>${distRows(depts)}</div>
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.ladder}</svg></div><h2>By level</h2></div>${distRows(levels)}</div>
+   </div>`;
+}
+function vOrg(){
+  const node=e=>{const reports=DB.employees.filter(x=>x.managerId===e.id);
+    return `<div class="orgnode"><div class="orgcard" onclick="openEmp('${e.id}')"><div class="avatar sm">${initials(e.name)}</div><div><b class="small">${esc(e.name)}</b><div class="small muted">${esc(e.desig)}${e.level?' · '+esc(e.level):''}</div></div></div>${reports.length?`<div class="orgchildren">${reports.map(node).join('')}</div>`:''}</div>`;};
+  const roots=DB.employees.filter(e=>!e.managerId);
+  $('view').innerHTML=`<div><h1 class="page">Org Chart</h1><p class="page-sub">Reporting structure. Click anyone to open their record.</p></div>
+   <div class="card card-pad" style="overflow:auto"><div class="orgtree">${roots.map(node).join('')||'<div class="empty">No reporting structure yet.</div>'}</div></div>`;
+}
 function vHrOnboard(){
   const joiners=DB.employees.filter(e=>e.status==='offered'||e.status==='onboarding');
   const recent=DB.employees.filter(e=>e.onboardingData&&e.status==='active');
