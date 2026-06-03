@@ -259,7 +259,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v2';
+const KEY='incredipets_hrms_v3';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -284,7 +284,7 @@ function seed(){
   const employees=[
     {id:'E1',code:'IN-001',name:'Jiten Kakar',desig:'Founder & CEO',dept:"Founder's Office",level:'L6',location:'Gurugram, Delhi NCR',doj:'2021-04-01',managerId:null,phone:'+91 90000 00001',email:'jiten@incredipets.in',status:'active',onboarded:true},
     {id:'E2',code:'IN-014',name:'Priya Perral',desig:'General Manager — HR',dept:'People & Ops',level:'L5',location:'Gurugram, Delhi NCR',doj:'2023-02-15',managerId:'E1',phone:'+91 90000 00014',email:'priya@incredipets.in',status:'active',onboarded:true},
-    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L2',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E1',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'active',onboarded:true,positionId:'P1'},
+    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L2',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E1',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,positionId:'P1'},
     {id:'E4',code:'IN-319',name:'Sneha Iyer',desig:'CRM Associate',dept:'Customer Care',level:'L2',location:'Gurugram, Delhi NCR',doj:'2026-06-09',managerId:'E1',phone:'+91 98111 23319',email:'sneha@incredipets.in',status:'onboarding',onboarded:false,positionId:'P2'}
   ];
   const offers=[
@@ -294,7 +294,7 @@ function seed(){
   const docTypes=['PAN card','Aadhaar card','Bank proof (cancelled cheque / passbook)','Passport-size photograph','Education certificates','Previous employment (relieving / experience letter)','Address proof'];
   const documents=[];
   // Rohit fully verified
-  docTypes.forEach((t,i)=>documents.push({id:'D3_'+i,employeeId:'E3',type:t,status:'verified',fileName:t.split(' ')[0].toLowerCase()+'.pdf',uploadedAt:'2025-09-12'}));
+  docTypes.forEach((t,i)=>documents.push({id:'D3_'+i,employeeId:'E3',type:t,status:'requested',fileName:null,uploadedAt:null}));
   // Sneha pending upload
   docTypes.forEach((t,i)=>documents.push({id:'D4_'+i,employeeId:'E4',type:t,status:'requested',fileName:null,uploadedAt:null}));
 
