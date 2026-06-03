@@ -929,10 +929,21 @@ function renderEmp360(id){
         <div class="dt"><b>${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Awaiting upload':((d.fileName||'')+' · '+dfmt(d.uploadedAt))}</div></div>
         ${d.status==='uploaded'?`<button class="btn btn-green btn-sm" onclick="verifyDoc('${d.id}','${id}')">Verify</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':(d.status==='requested'?'Pending':'Uploaded')}</span>`}
       </div>`).join(''):'<div class="empty">No documents requested.</div>'}
+   </div>
+   <div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.growth}</svg></div><h2>Performance &amp; Growth</h2><button class="btn btn-green btn-sm" style="margin-left:auto" onclick="hrPromote('${id}')">Promote one rung ▲</button></div>
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b class="small">KPIs</b><button class="btn btn-ghost btn-sm" onclick="hrAddKpi('${id}')">+ Add KPI</button></div>
+     ${(DB.kpis[id]||[]).map((k,i)=>{const pct=Math.min(100,Math.round(k.actual/k.target*100)),hit=k.actual>=k.target;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span class="small">${esc(k.name)}</span><span class="small" style="${hit?'color:var(--green);font-weight:700':''}">${k.actual}${esc(k.unit||'')} / ${k.target}${esc(k.unit||'')} · <a onclick="hrEditKpi('${id}',${i})" style="cursor:pointer">edit</a></span></div><div class="bar ${hit?'green':''}"><i style="width:${pct}%"></i></div></div>`;}).join('')||'<div class="empty" style="padding:12px">No KPIs set yet.</div>'}
+     <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px"><b class="small">Achievements</b><button class="btn btn-ghost btn-sm" onclick="hrAddAch('${id}')">+ Log achievement</button></div>
+     ${(DB.achievements[id]||[]).map(a=>`<div class="doc" style="padding:8px 4px"><div class="di" style="width:30px;height:30px;background:var(--aqua);color:#0c5a2e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="6"/><path d="M9 14l-2 7 5-3 5 3-2-7"/></svg></div><div class="dt"><b class="small">${esc(a.title)}</b><div class="dm">${dfmt(a.date)}</div></div></div>`).join('')||'<div class="empty" style="padding:12px">None logged yet.</div>'}
    </div>`;
   $('topTitle').textContent=e.name;
 }
 function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){d.status='verified';save();toast('Document verified');}renderEmp360(eid);}
+function hrAddKpi(id){const name=prompt('KPI name (e.g. Monthly partner acquisition)');if(!name)return;const target=parseFloat(prompt('Target (number)','100'))||0;const actual=parseFloat(prompt('Current actual (number)','0'))||0;const unit=(prompt('Unit (e.g. % — leave blank for none)','%')||'').trim();(DB.kpis[id]=DB.kpis[id]||[]).push({name:name.trim(),target:target,actual:actual,unit:unit});save();toast('KPI added');renderEmp360(id);}
+function hrEditKpi(id,i){const k=(DB.kpis[id]||[])[i];if(!k)return;const v=prompt('Update actual for "'+k.name+'"',k.actual);if(v===null)return;k.actual=parseFloat(v)||0;save();toast('KPI updated');renderEmp360(id);}
+function hrAddAch(id){const title=prompt('Achievement / recognition');if(!title)return;(DB.achievements[id]=DB.achievements[id]||[]).push({title:title.trim(),date:new Date().toISOString().slice(0,10)});save();toast('Achievement logged');renderEmp360(id);}
+function hrPromote(id){const e=empById(id),ladder=e.track&&LADDERS[e.track];if(!ladder){toast('No ladder mapped for this track');return;}let idx=ladder.findIndex(r=>r[0]===(e.ladderTitle||e.desig));if(idx<0)idx=ladder.findIndex(r=>r[1].replace(/[-+]/g,'')===e.level);const next=ladder[idx+1];if(!next){toast(e.name+' is already at the top of the track');return;}if(!confirm('Promote '+e.name+' to '+next[0]+' ('+next[1]+')?'))return;e.ladderTitle=next[0];e.desig=next[0];e.level=next[1].replace(/[-+]/g,'');save();toast('Promoted '+e.name+' to '+next[0]);renderEmp360(id);}
 
 function vHrOnboard(){
   const joiners=DB.employees.filter(e=>e.status==='offered'||e.status==='onboarding');
