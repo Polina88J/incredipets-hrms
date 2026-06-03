@@ -265,7 +265,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v4';
+const KEY='incredipets_hrms_v5';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -288,8 +288,8 @@ function seed(){
      jd:'Handle inbound customer queries across chat and voice, maintain CRM records, and escalate within SLA. First point of contact for IncrediPets customers.'}
   ];
   const employees=[
-    {id:'E1',code:'IN-001',name:'Jiten Kakar',desig:'Founder & CEO',dept:"Founder's Office",level:'L6',location:'Gurugram, Delhi NCR',doj:'2021-04-01',managerId:null,phone:'+91 90000 00001',email:'jiten@incredipets.in',status:'active',onboarded:true},
-    {id:'E2',code:'IN-014',name:'Priya Perral',desig:'General Manager — HR',dept:'People & Ops',level:'L5',location:'Gurugram, Delhi NCR',doj:'2023-02-15',managerId:'E1',phone:'+91 90000 00014',email:'priya@incredipets.in',status:'active',onboarded:true,track:'HR & People Ops',ladderTitle:'Head of HR & People Ops'},
+    {id:'E1',code:'IN-001',name:'Jiten Kakar',desig:'Founder & CEO',dept:"Founder's Office",level:'L6',location:'Gurugram, Delhi NCR',doj:'2021-04-01',managerId:null,phone:'+91 90000 00001',email:'jiten@incredipets.in',status:'active',onboarded:true,confirmedOn:'2021-10-01'},
+    {id:'E2',code:'IN-014',name:'Priya Perral',desig:'General Manager — HR',dept:'People & Ops',level:'L5',location:'Gurugram, Delhi NCR',doj:'2023-02-15',managerId:'E1',phone:'+91 90000 00014',email:'priya@incredipets.in',status:'active',onboarded:true,confirmedOn:'2023-08-15',track:'HR & People Ops',ladderTitle:'Head of HR & People Ops'},
     {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L1',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E1',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,track:'Field Sales',ladderTitle:'Field Sales Executive',positionId:'P1'},
     {id:'E4',code:'IN-319',name:'Sneha Iyer',desig:'CRM Associate',dept:'Customer Care',level:'L1',location:'Gurugram, Delhi NCR',doj:'2026-06-09',managerId:'E1',phone:'+91 98111 23319',email:'sneha@incredipets.in',status:'onboarding',onboarded:false,track:'CRM',ladderTitle:'CRM Executive',positionId:'P2'}
   ];
@@ -402,7 +402,7 @@ function logout(){SES=null;$('app').classList.add('hidden');$('login').classList
 /* ---------- nav ---------- */
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['team','My Team']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['offboarding','Offboarding'],['hrdocs','Documents']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['newoffer','New Candidate / Offer'],['offers','My Offers']]
 };
 const ICONS={
@@ -418,6 +418,7 @@ const ICONS={
   dashboard:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
   org:'<rect x="9" y="3" width="6" height="5" rx="1"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M5 16v-2h14v2"/>',
   offboarding:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
+  probation:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   board:'<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/>',
   directory:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
   hrdocs:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
@@ -444,12 +445,12 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',offboarding:'Offboarding & Exit',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function go(page,el){
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
   const fn={home:vHome,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
-    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,offboarding:vOffboarding,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
+    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
 }
 
@@ -946,7 +947,7 @@ function renderEmp360(id){
      <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px"><b class="small">Achievements</b><button class="btn btn-ghost btn-sm" onclick="hrAddAch('${id}')">+ Log achievement</button></div>
      ${(DB.achievements[id]||[]).map(a=>`<div class="doc" style="padding:8px 4px"><div class="di" style="width:30px;height:30px;background:var(--aqua);color:#0c5a2e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="6"/><path d="M9 14l-2 7 5-3 5 3-2-7"/></svg></div><div class="dt"><b class="small">${esc(a.title)}</b><div class="dm">${dfmt(a.date)}</div></div></div>`).join('')||'<div class="empty" style="padding:12px">None logged yet.</div>'}
    </div>
-   ${offboardCardHTML(e,id)}`;
+   ${probationCardHTML(e,id)}${offboardCardHTML(e,id)}`;
   $('topTitle').textContent=e.name;
 }
 function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){d.status='verified';save();toast('Document verified');}renderEmp360(eid);}
@@ -981,6 +982,23 @@ function offboardCardHTML(e,id){
 function initiateOffboard(id){const e=empById(id),reason=($('off_reason')||{}).value||'Resignation',lastDay=($('off_lastday')||{}).value;if(!lastDay){toast('Set a last working day');return;}e.status='offboarding';e.offboarding={reason:reason,lastDay:lastDay,initiatedAt:new Date().toISOString().slice(0,10),tasks:{}};save();toast('Offboarding started for '+e.name);buildNav&&0;renderEmp360(id);}
 function toggleExitTask(id,key){const e=empById(id);if(!e.offboarding)return;e.offboarding.tasks=e.offboarding.tasks||{};e.offboarding.tasks[key]=!e.offboarding.tasks[key];save();renderEmp360(id);}
 function completeExit(id){const e=empById(id);if(!confirm('Mark '+e.name+' as exited? This closes their lifecycle.'))return;e.status='exited';save();toast(e.name+' marked as exited');renderEmp360(id);}
+function probationInfo(e){const months=e.probationMonths||6,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const confirmed=!!e.confirmedOn,overdue=!confirmed&&new Date()>due;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
+function probationCardHTML(e,id){
+  if(e.status!=='active')return '';
+  const p=probationInfo(e);
+  return `<div class="card card-pad">
+    <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.probation}</svg></div><h2>Probation &amp; Confirmation</h2>${p.confirmed?'<span class="pill active" style="margin-left:auto">Confirmed</span>':`<span class="pill ${p.overdue?'offboarding':'onboarding'}" style="margin-left:auto">${p.overdue?'Review overdue':'On probation'}</span>`}</div>
+    ${p.confirmed?`<p class="small muted">Confirmed on <b>${dfmt(e.confirmedOn)}</b>.</p>`:`<p class="small muted" style="margin-bottom:12px">${p.months}-month probation · confirmation review due <b>${dfmt(p.due)}</b>.</p>
+      <div style="display:flex;gap:8px"><button class="btn btn-green btn-sm" onclick="confirmEmployee('${id}')">Confirm employment</button><button class="btn btn-ghost btn-sm" onclick="extendProbation('${id}')">Extend +3 months</button></div>`}
+  </div>`;
+}
+function confirmEmployee(id){const e=empById(id);e.confirmedOn=new Date().toISOString().slice(0,10);save();toast(e.name+' confirmed');renderEmp360(id);}
+function extendProbation(id){const e=empById(id);e.probationMonths=(e.probationMonths||6)+3;save();toast('Probation extended by 3 months');renderEmp360(id);}
+function vProbation(){
+  const list=DB.employees.filter(e=>e.status==='active'&&!e.confirmedOn);
+  $('view').innerHTML=`<div><h1 class="page">Probation</h1><p class="page-sub">Employees on probation and when their confirmation review falls due.</p></div>
+   ${list.length?`<div class="card"><table class="list"><tr><th>Employee</th><th>Joined</th><th>Review due</th><th>Status</th></tr>${list.map(e=>{const p=probationInfo(e);return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)} · ${esc(e.desig)}</div></td><td>${dfmt(e.doj)}</td><td>${dfmt(p.due)}</td><td>${p.overdue?'<span class="pill offboarding">Review overdue</span>':'<span class="pill onboarding">On probation</span>'}</td></tr>`;}).join('')}</table></div>`:'<div class="card"><div class="empty">No one is on probation.</div></div>'}`;
+}
 function vOffboarding(){
   const list=DB.employees.filter(e=>e.status==='offboarding');
   $('view').innerHTML=`<div><h1 class="page">Offboarding &amp; Exit</h1><p class="page-sub">Employees in their notice period. Work the exit checklist, then close them out.</p></div>
