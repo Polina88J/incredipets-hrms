@@ -265,7 +265,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v6';
+const KEY='incredipets_hrms_v7';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -311,6 +311,7 @@ function seed(){
     {id:'AS1',employeeId:'E3',type:'Laptop',identifier:'IP-LAP-318',allocatedOn:'2025-09-15',returnedOn:null},
     {id:'AS2',employeeId:'E3',type:'SIM card',identifier:'+91 98111 23318',allocatedOn:'2025-09-15',returnedOn:null}
   ];
+  const warnings=[];
   const leave={
     E3:{paidTotal:18,used:5,lwp:1,absent:[{date:'2026-04-18',reason:'Unplanned absence — marked LOP'}],
         ledger:[
@@ -344,7 +345,7 @@ function seed(){
     {email:'priya@incredipets.in', pass:'demo', role:'hr',       employeeId:'E2'},
     {email:'anushka@incredipets.in',pass:'demo',role:'recruiter',employeeId:null}
   ];
-  return {levels,positions,employees,offers,documents,docTypes,payslips,assets,leave,kpis,achievements,ladderReq,users};
+  return {levels,positions,employees,offers,documents,docTypes,payslips,assets,warnings,leave,kpis,achievements,ladderReq,users};
 }
 
 /* ---------- store ---------- */
@@ -406,7 +407,7 @@ function logout(){SES=null;$('app').classList.add('hidden');$('login').classList
 /* ---------- nav ---------- */
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['team','My Team']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['hrdocs','Documents']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['newoffer','New Candidate / Offer'],['offers','My Offers']]
 };
 const ICONS={
@@ -424,6 +425,8 @@ const ICONS={
   offboarding:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
   probation:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
   assets:'<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M2 20h20"/>',
+  warnings:'<path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   board:'<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/>',
   directory:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
   hrdocs:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
@@ -441,6 +444,7 @@ function buildNav(){
   let items=NAVS[SES.role].slice();
   // hide onboarding tab once fully onboarded
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&emp.onboarded)items=items.filter(i=>i[0]!=='onboard');}
+  if(SES.role==='hr'&&SES.label!=='General Manager')items=items.filter(i=>i[0]!=='settings'); // Settings = super-admin (GM) only
   $('nav').innerHTML='<div class="nav-label">'+ROLEMETA[SES.role].title+'</div>'+items.map((it,i)=>{
     const b=navBadge(it[0]);
     return `<button class="nav-item" data-pg="${it[0]}" onclick="go('${it[0]}',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS[it[0]]||''}</svg>${it[1]}${b?`<span class="badge">${b}</span>`:''}</button>`;
@@ -450,12 +454,12 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function go(page,el){
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
   const fn={home:vHome,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
-    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
+    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
 }
 
@@ -952,7 +956,7 @@ function renderEmp360(id){
      <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px"><b class="small">Achievements</b><button class="btn btn-ghost btn-sm" onclick="hrAddAch('${id}')">+ Log achievement</button></div>
      ${(DB.achievements[id]||[]).map(a=>`<div class="doc" style="padding:8px 4px"><div class="di" style="width:30px;height:30px;background:var(--aqua);color:#0c5a2e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="6"/><path d="M9 14l-2 7 5-3 5 3-2-7"/></svg></div><div class="dt"><b class="small">${esc(a.title)}</b><div class="dm">${dfmt(a.date)}</div></div></div>`).join('')||'<div class="empty" style="padding:12px">None logged yet.</div>'}
    </div>
-   ${assetCardHTML(e,id)}${probationCardHTML(e,id)}${offboardCardHTML(e,id)}`;
+   ${assetCardHTML(e,id)}${warningCardHTML(e,id)}${probationCardHTML(e,id)}${offboardCardHTML(e,id)}`;
   $('topTitle').textContent=e.name;
 }
 function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){d.status='verified';save();toast('Document verified');}renderEmp360(eid);}
@@ -1007,6 +1011,40 @@ function vAssets(){
   $('view').innerHTML=`<div><h1 class="page">Assets</h1><p class="page-sub">Company assets allocated to employees, and what's been returned.</p></div>
    <div class="card"><table class="list"><tr><th>Employee</th><th>Asset</th><th>Identifier</th><th>Allocated</th><th>Status</th></tr>${rows||'<tr><td colspan=5 class="empty">No assets yet.</td></tr>'}</table></div>`;
 }
+const WARNING_TYPES=['Verbal warning','Written warning','Performance Improvement Plan (PIP)','Final warning'];
+function warningsForEmp(id){return DB.warnings.filter(w=>w.employeeId===id);}
+function warningCardHTML(e,id){
+  const list=warningsForEmp(id);
+  return `<div class="card card-pad">
+    <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.warnings}</svg></div><h2>Disciplinary &amp; Warnings</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="issueWarning('${id}')">+ Issue warning</button></div>
+    ${list.length?list.map(w=>`<div class="doc"><div class="di" style="background:#fdecef;color:#a81243"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+      <div class="dt"><b class="small">${esc(w.type)}</b><div class="dm">${esc(w.reason)} · ${dfmt(w.date)} · by ${esc(w.issuedBy||'HR')}</div></div>
+    </div>`).join(''):'<div class="empty" style="padding:12px">No warnings on record — clean record.</div>'}
+  </div>`;
+}
+function issueWarning(id){const type=prompt('Warning type ('+WARNING_TYPES.join(' / ')+')','Verbal warning');if(!type)return;const reason=prompt('Reason / details');if(!reason)return;DB.warnings.push({id:'W'+(Date.now()),employeeId:id,type:type.trim(),reason:reason.trim(),date:new Date().toISOString().slice(0,10),issuedBy:(SES&&SES.label)||'HR'});save();toast('Warning issued');renderEmp360(id);}
+function vWarnings(){
+  const rows=DB.warnings.map(w=>{const e=empById(w.employeeId);if(!e)return '';return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)}</div></td><td>${esc(w.type)}</td><td class="small">${esc(w.reason)}</td><td>${dfmt(w.date)}</td><td>${esc(w.issuedBy||'HR')}</td></tr>`;}).join('');
+  $('view').innerHTML=`<div><h1 class="page">Disciplinary &amp; Warnings</h1><p class="page-sub">Warning letters and disciplinary actions on record.</p></div>
+   <div class="card"><table class="list"><tr><th>Employee</th><th>Type</th><th>Reason</th><th>Date</th><th>Issued by</th></tr>${rows||'<tr><td colspan=5 class="empty">No warnings on record.</td></tr>'}</table></div>`;
+}
+function vSettings(){
+  const depts={};DB.employees.forEach(e=>{depts[e.dept]=1;});
+  $('view').innerHTML=`<div><h1 class="page">Settings</h1><p class="page-sub">HRMS configuration. The onboarding document checklist is editable; the rest is reference.</p></div>
+   <div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Onboarding document checklist</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="settingsAddDoc()">+ Add</button></div>
+     ${DB.docTypes.map((t,i)=>`<div class="doc"><div class="dt"><b class="small">${esc(t)}</b></div><button class="btn btn-ghost btn-sm" onclick="settingsRemoveDoc(${i})">Remove</button></div>`).join('')}
+   </div>
+   <div class="grid2">
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.ladder}</svg></div><h2>Levels &amp; comp anchors</h2></div>${LEVELS.map(l=>`<div class="bl"><span>${l.lv} · ${esc(l.title)}</span><span class="num">${esc(l.comp)}</span></div>`).join('')}</div>
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.directory}</svg></div><h2>Departments</h2></div>${Object.keys(depts).sort().map(d=>`<div class="bl"><span>${esc(d)}</span><span></span></div>`).join('')}</div>
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.assets}</svg></div><h2>Asset types</h2></div>${ASSET_TYPES.map(a=>`<div class="bl"><span>${esc(a)}</span><span></span></div>`).join('')}</div>
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.offboarding}</svg></div><h2>Exit checklist</h2></div>${EXIT_TASKS.map(t=>`<div class="bl"><span>${esc(t[1])}</span><span></span></div>`).join('')}</div>
+   </div>
+   <div class="card card-pad muted small">Leave policy is a placeholder pending your written policy. Real comp figures + the full employee roster load once the Supabase backend is connected (after Jiten's approval).</div>`;
+}
+function settingsAddDoc(){const t=prompt('New onboarding document');if(!t)return;DB.docTypes.push(t.trim());save();toast('Document added');vSettings();}
+function settingsRemoveDoc(i){DB.docTypes.splice(i,1);save();toast('Document removed');vSettings();}
 function probationInfo(e){const months=e.probationMonths||6,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const confirmed=!!e.confirmedOn,overdue=!confirmed&&new Date()>due;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
 function probationCardHTML(e,id){
   if(e.status!=='active')return '';
