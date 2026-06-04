@@ -265,7 +265,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v5';
+const KEY='incredipets_hrms_v6';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -307,6 +307,10 @@ function seed(){
   const payslips=[
     {id:'PS1',employeeId:'E3',month:'May 2026'},{id:'PS2',employeeId:'E3',month:'April 2026'},{id:'PS3',employeeId:'E3',month:'March 2026'}
   ];
+  const assets=[
+    {id:'AS1',employeeId:'E3',type:'Laptop',identifier:'IP-LAP-318',allocatedOn:'2025-09-15',returnedOn:null},
+    {id:'AS2',employeeId:'E3',type:'SIM card',identifier:'+91 98111 23318',allocatedOn:'2025-09-15',returnedOn:null}
+  ];
   const leave={
     E3:{paidTotal:18,used:5,lwp:1,absent:[{date:'2026-04-18',reason:'Unplanned absence — marked LOP'}],
         ledger:[
@@ -340,7 +344,7 @@ function seed(){
     {email:'priya@incredipets.in', pass:'demo', role:'hr',       employeeId:'E2'},
     {email:'anushka@incredipets.in',pass:'demo',role:'recruiter',employeeId:null}
   ];
-  return {levels,positions,employees,offers,documents,docTypes,payslips,leave,kpis,achievements,ladderReq,users};
+  return {levels,positions,employees,offers,documents,docTypes,payslips,assets,leave,kpis,achievements,ladderReq,users};
 }
 
 /* ---------- store ---------- */
@@ -402,7 +406,7 @@ function logout(){SES=null;$('app').classList.add('hidden');$('login').classList
 /* ---------- nav ---------- */
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['team','My Team']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['hrdocs','Documents']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['newoffer','New Candidate / Offer'],['offers','My Offers']]
 };
 const ICONS={
@@ -419,6 +423,7 @@ const ICONS={
   org:'<rect x="9" y="3" width="6" height="5" rx="1"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M5 16v-2h14v2"/>',
   offboarding:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
   probation:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  assets:'<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M2 20h20"/>',
   board:'<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/>',
   directory:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
   hrdocs:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
@@ -445,12 +450,12 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function go(page,el){
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
   const fn={home:vHome,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
-    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
+    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
 }
 
@@ -947,7 +952,7 @@ function renderEmp360(id){
      <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px"><b class="small">Achievements</b><button class="btn btn-ghost btn-sm" onclick="hrAddAch('${id}')">+ Log achievement</button></div>
      ${(DB.achievements[id]||[]).map(a=>`<div class="doc" style="padding:8px 4px"><div class="di" style="width:30px;height:30px;background:var(--aqua);color:#0c5a2e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="6"/><path d="M9 14l-2 7 5-3 5 3-2-7"/></svg></div><div class="dt"><b class="small">${esc(a.title)}</b><div class="dm">${dfmt(a.date)}</div></div></div>`).join('')||'<div class="empty" style="padding:12px">None logged yet.</div>'}
    </div>
-   ${probationCardHTML(e,id)}${offboardCardHTML(e,id)}`;
+   ${assetCardHTML(e,id)}${probationCardHTML(e,id)}${offboardCardHTML(e,id)}`;
   $('topTitle').textContent=e.name;
 }
 function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){d.status='verified';save();toast('Document verified');}renderEmp360(eid);}
@@ -982,6 +987,26 @@ function offboardCardHTML(e,id){
 function initiateOffboard(id){const e=empById(id),reason=($('off_reason')||{}).value||'Resignation',lastDay=($('off_lastday')||{}).value;if(!lastDay){toast('Set a last working day');return;}e.status='offboarding';e.offboarding={reason:reason,lastDay:lastDay,initiatedAt:new Date().toISOString().slice(0,10),tasks:{}};save();toast('Offboarding started for '+e.name);buildNav&&0;renderEmp360(id);}
 function toggleExitTask(id,key){const e=empById(id);if(!e.offboarding)return;e.offboarding.tasks=e.offboarding.tasks||{};e.offboarding.tasks[key]=!e.offboarding.tasks[key];save();renderEmp360(id);}
 function completeExit(id){const e=empById(id);if(!confirm('Mark '+e.name+' as exited? This closes their lifecycle.'))return;e.status='exited';save();toast(e.name+' marked as exited');renderEmp360(id);}
+const ASSET_TYPES=['Laptop','Mobile phone','SIM card','ID card','Access card','Other'];
+function assetsForEmp(id){return DB.assets.filter(a=>a.employeeId===id);}
+function assetCardHTML(e,id){
+  if(e.status==='offered')return '';
+  const list=assetsForEmp(id);
+  return `<div class="card card-pad">
+    <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.assets}</svg></div><h2>Assets</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="allocateAsset('${id}')">+ Allocate</button></div>
+    ${list.length?list.map(a=>`<div class="doc"><div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.assets}</svg></div>
+      <div class="dt"><b class="small">${esc(a.type)}</b><div class="dm">${esc(a.identifier||'')} · allocated ${dfmt(a.allocatedOn)}${a.returnedOn?' · returned '+dfmt(a.returnedOn):''}</div></div>
+      ${a.returnedOn?'<span class="pill verified">Returned</span>':`<button class="btn btn-ghost btn-sm" onclick="returnAsset('${a.id}','${id}')">Mark returned</button>`}
+    </div>`).join(''):'<div class="empty" style="padding:12px">No assets allocated.</div>'}
+  </div>`;
+}
+function allocateAsset(id){const type=prompt('Asset type ('+ASSET_TYPES.join(' / ')+')','Laptop');if(!type)return;const identifier=prompt('Identifier / serial / number','')||'';DB.assets.push({id:'AS'+(Date.now()),employeeId:id,type:type.trim(),identifier:identifier.trim(),allocatedOn:new Date().toISOString().slice(0,10),returnedOn:null});save();toast('Asset allocated');renderEmp360(id);}
+function returnAsset(aid,eid){const a=DB.assets.find(x=>x.id===aid);if(a){a.returnedOn=new Date().toISOString().slice(0,10);save();toast('Asset marked returned');}renderEmp360(eid);}
+function vAssets(){
+  const rows=DB.assets.map(a=>{const e=empById(a.employeeId);if(!e)return '';return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)}</div></td><td>${esc(a.type)}</td><td>${esc(a.identifier||'—')}</td><td>${dfmt(a.allocatedOn)}</td><td>${a.returnedOn?'<span class="pill verified">Returned</span>':'<span class="pill active">In use</span>'}</td></tr>`;}).join('');
+  $('view').innerHTML=`<div><h1 class="page">Assets</h1><p class="page-sub">Company assets allocated to employees, and what's been returned.</p></div>
+   <div class="card"><table class="list"><tr><th>Employee</th><th>Asset</th><th>Identifier</th><th>Allocated</th><th>Status</th></tr>${rows||'<tr><td colspan=5 class="empty">No assets yet.</td></tr>'}</table></div>`;
+}
 function probationInfo(e){const months=e.probationMonths||6,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const confirmed=!!e.confirmedOn,overdue=!confirmed&&new Date()>due;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
 function probationCardHTML(e,id){
   if(e.status!=='active')return '';
