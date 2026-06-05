@@ -285,7 +285,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v7';
+const KEY='incredipets_hrms_v8';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -310,7 +310,7 @@ function seed(){
   const employees=[
     {id:'E1',code:'IN-001',name:'Jiten Kakar',desig:'Founder & CEO',dept:"Founder's Office",level:'L6',location:'Gurugram, Delhi NCR',doj:'2021-04-01',managerId:null,phone:'+91 90000 00001',email:'jiten@incredipets.in',status:'active',onboarded:true,confirmedOn:'2021-10-01'},
     {id:'E2',code:'IN-014',name:'Priya Perral',desig:'General Manager — HR',dept:'People & Ops',level:'L5',location:'Gurugram, Delhi NCR',doj:'2023-02-15',managerId:'E1',phone:'+91 90000 00014',email:'priya@incredipets.in',status:'active',onboarded:true,confirmedOn:'2023-08-15',track:'HR & People Ops',ladderTitle:'Head of HR & People Ops'},
-    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L1',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E1',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,track:'Field Sales',ladderTitle:'Field Sales Executive',positionId:'P1'},
+    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L1',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E1',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,track:'Field Sales',ladderTitle:'Field Sales Executive',probationGoals:[{text:'Complete product, CRM & field-process training',done:true},{text:'Hit ≥90% of monthly acquisition target for 3 consecutive months',done:false},{text:'Positive 90-day review from reporting manager',done:false}],positionId:'P1'},
     {id:'E4',code:'IN-319',name:'Sneha Iyer',desig:'CRM Associate',dept:'Customer Care',level:'L1',location:'Gurugram, Delhi NCR',doj:'2026-06-09',managerId:'E1',phone:'+91 98111 23319',email:'sneha@incredipets.in',status:'onboarding',onboarded:false,track:'CRM',ladderTitle:'CRM Executive',positionId:'P2'}
   ];
   const offers=[
@@ -506,6 +506,14 @@ function vHome(){
      <p class="small muted" style="margin-bottom:12px">Please complete your onboarding form so your HR team can finish your joining.</p>
      <button class="btn btn-primary btn-sm" onclick="go('onboard',document.querySelector('[data-pg=onboard]'))">Open onboarding form</button>
    </div>`:''}
+   ${(emp.onboarded&&emp.status==='active'&&!emp.confirmedOn)?(function(){const p=probationInfo(emp),pct=Math.min(100,Math.round(t.totalMonths/p.months*100));return `<div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.probation}</svg></div><h2>You're on probation</h2><span class="pill ${p.overdue?'offboarding':'onboarding'}" style="margin-left:auto">Confirmation due ${dfmt(p.due)}</span></div>
+     <p class="small muted" style="margin-bottom:10px">You're in a ${p.months}-month probation period. Complete the objectives below and your manager will confirm you.</p>
+     <div class="bar ${pct>=100?'green':''}"><i style="width:${pct}%"></i></div>
+     <div style="margin-top:14px"><b class="small" style="display:block;margin-bottom:8px">Your probation objectives</b>
+       ${(emp.probationGoals&&emp.probationGoals.length)?emp.probationGoals.map(g=>`<div class="req"><span class="ck ${g.done?'ok':'no'}">${g.done?'✓':'•'}</span>${esc(g.text)}</div>`).join(''):'<div class="small muted">Your manager will set your objectives shortly.</div>'}
+     </div>
+   </div>`;})():''}
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.home}</svg></div><h2>Quick view</h2></div>
      <div class="info-grid">
@@ -1075,9 +1083,14 @@ function probationCardHTML(e,id){
   return `<div class="card card-pad">
     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.probation}</svg></div><h2>Probation &amp; Confirmation</h2>${p.confirmed?'<span class="pill active" style="margin-left:auto">Confirmed</span>':`<span class="pill ${p.overdue?'offboarding':'onboarding'}" style="margin-left:auto">${p.overdue?'Review overdue':'On probation'}</span>`}</div>
     ${p.confirmed?`<p class="small muted">Confirmed on <b>${dfmt(e.confirmedOn)}</b>.</p>`:`<p class="small muted" style="margin-bottom:12px">${p.months}-month probation · confirmation review due <b>${dfmt(p.due)}</b>.</p>
-      <div style="display:flex;gap:8px"><button class="btn btn-green btn-sm" onclick="confirmEmployee('${id}')">Confirm employment</button><button class="btn btn-ghost btn-sm" onclick="extendProbation('${id}')">Extend +3 months</button></div>`}
+      <div style="display:flex;gap:8px"><button class="btn btn-green btn-sm" onclick="confirmEmployee('${id}')">Confirm employment</button><button class="btn btn-ghost btn-sm" onclick="extendProbation('${id}')">Extend +3 months</button></div>
+      <div style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b class="small">Probation objectives <span class="muted" style="font-weight:600">(the employee sees these)</span></b><button class="btn btn-ghost btn-sm" onclick="addProbationGoal('${id}')">+ Add</button></div>
+        ${(e.probationGoals||[]).map((g,i)=>`<div class="req"><span class="ck ${g.done?'ok':'no'}" style="cursor:pointer" onclick="toggleProbationGoal('${id}',${i})">${g.done?'✓':'•'}</span>${esc(g.text)}</div>`).join('')||'<div class="small muted">No objectives set yet.</div>'}
+      </div>`}
   </div>`;
 }
+function addProbationGoal(id){const e=empById(id),text=prompt('Probation objective for '+e.name);if(!text)return;(e.probationGoals=e.probationGoals||[]).push({text:text.trim(),done:false});save();toast('Objective added');renderEmp360(id);}
+function toggleProbationGoal(id,i){const e=empById(id);if(!e.probationGoals||!e.probationGoals[i])return;e.probationGoals[i].done=!e.probationGoals[i].done;save();renderEmp360(id);}
 function confirmEmployee(id){const e=empById(id);e.confirmedOn=new Date().toISOString().slice(0,10);save();toast(e.name+' confirmed');renderEmp360(id);}
 function extendProbation(id){const e=empById(id);e.probationMonths=(e.probationMonths||6)+3;save();toast('Probation extended by 3 months');renderEmp360(id);}
 function vProbation(){
