@@ -428,8 +428,8 @@ function logout(){SES=null;$('app').classList.add('hidden');$('login').classList
 
 /* ---------- nav ---------- */
 const NAVS={
-  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['team','My Team']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['settings','Settings'],['hrdocs','Documents']],
+  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['mydocs','My Documents'],['team','My Team']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['newoffer','New Candidate / Offer'],['offers','My Offers']],
   manager:[['mteam','My Team']]
 };
@@ -439,6 +439,8 @@ const ICONS={
   onboard:'<path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   pay:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>',
   leave:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/>',
+  mydocs:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
+  reports:'<path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="13" width="3" height="4"/>',
   growth:'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>',
   ladder:'<path d="M8 3v18M16 3v18M8 7h8M8 12h8M8 17h8"/>',
   team:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
@@ -478,14 +480,14 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',mteam:'My Team',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 function go(page,el){
   closeSidebar();
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
-  const fn={home:vHome,mteam:vMTeam,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
+  const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
     dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
 }
@@ -499,6 +501,7 @@ function vHome(){
   const docsLeft=docsForEmp(emp.id).filter(d=>d.status!=='verified').length;
   $('view').innerHTML=`
    <div><h1 class="page">Welcome back, ${esc(emp.name.split(' ')[0])} 👋</h1><p class="page-sub">${esc(emp.desig)} · ${esc(emp.dept)} · ${esc(emp.code)}</p></div>
+   ${attnStrip([!emp.onboarded?'Complete your onboarding form':null,(emp.status==='active'&&!emp.confirmedOn)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null])}
    <div class="stats">
      <div class="stat"><div class="k">Time at IncrediPets</div><div class="v">${t.y}<small>y</small> ${t.mo}<small>m</small> ${t.d}<small>d</small></div><div class="sub">Joined ${dfmt(emp.doj)}</div></div>
      <div class="stat"><div class="k">Total days</div><div class="v num">${t.totalDays}</div><div class="sub">${t.totalMonths} months of service</div></div>
@@ -532,7 +535,10 @@ function vHome(){
        <div class="info-cell"><div class="k">Annual CTC</div><div class="v num">${off?fmt(off.ctc):'—'}</div></div>
        <div class="info-cell"><div class="k">Status</div><div class="v"><span class="pill ${emp.status}">${esc(emp.status)}</span></div></div>
      </div>
-   </div>`;
+   </div>
+   ${(emp.onboarded&&emp.status!=='exited')?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.settings}</svg></div><h2>Self-service</h2></div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button>${emp.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="employeeResign()">Resign / apply for exit</button>`:''}</div>
+   </div>`:''}`;
 }
 
 // Onboarding form fields (mirrors the IncrediPets "On-Boarding Form"). g = section group.
@@ -922,9 +928,9 @@ function submitForApproval(){
   setTimeout(()=>go('offers',document.querySelector('[data-pg=offers]')),700);
 }
 function vOffers(){
-  const rows=DB.offers.map(o=>{const e=empById(o.employeeId);if(!e)return'';return `<tr><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)} · ${esc(e.desig)}</div></td><td>${esc(e.dept)}</td><td>${dfmt(e.doj)}</td><td><span class="pill ${o.status}">${esc(o.status.replace('_',' '))}</span></td></tr>`;}).join('');
+  const rows=DB.offers.map(o=>{const e=empById(o.employeeId);if(!e)return'';return `<tr><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)} · ${esc(e.desig)}</div></td><td>${esc(e.dept)}</td><td>${dfmt(e.doj)}</td><td><span class="pill ${o.status}">${esc(o.status.replace('_',' '))}</span></td><td>${(o.status==='pending_approval'||o.status==='accepted'||o.status==='released')?`<button class="btn btn-ghost btn-sm" onclick="declineOffer('${o.id}')">Mark declined</button>`:''}</td></tr>`;}).join('');
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">My offers</h1><p class="page-sub">Candidates you've raised. HR approval status shown.</p></div><button class="btn btn-ghost btn-sm" onclick="exportOffers()">Export CSV</button></div>
-   <div class="card"><table class="list"><tr><th>Candidate</th><th>Dept</th><th>Joining</th><th>Status</th></tr>${rows||'<tr><td colspan=4 class="empty">No offers yet.</td></tr>'}</table></div>`;
+   <div class="card"><table class="list"><tr><th>Candidate</th><th>Dept</th><th>Joining</th><th>Status</th><th></th></tr>${rows||'<tr><td colspan=5 class="empty">No offers yet.</td></tr>'}</table></div>`;
 }
 
 /* ============================================================
@@ -962,6 +968,7 @@ function vBoard(){
 function vDirectory(){
   const rows=DB.employees.map(e=>`<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b></td><td>${esc(e.code)}</td><td>${esc(e.desig)}</td><td>${esc(e.dept)}</td><td>${esc(e.level)}</td><td><span class="pill ${e.status}">${esc(e.status)}</span></td></tr>`).join('');
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Directory</h1><p class="page-sub">Everyone in the system. Click a row for the full 360 record.</p></div><button class="btn btn-ghost btn-sm" onclick="exportDirectory()">Export CSV</button></div>
+   <div class="card card-pad" style="padding:14px 16px"><input id="dirSearch" oninput="filterDirectory()" placeholder="Search name, code, designation, department…" style="width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1.5px solid var(--rule);border-radius:10px;outline:none"></div>
    <div class="card"><table class="list"><tr><th>Name</th><th>Code</th><th>Designation</th><th>Dept</th><th>Level</th><th>Status</th></tr>${rows}</table></div>`;
 }
 function openEmp(id){_emp360=id;go('directory');setTimeout(()=>renderEmp360(id),10);}
@@ -1033,7 +1040,7 @@ function offboardCardHTML(e,id){
   }
   if(e.status==='exited'){
     const ob=e.offboarding||{};
-    return `<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.offboarding}</svg></div><h2>Exited</h2></div><p class="small muted">${esc(ob.reason||'Exited')} · last working day ${dfmt(ob.lastDay)}</p></div>`;
+    return `<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.offboarding}</svg></div><h2>Exited</h2></div><p class="small muted" style="margin-bottom:10px">${esc(ob.reason||'Exited')} · last working day ${dfmt(ob.lastDay)}</p><button class="btn btn-ghost btn-sm" onclick="printLetter('relieving','${id}')">Generate relieving letter</button></div>`;
   }
   return '';
 }
@@ -1101,7 +1108,7 @@ function probationCardHTML(e,id){
   const p=probationInfo(e);
   return `<div class="card card-pad">
     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.probation}</svg></div><h2>Probation &amp; Confirmation</h2>${p.confirmed?'<span class="pill active" style="margin-left:auto">Confirmed</span>':`<span class="pill ${p.overdue?'offboarding':'onboarding'}" style="margin-left:auto">${p.overdue?'Review overdue':'On probation'}</span>`}</div>
-    ${p.confirmed?`<p class="small muted">Confirmed on <b>${dfmt(e.confirmedOn)}</b>.</p>`:`<p class="small muted" style="margin-bottom:12px">${p.months}-month probation · confirmation review due <b>${dfmt(p.due)}</b>.</p>
+    ${p.confirmed?`<p class="small muted" style="margin-bottom:10px">Confirmed on <b>${dfmt(e.confirmedOn)}</b>.</p><button class="btn btn-ghost btn-sm" onclick="printLetter('confirm','${id}')">Generate confirmation letter</button>`:`<p class="small muted" style="margin-bottom:12px">${p.months}-month probation · confirmation review due <b>${dfmt(p.due)}</b>.</p>
       <div style="display:flex;gap:8px"><button class="btn btn-green btn-sm" onclick="confirmEmployee('${id}')">Confirm employment</button><button class="btn btn-ghost btn-sm" onclick="extendProbation('${id}')">Extend +3 months</button></div>
       <div style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b class="small">Probation objectives <span class="muted" style="font-weight:600">(the employee sees these)</span></b><button class="btn btn-ghost btn-sm" onclick="addProbationGoal('${id}')">+ Add</button></div>
         ${(e.probationGoals||[]).map((g,i)=>`<div class="req"><span class="ck ${g.done?'ok':'no'}" style="cursor:pointer" onclick="toggleProbationGoal('${id}',${i})">${g.done?'✓':'•'}</span>${esc(g.text)}</div>`).join('')||'<div class="small muted">No objectives set yet.</div>'}
@@ -1141,9 +1148,13 @@ function vDashboard(){
   const onboarding=emps.filter(e=>e.status==='onboarding'||e.status==='offered').length;
   const openPos=DB.positions.filter(p=>p.status==='Open').length;
   const pending=DB.offers.filter(o=>o.status==='pending_approval').length;
+  const overdueP=emps.filter(e=>{const p=probationInfo(e);return e.status==='active'&&!e.confirmedOn&&p.overdue;}).length;
+  const docsToReview=DB.documents.filter(d=>d.status==='uploaded').length;
+  const recs=emps.filter(e=>e.recommendation).length;
   const depts={},levels={};
   emps.forEach(e=>{depts[e.dept]=(depts[e.dept]||0)+1;levels[e.level]=(levels[e.level]||0)+1;});
   $('view').innerHTML=`<div><h1 class="page">Dashboard</h1><p class="page-sub">People &amp; lifecycle at a glance.</p></div>
+   ${attnStrip([pending?(pending+' offer'+(pending===1?'':'s')+' awaiting approval'):null,overdueP?(overdueP+' confirmation review'+(overdueP===1?'':'s')+' overdue'):null,docsToReview?(docsToReview+' document'+(docsToReview===1?'':'s')+' to verify'):null,recs?(recs+' manager recommendation'+(recs===1?'':'s')+' to action'):null])}
    <div class="stats">
      <div class="stat"><div class="k">Headcount (active)</div><div class="v num">${active}</div></div>
      <div class="stat"><div class="k">Onboarding</div><div class="v num">${onboarding}</div><div class="sub">joining / in progress</div></div>
@@ -1256,6 +1267,101 @@ function renderPortals(){
   $('demoGrid').innerHTML=PORTALS.map(p=>`<button class="demo-btn" onclick="enterPortal('${p.key}')"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ic[p.key]||ic.employee}</svg></div><div><div class="t">${p.label}</div><div class="d">${p.desc}</div></div></button>`).join('');
 }
 
+/* ============================================================
+   PHASE B / C — self-service, documents, reports, letters
+   ============================================================ */
+function vMyDocs(){
+  const emp=empById(SES.employeeId),off=offerForEmp(emp.id),docs=docsForEmp(emp.id),slips=DB.payslips.filter(p=>p.employeeId===emp.id);
+  const hasLetters=off||emp.confirmedOn||emp.status==='exited';
+  $('view').innerHTML=`<div><h1 class="page">My Documents</h1><p class="page-sub">Your letters, payslips and uploaded documents in one place.</p></div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.mydocs}</svg></div><h2>Letters</h2></div>
+     ${off?`<div class="doc"><div class="dt"><b class="small">Offer letter</b></div><button class="btn btn-ghost btn-sm" onclick="printLetter('offer','${emp.id}')">View / print</button></div>`:''}
+     ${emp.confirmedOn?`<div class="doc"><div class="dt"><b class="small">Confirmation letter</b></div><button class="btn btn-ghost btn-sm" onclick="printLetter('confirm','${emp.id}')">View / print</button></div>`:''}
+     ${emp.status==='exited'?`<div class="doc"><div class="dt"><b class="small">Relieving / experience letter</b></div><button class="btn btn-ghost btn-sm" onclick="printLetter('relieving','${emp.id}')">View / print</button></div>`:''}
+     ${hasLetters?'':'<div class="empty">No letters yet.</div>'}
+   </div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Payslips</h2></div>
+     ${slips.length?slips.map(p=>`<div class="doc"><div class="dt"><b class="small">${esc(p.month)}</b></div><button class="btn btn-ghost btn-sm" onclick="toast('Payslip PDF — wired to the salary sheet later')">PDF</button></div>`).join(''):'<div class="empty">No payslips yet.</div>'}
+   </div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>My uploaded documents</h2></div>
+     ${docs.length?docs.map(d=>`<div class="doc"><div class="dt"><b class="small">${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Not uploaded':((d.fileName||'')+' · '+(d.status==='verified'?'verified':'uploaded'))}</div></div>${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')">Upload</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}</div>`).join(''):'<div class="empty">No documents.</div>'}
+   </div>`;
+}
+function editMyDetails(){
+  const emp=empById(SES.employeeId),d=emp.onboardingData||{};
+  $('view').innerHTML=`<div><button class="btn btn-ghost btn-sm" onclick="go('home',document.querySelector('[data-pg=home]'))">← Home</button></div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.team}</svg></div><h2>Edit my details</h2></div>
+   <div class="grid2">
+     <div class="field"><label>Contact number</label><input id="md_phone" value="${esc(emp.phone||'')}"></div>
+     <div class="field"><label>Personal email</label><input id="md_pmail" value="${esc(d.personalMail||'')}"></div>
+     <div class="field"><label>Bank name</label><input id="md_bank" value="${esc(d.bankName||'')}"></div>
+     <div class="field"><label>Account number</label><input id="md_acct" value="${esc(d.account||'')}"></div>
+     <div class="field"><label>IFSC</label><input id="md_ifsc" value="${esc(d.ifsc||'')}"></div>
+   </div>
+   <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveMyDetails()">Save</button></div>
+   <div class="lock-row" style="margin-top:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Updates are visible to your HR team.</div></div>`;
+}
+function saveMyDetails(){const emp=empById(SES.employeeId);emp.phone=$('md_phone').value.trim();emp.onboardingData=emp.onboardingData||{};emp.onboardingData.personalMail=$('md_pmail').value.trim();emp.onboardingData.bankName=$('md_bank').value.trim();emp.onboardingData.account=$('md_acct').value.trim();emp.onboardingData.ifsc=$('md_ifsc').value.trim();save();toast('Details updated');go('home',document.querySelector('[data-pg=home]'));}
+function employeeResign(){const emp=empById(SES.employeeId);const reason=prompt('Reason for leaving','Resignation');if(!reason)return;const lastDay=prompt('Your intended last working day (YYYY-MM-DD)','');if(!lastDay)return;emp.status='offboarding';emp.offboarding={reason:reason.trim(),lastDay:lastDay.trim(),initiatedAt:new Date().toISOString().slice(0,10),tasks:{},selfInitiated:true};save();toast('Resignation submitted — HR has been notified');buildNav();go('home');}
+function vReports(){
+  const emps=DB.employees;
+  const active=emps.filter(e=>e.status==='active').length;
+  const offersInProgress=DB.offers.filter(o=>['pending_approval','accepted','released'].indexOf(o.status)>-1).length;
+  const probDue=emps.filter(e=>e.status==='active'&&!e.confirmedOn).length;
+  const onNotice=emps.filter(e=>e.status==='offboarding').length;
+  const exited=emps.filter(e=>e.status==='exited');
+  const declined=emps.filter(e=>e.status==='declined').length;
+  const bk={w:0,m:0,q:0};
+  exited.forEach(e=>{if(e.offboarding&&e.offboarding.lastDay&&e.doj){const days=Math.round((new Date(e.offboarding.lastDay)-new Date(e.doj))/86400000);if(days<=7)bk.w++;else if(days<=30)bk.m++;else if(days<=90)bk.q++;}});
+  let pf=0,esi=0;emps.forEach(e=>{const o=offerForEmp(e.id);if(o){pf++;if(o.ctc/12<=21000)esi++;}});
+  const overdueConf=emps.filter(e=>{const p=probationInfo(e);return e.status==='active'&&!e.confirmedOn&&p.overdue;}).length;
+  const depts={},levels={};emps.forEach(e=>{depts[e.dept]=(depts[e.dept]||0)+1;levels[e.level]=(levels[e.level]||0)+1;});
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Reports</h1><p class="page-sub">Headcount, pipeline, drop-offs and compliance at a glance.</p></div><button class="btn btn-ghost btn-sm" onclick="exportDirectory()">Export directory CSV</button></div>
+   <div class="stats">
+     <div class="stat"><div class="k">Active headcount</div><div class="v num">${active}</div></div>
+     <div class="stat"><div class="k">Offers in progress</div><div class="v num">${offersInProgress}</div></div>
+     <div class="stat"><div class="k">On probation</div><div class="v num">${probDue}</div></div>
+     <div class="stat"><div class="k">On notice</div><div class="v num">${onNotice}</div></div>
+   </div>
+   <div class="grid2">
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.directory}</svg></div><h2>By department</h2></div>${distRows(depts)}</div>
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.ladder}</svg></div><h2>By level</h2></div>${distRows(levels)}</div>
+   </div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.offboarding}</svg></div><h2>Drop-offs</h2></div>
+     <p class="small muted" style="margin-bottom:10px">Offer declines and early exits — how quickly people leave after joining.</p>
+     <div class="stats">
+       <div class="stat"><div class="k">Offer declined</div><div class="v num">${declined}</div></div>
+       <div class="stat"><div class="k">Left ≤ 1 week</div><div class="v num">${bk.w}</div></div>
+       <div class="stat"><div class="k">Left ≤ 1 month</div><div class="v num">${bk.m}</div></div>
+       <div class="stat"><div class="k">Left ≤ 3 months</div><div class="v num">${bk.q}</div></div>
+     </div>
+   </div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.warnings}</svg></div><h2>Compliance</h2></div>
+     <div class="info-grid">
+       <div class="info-cell"><div class="k">PF-applicable</div><div class="v num">${pf}</div></div>
+       <div class="info-cell"><div class="k">ESI-eligible (gross ≤ ₹21k)</div><div class="v num">${esi}</div></div>
+       <div class="info-cell"><div class="k">Confirmations overdue</div><div class="v num">${overdueConf}</div></div>
+     </div>
+     <div style="margin-top:12px"><b class="small" style="display:block;margin-bottom:6px">Statutory checklist</b>
+       <div class="req"><span class="ck no">•</span>POSH committee constituted &amp; policy circulated</div>
+       <div class="req"><span class="ck no">•</span>Monthly PF / ESI challans filed</div>
+       <div class="req"><span class="ck no">•</span>Gratuity &amp; Shops-and-Establishment registrations current</div>
+     </div>
+   </div>`;
+}
+function filterDirectory(){const q=(($('dirSearch')||{}).value||'').toLowerCase();const trs=document.querySelectorAll('#view table.list tr');trs.forEach((tr,i)=>{if(i===0)return;tr.style.display=tr.textContent.toLowerCase().indexOf(q)>-1?'':'none';});}
+function declineOffer(oid){const o=DB.offers.find(x=>x.id===oid);if(!o)return;o.status='declined';const e=empById(o.employeeId);if(e)e.status='declined';save();toast('Marked as declined (recorded as a drop-off)');vOffers();}
+function printWindow(innerHTML){const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print the letter');return;}w.document.write('<html><head><title>IncrediPets — Letter</title><style>body{font-family:Arial,sans-serif;padding:34px;color:#222}.letter{max-width:720px;margin:0 auto;position:relative}.lh{display:flex;justify-content:space-between;border-bottom:2px solid #B00050;padding-bottom:12px;margin-bottom:16px}.wm{font-weight:800;font-size:20px}.wm b{color:#8A003E}.co{font-size:11px;color:#666}h3{color:#B00050;text-align:center;letter-spacing:.5px}p{font-size:14px;margin:10px 0}table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}th,td{border:1px solid #ddd;padding:8px;text-align:left}.sign{margin-top:34px;display:flex;justify-content:space-between;font-size:13px}.small{font-size:11px}.muted{color:#888}.num{font-variant-numeric:tabular-nums}.stamp{display:none}</style></head><body>'+innerHTML+'<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},250);}</scr'+'ipt></body></html>');w.document.close();}
+function printLetter(type,id){
+  const e=empById(id),off=offerForEmp(id);
+  if(type==='offer'){if(!off){toast('No offer on record');return;}printWindow(offerLetterHTML(e,off,'approved'));return;}
+  let title='',body='';
+  if(type==='confirm'){title='LETTER OF CONFIRMATION';body=`<p>Dear <b>${esc(e.name)}</b>,</p><p>We are pleased to confirm your employment with Incredipets Pvt. Ltd. as <b>${esc(e.desig)}</b> in the <b>${esc(e.dept)}</b> team, with effect from <b>${dfmt(e.confirmedOn)}</b>, on successful completion of your probation period.</p><p>We look forward to your continued contribution to the team.</p>`;}
+  else if(type==='relieving'){const ob=e.offboarding||{};title='RELIEVING & EXPERIENCE LETTER';body=`<p>To whomsoever it may concern,</p><p>This is to certify that <b>${esc(e.name)}</b> (${esc(e.code)}) was employed with Incredipets Pvt. Ltd. as <b>${esc(e.desig)}</b> in the <b>${esc(e.dept)}</b> team from <b>${dfmt(e.doj)}</b> to <b>${dfmt(ob.lastDay)}</b>. They have been duly relieved of their responsibilities and we wish them well in their future endeavours.</p>`;}
+  else{toast('Letter not available');return;}
+  printWindow(`<div class="letter"><div class="lh"><div><div class="wm"><b>Incredi</b>Pets</div><div class="co">Incredipets Pvt. Ltd. · Gurugram, Delhi NCR</div></div><div class="small muted">${dfmt(new Date().toISOString())}</div></div><h3>${title}</h3>${body}<div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>Priya Perral</b><br>General Manager — HR</div><div></div></div></div>`);
+}
+function attnStrip(items){items=(items||[]).filter(Boolean);if(!items.length)return '';return `<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)"><b class="small" style="display:block;margin-bottom:6px">⚡ Needs your attention</b>${items.map(i=>`<div class="small" style="padding:3px 0">• ${esc(i)}</div>`).join('')}</div>`;}
 /* ---------- boot ---------- */
 load();renderPortals();
 </script>
