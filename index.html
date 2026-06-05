@@ -285,7 +285,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v14';
+const KEY='incredipets_hrms_v15';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -505,7 +505,7 @@ function buildNav(){
   }).join('');
   // landing page: new joiner → onboarding
   let landing=items[0][0];
-  if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
+  if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded&&!emp.onboardingSubmitted)landing='onboard';}
   go(landing);
 }
 const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
@@ -529,7 +529,7 @@ function vHome(){
   const docsLeft=docsForEmp(emp.id).filter(d=>d.status!=='verified').length;
   $('view').innerHTML=`
    <div><h1 class="page">Welcome back, ${esc(emp.name.split(' ')[0])} 👋</h1><p class="page-sub">${esc(emp.desig)} · ${esc(emp.dept)} · ${esc(emp.code)}</p></div>
-   ${attnStrip([!emp.onboarded?'Complete your onboarding form':null,(emp.status==='active'&&!emp.confirmedOn)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
+   ${attnStrip([(!emp.onboarded&&!emp.onboardingSubmitted)?'Complete your onboarding form':null,(emp.onboardingSubmitted&&!emp.onboarded)?'Onboarding submitted — awaiting HR verification':null,(emp.status==='active'&&!emp.confirmedOn)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
    <div class="stats">
      <div class="stat"><div class="k">Time at IncrediPets</div><div class="v">${t.y}<small>y</small> ${t.mo}<small>m</small> ${t.d}<small>d</small></div><div class="sub">Joined ${dfmt(emp.doj)}</div></div>
      <div class="stat"><div class="k">Total days</div><div class="v num">${t.totalDays}</div><div class="sub">${t.totalMonths} months of service</div></div>
@@ -601,6 +601,16 @@ function obInput(f,v){
 }
 function vOnboard(){
   const emp=empById(SES.employeeId),off=offerForEmp(emp.id),c=off?calc(off.ctc):null,docs=docsForEmp(emp.id),saved=emp.onboardingData||{};
+  if(emp.onboardingSubmitted&&!emp.onboarded){
+    $('view').innerHTML=`<div><h1 class="page">Onboarding submitted ✅</h1><p class="page-sub">Thanks, ${esc(emp.name.split(' ')[0])}! Your details are in — HR will verify your documents and confirm you in.</p></div>
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Where you are</h2></div>
+       <div class="bl"><span>Onboarding form</span><span class="pill verified">Submitted ${dfmt(saved.submittedAt)}</span></div>
+       <div class="bl"><span>HR verification &amp; confirmation</span><span class="pill requested">Pending</span></div>
+       <p class="small muted" style="margin-top:10px">You can still upload any pending documents below — it helps HR confirm you faster.</p></div>
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Document uploads</h2></div>
+       ${docs.map(d=>`<div class="doc"><div class="dt"><b class="small">${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Not uploaded':((d.fileName||'')+' · '+(d.status==='verified'?'verified by HR':'uploaded'))}</div></div>${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')">Upload</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}</div>`).join('')}</div>`;
+    return;
+  }
   const pre={empId:emp.code,fullName:emp.name,contact:emp.phone||'',personalMail:'',officialMail:emp.email||'',doj:emp.doj||'',department:emp.dept||'',designation:emp.desig||'',
     ctc:off?off.ctc:'',basic:c?Math.round(c.basic):'',hra:c?Math.round(c.hra):'',special:c?Math.round(c.spl):'',pf:'Yes',esic:(c&&c.m<=21000)?'Yes':'No'};
   const val=k=>(saved[k]!=null&&saved[k]!=='')?saved[k]:(pre[k]!=null?pre[k]:'');
@@ -634,8 +644,9 @@ function submitOnboarding(){
   if(missing.length){toast('Please fill: '+missing.slice(0,3).join(', ')+(missing.length>3?' …':''));return;}
   data.submittedAt=new Date().toISOString().slice(0,10);
   emp.onboardingData=data;if(data.contact)emp.phone=data.contact;
-  emp.onboarded=true;emp.status='active';save();
-  toast('Onboarding submitted — welcome aboard!');buildNav();go('home');
+  emp.onboardingSubmitted=true;save(); // HR verifies docs & confirms before the employee goes active
+  audit(emp.name+' submitted their onboarding form');
+  toast('Onboarding submitted — HR will verify your documents and confirm you in.');buildNav();go('home');
 }
 
 function vPay(){
@@ -669,7 +680,7 @@ function vPay(){
      ${DB.payslips.filter(p=>p.employeeId===emp.id).map(p=>`<div class="doc">
         <div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5"/></svg></div>
         <div class="dt"><b>${esc(p.month)}</b><div class="dm">Net pay after statutory deductions</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="toast('Payslip PDF — wired to the salary sheet later')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 11l5 4 5-4"/></svg>PDF</button>
+        <button class="btn btn-ghost btn-sm" onclick="printPayslip('${emp.id}','${p.month}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 11l5 4 5-4"/></svg>PDF</button>
       </div>`).join('')||'<div class="empty">No payslips yet.</div>'}
    </div>
    <div class="card card-pad">
@@ -838,6 +849,7 @@ function vPositions(){
   $('view').innerHTML=`
    <div style="display:flex;justify-content:space-between;align-items:flex-end"><div><h1 class="page">Positions</h1><p class="page-sub">The vacancies you're hiring for. Open a position with its JD &amp; level, then raise candidates against it.</p></div>
      <div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="exportPositions()">Export CSV</button><button class="btn btn-primary btn-sm" onclick="newPositionForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Open position</button></div></div>
+   ${attnStrip([(function(){const n=DB.offers.filter(o=>o.status==='pending_approval').length;return n?n+' offer'+(n===1?'':'s')+' awaiting HR approval':null;})(),(function(){const op=DB.positions.filter(p=>p.status==='Open'&&candsFor(p.id).filter(c=>c.stage!=='Rejected'&&c.stage!=='Hired').length===0);return op.length?op.length+' open position'+(op.length===1?'':'s')+' with no active candidates':null;})()])}
    <div id="posFormWrap"></div>
    <div class="card"><table class="list"><tr><th>Role</th><th>Dept</th><th>Level</th><th>Openings</th><th>Hiring mgr</th><th>Status</th><th></th></tr>
      ${DB.positions.map(p=>`<tr><td><b>${esc(p.title)}</b><div class="small muted">${esc(p.location)}</div></td><td>${esc(p.dept)}</td><td>${esc(p.level)}</td><td class="num">${p.openings}</td><td>${esc(p.hiringManager)}</td><td><span class="pill active">${esc(p.status)}</span></td>
@@ -1146,7 +1158,7 @@ function vSettings(){
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.assets}</svg></div><h2>Asset types</h2></div>${ASSET_TYPES.map(a=>`<div class="bl"><span>${esc(a)}</span><span></span></div>`).join('')}</div>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.offboarding}</svg></div><h2>Exit checklist</h2></div>${EXIT_TASKS.map(t=>`<div class="bl"><span>${esc(t[1])}</span><span></span></div>`).join('')}</div>
    </div>
-   <div class="card card-pad muted small">Leave policy is a placeholder pending your written policy. Real comp figures + the full employee roster load once the Supabase backend is connected (after Jiten's approval).</div>`;
+   <div class="card card-pad muted small">Leave application &amp; approval is live; the specific entitlements and accrual rules still await your written leave policy. Real comp figures and the full employee roster load once the Supabase backend is connected behind login.</div>`;
 }
 function settingsAddDoc(){const t=prompt('New onboarding document');if(!t)return;DB.docTypes.push(t.trim());save();toast('Document added');vSettings();}
 function settingsRemoveDoc(i){DB.docTypes.splice(i,1);save();toast('Document removed');vSettings();}
@@ -1335,7 +1347,7 @@ function vMyDocs(){
      <div style="margin-top:10px">${emp.acks&&emp.acks.privacy?`<span class="pill verified">✓ Consent recorded ${dfmt(emp.acks.privacy)}</span>`:`<button class="btn btn-ghost btn-sm" onclick="acknowledgeDoc('privacy')">I have read &amp; consent</button>`}</div>
    </div>
    <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Payslips</h2></div>
-     ${slips.length?slips.map(p=>`<div class="doc"><div class="dt"><b class="small">${esc(p.month)}</b></div><button class="btn btn-ghost btn-sm" onclick="toast('Payslip PDF — wired to the salary sheet later')">PDF</button></div>`).join(''):'<div class="empty">No payslips yet.</div>'}
+     ${slips.length?slips.map(p=>`<div class="doc"><div class="dt"><b class="small">${esc(p.month)}</b></div><button class="btn btn-ghost btn-sm" onclick="printPayslip('${emp.id}','${p.month}')">PDF</button></div>`).join(''):'<div class="empty">No payslips yet.</div>'}
    </div>
    <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>My uploaded documents</h2></div>
      ${docs.length?docs.map(d=>`<div class="doc"><div class="dt"><b class="small">${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Not uploaded':((d.fileName||'')+' · '+(d.status==='verified'?'verified':'uploaded'))}</div></div>${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')">Upload</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}</div>`).join(''):'<div class="empty">No documents.</div>'}
@@ -1598,6 +1610,10 @@ function hrEditOnboarding(id){
 }
 function saveHrOnboarding(id,markDone){const e=empById(id),data=e.onboardingData||{};ONBOARD_FIELDS.forEach(f=>{const el=$('ob_'+f.k);if(el)data[f.k]=(el.value||'').trim();});data.submittedAt=data.submittedAt||new Date().toISOString().slice(0,10);data.filledByHR=(SES&&SES.label)||'HR';e.onboardingData=data;if(data.contact)e.phone=data.contact;if(markDone){e.onboarded=true;if(e.status==='onboarding'||e.status==='offered')e.status='active';}save();audit('HR filled onboarding for '+e.name);toast('Onboarding saved for '+e.name.split(' ')[0]);openEmp(id);}
 function hrMarkDoc(did,id){const d=DB.documents.find(x=>x.id===did);if(!d)return;d.status='uploaded';d.fileName='Received at HR';d.uploadedAt=new Date().toISOString().slice(0,10);save();audit('HR recorded document '+d.type+' for '+((empById(id)||{}).name||''));toast('Marked received');renderEmp360(id);}
+
+/* ===== batch 4 — onboarding approval gate, real payslip, recruiter strip ===== */
+function payslipFor(empId){const e=empById(empId),o=offerForEmp(empId);if(!o)return null;const c=calc(o.ctc);const pf=Math.round(Math.min(c.basic,15000)*0.12),esi=c.m<=21000?Math.round(c.m*0.0075):0;const L=DB.leave[empId]||{lwp:0,absent:[]},lopDays=(L.lwp||0)+((L.absent||[]).length),lop=Math.round((c.m/30)*lopDays);const adv=(DB.advances||[]).filter(a=>a.employeeId===empId&&a.status==='approved').reduce((s,a)=>s+a.amount,0),advRec=Math.min(adv,Math.round(c.m*0.25));const net=Math.round(c.m-pf-esi-lop-advRec);return {e,c,pf,esi,lopDays,lop,advRec,net};}
+function printPayslip(empId,month){const r=payslipFor(empId);if(!r){toast('No salary on record');return;}const e=r.e,ded=r.pf+r.esi+r.lop+r.advRec;printWindow(`<div class="letter"><div class="lh"><div><div class="wm"><b>Incredi</b>Pets</div><div class="co">Incredipets Pvt. Ltd. · Gurugram, Delhi NCR</div></div><div class="small muted">Payslip · ${esc(month||'')}</div></div><h3>SALARY SLIP — ${esc(month||'')}</h3><p><b>${esc(e.name)}</b> (${esc(e.code)}) · ${esc(e.desig)} · ${esc(e.dept)}</p><table><tr><th>Earnings</th><th>Monthly</th></tr><tr><td>Basic</td><td class="num">${fmt(r.c.basic)}</td></tr><tr><td>HRA</td><td class="num">${fmt(r.c.hra)}</td></tr><tr><td>Special allowance</td><td class="num">${fmt(r.c.spl)}</td></tr><tr><th>Gross</th><th class="num">${fmt(r.c.m)}</th></tr></table><table><tr><th>Deductions</th><th>Monthly</th></tr><tr><td>Provident Fund (PF)</td><td class="num">${fmt(r.pf)}</td></tr><tr><td>ESI</td><td class="num">${fmt(r.esi)}</td></tr><tr><td>Loss of pay (${r.lopDays} day(s))</td><td class="num">${fmt(r.lop)}</td></tr><tr><td>Advance recovery</td><td class="num">${fmt(r.advRec)}</td></tr><tr><th>Total deductions</th><th class="num">${fmt(ded)}</th></tr></table><p style="font-size:16px;margin-top:14px"><b>Net pay: ${fmt(r.net)}</b></p><p class="small muted">Computer-generated payslip — figures from prototype demo data; statutory rates as per law.</p></div>`);}
 
 /* ---------- boot ---------- */
 load();renderPortals();
