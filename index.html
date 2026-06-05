@@ -285,7 +285,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v12';
+const KEY='incredipets_hrms_v13';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -310,8 +310,8 @@ function seed(){
   const employees=[
     {id:'E1',code:'IN-001',name:'Jiten Kakar',desig:'Founder & CEO',dept:"Founder's Office",level:'L6',location:'Gurugram, Delhi NCR',doj:'2021-04-01',managerId:null,phone:'+91 90000 00001',email:'jiten@incredipets.in',status:'active',onboarded:true,confirmedOn:'2021-10-01'},
     {id:'E2',code:'IN-014',name:'Priya Perral',desig:'General Manager — HR',dept:'People & Ops',level:'L5',location:'Gurugram, Delhi NCR',doj:'2023-02-15',managerId:'E1',phone:'+91 90000 00014',email:'priya@incredipets.in',status:'active',onboarded:true,confirmedOn:'2023-08-15',track:'HR & People Ops',ladderTitle:'Head of HR & People Ops'},
-    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L1',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E5',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,track:'Field Sales',ladderTitle:'Field Sales Executive',probationGoals:[{text:'Complete product, CRM & field-process training',done:true},{text:'Hit ≥90% of monthly acquisition target for 3 consecutive months',done:false},{text:'Positive 90-day review from reporting manager',done:false}],positionId:'P1'},
-    {id:'E4',code:'IN-319',name:'Sneha Iyer',desig:'CRM Associate',dept:'Customer Care',level:'L1',location:'Gurugram, Delhi NCR',doj:'2026-06-09',managerId:'E5',phone:'+91 98111 23319',email:'sneha@incredipets.in',status:'onboarding',onboarded:false,track:'CRM',ladderTitle:'CRM Executive',positionId:'P2'},
+    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L1',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E5',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,weekOff:'Tuesday',track:'Field Sales',ladderTitle:'Field Sales Executive',probationGoals:[{text:'Complete product, CRM & field-process training',done:true},{text:'Hit ≥90% of monthly acquisition target for 3 consecutive months',done:false},{text:'Positive 90-day review from reporting manager',done:false}],positionId:'P1'},
+    {id:'E4',code:'IN-319',name:'Sneha Iyer',desig:'CRM Associate',dept:'Customer Care',level:'L1',location:'Gurugram, Delhi NCR',doj:'2026-06-09',managerId:'E5',phone:'+91 98111 23319',email:'sneha@incredipets.in',status:'onboarding',onboarded:false,weekOff:'Wednesday',track:'CRM',ladderTitle:'CRM Executive',positionId:'P2'},
     {id:'E5',code:'IN-040',name:'Ankit Rao',desig:'Manager — Supply',dept:'Supply',level:'L3',location:'Gurugram, Delhi NCR',doj:'2024-03-01',managerId:'E1',phone:'+91 90000 00040',email:'ankit@incredipets.in',status:'active',onboarded:true,confirmedOn:'2024-09-01',track:'Supply Chain',ladderTitle:'Manager – Supply'}
   ];
   const offers=[
@@ -439,7 +439,7 @@ function logout(){SES=null;$('app').classList.add('hidden');$('login').classList
 /* ---------- nav ---------- */
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['attendme','Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['holidays','Holidays'],['team','My Team']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['leaverequests','Leave'],['advances','Advances'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['pipeline','Pipeline'],['newoffer','New Candidate / Offer'],['offers','My Offers']],
   manager:[['mteam','My Team']]
 };
@@ -477,7 +477,8 @@ const ICONS={
   newoffer:'<path d="M12 5v14M5 12h14"/>',
   offers:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
   payroll:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h4"/>',
-  pipeline:'<path d="M3 6h18M6 12h12M9 18h6"/>'
+  pipeline:'<path d="M3 6h18M6 12h12M9 18h6"/>',
+  roster:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><circle cx="16" cy="15" r="2"/>'
 };
 function navBadge(page){
   if(SES.role==='hr'&&page==='approvals'){const n=DB.offers.filter(o=>o.status==='pending_approval').length;return n||0;}
@@ -489,6 +490,7 @@ function buildNav(){
   let items=NAVS[SES.role].slice();
   // hide onboarding tab once fully onboarded
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&emp.onboarded)items=items.filter(i=>i[0]!=='onboard');}
+  if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&isRosterRole(emp))items=items.filter(i=>i[0]!=='holidays');} // roster roles follow a week-off, not the fixed holiday calendar
   if(SES.role==='hr'&&SES.label!=='General Manager')items=items.filter(i=>i[0]!=='settings'); // Settings = super-admin (GM) only
   $('nav').innerHTML='<div class="nav-label">'+ROLEMETA[SES.role].title+'</div>'+items.map((it,i)=>{
     const b=navBadge(it[0]);
@@ -499,14 +501,14 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 function go(page,el){
   closeSidebar();
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
-  const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
+  const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,roster:vRoster,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
     dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
 }
@@ -662,6 +664,10 @@ function vPay(){
         <div class="dt"><b>${esc(p.month)}</b><div class="dm">Net pay after statutory deductions</div></div>
         <button class="btn btn-ghost btn-sm" onclick="toast('Payslip PDF — wired to the salary sheet later')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 11l5 4 5-4"/></svg>PDF</button>
       </div>`).join('')||'<div class="empty">No payslips yet.</div>'}
+   </div>
+   <div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.advances}</svg></div><h2>Salary advances</h2><button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="applyAdvance()">Apply for advance</button></div>
+     ${(DB.advances||[]).filter(a=>a.employeeId===emp.id).map(a=>`<div class="doc"><div class="dt"><b class="small">${fmt(a.amount)}</b><div class="dm">${esc(a.reason||'')} · requested ${dfmt(a.date)}</div></div><span class="pill ${a.status==='approved'?'approved':(a.status==='rejected'?'rejected':'pending')}">${esc(a.status)}</span></div>`).join('')||'<div class="empty">No advance requests yet — tap "Apply for advance" to raise one.</div>'}
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>My offer letter</h2></div>
@@ -1028,14 +1034,14 @@ function renderEmp360(id){
      ${off?`<div class="breakup"><div class="bl"><span>Annual CTC</span><span class="num">${fmt(off.ctc)}</span></div><div class="bl tot"><span>Monthly gross</span><span class="num">${fmt(calc(off.ctc).m)}</span></div></div>`:'<div class="empty">No offer on record.</div>'}
    </div>
    <div class="card card-pad">
-     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Onboarding form</h2>${e.onboardingData?`<span class="pill verified" style="margin-left:auto">Submitted ${dfmt(e.onboardingData.submittedAt)}</span>`:''}</div>
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Onboarding form</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="hrEditOnboarding('${id}')">${e.onboardingData?'Edit':'Fill for employee'}</button>${e.onboardingData?`<span class="pill verified" style="margin-left:8px">Submitted ${dfmt(e.onboardingData.submittedAt)}</span>`:''}</div>
      ${e.onboardingData?`<div class="info-grid">${ONBOARD_FIELDS.filter(f=>e.onboardingData[f.k]!=null&&e.onboardingData[f.k]!=='').map(f=>`<div class="info-cell"><div class="k">${f.l}</div><div class="v" style="font-size:13px">${esc(maskPII(f.k,e.onboardingData[f.k]))}</div></div>`).join('')}</div>`:'<div class="empty">Not submitted yet — waiting on the employee.</div>'}
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Document uploads</h2></div>
      ${docs.length?docs.map(d=>`<div class="doc"><div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div>
         <div class="dt"><b>${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Awaiting upload':((d.fileName||'')+' · '+dfmt(d.uploadedAt))}</div></div>
-        ${d.status==='uploaded'?`<button class="btn btn-green btn-sm" onclick="verifyDoc('${d.id}','${id}')">Verify</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':(d.status==='requested'?'Pending':'Uploaded')}</span>`}
+        ${d.status==='uploaded'?`<button class="btn btn-green btn-sm" onclick="verifyDoc('${d.id}','${id}')">Verify</button>`:(d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="hrMarkDoc('${d.id}','${id}')">Mark received</button>`:`<span class="pill ${d.status}">Verified</span>`)}
       </div>`).join(''):'<div class="empty">No documents requested.</div>'}
    </div>
    <div class="card card-pad">
@@ -1436,6 +1442,12 @@ function vNotify(){
    <div class="card card-pad">${list.length?list.map(n=>`<div class="doc"><div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div><div class="dt"><b class="small">${esc(n.text)}</b><div class="dm">${dfmt(n.date)}</div></div></div>`).join(''):'<div class="empty">No notifications yet.</div>'}</div>`;
 }
 function vHolidays(){
+  const emp=SES.employeeId?empById(SES.employeeId):null;
+  if(emp&&isRosterRole(emp)){
+    $('view').innerHTML=`<div><h1 class="page">Holiday Calendar</h1><p class="page-sub">Your role follows a roster.</p></div>
+     <div class="card card-pad muted small">Your role (Sales / Customer Support) works to a <b>roster with a weekly off</b> rather than the fixed company holiday calendar. Your weekly off is shown under <a onclick="go('attendme',document.querySelector('[data-pg=attendme]'))" style="cursor:pointer">Attendance</a>.</div>`;
+    return;
+  }
   $('view').innerHTML=`<div><h1 class="page">Holiday Calendar</h1><p class="page-sub">Company holidays for the year.</p></div>
    <div class="card"><table class="list"><tr><th>Date</th><th>Holiday</th></tr>${(DB.holidays||[]).map(h=>`<tr><td class="num">${dfmt(h.date)}</td><td>${esc(h.name)}</td></tr>`).join('')}</table></div>`;
 }
@@ -1444,7 +1456,8 @@ function vAttendanceMe(){
   const emp=empById(SES.employeeId),rows=attFor(emp.id),totalH=rows.reduce((s,r)=>s+(r.hours||0),0);
   $('view').innerHTML=`<div><h1 class="page">Attendance &amp; Hours</h1><p class="page-sub">Your shift, working hours and attendance.</p></div>
    <div class="stats">
-     <div class="stat"><div class="k">Shift</div><div class="v" style="font-size:15px">10:00–18:30</div><div class="sub">Mon–Sat</div></div>
+     <div class="stat"><div class="k">Shift</div><div class="v" style="font-size:15px">10:00–18:30</div><div class="sub">6-day week</div></div>
+     <div class="stat"><div class="k">Weekly off</div><div class="v" style="font-size:15px">${esc(weekOffOf(emp))}</div><div class="sub">${isRosterRole(emp)?'Roster — set by HR':'Fixed'}</div></div>
      <div class="stat"><div class="k">Hours (this period)</div><div class="v num">${totalH.toFixed(1)}</div></div>
      <div class="stat"><div class="k">Days present</div><div class="v num">${rows.filter(r=>r.status==='Present').length}</div></div>
    </div>
@@ -1468,7 +1481,7 @@ function vLeaveRequests(){
    ${reqs.length?reqs.map(r=>{const e=empById(r.employeeId);return `<div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px"><div><b class="small">${esc(e?e.name:'')}</b> <span class="pill ${r.status}">${esc(r.status)}</span><div class="small muted">${esc(r.type)} · ${dfmt(r.from)} → ${dfmt(r.to)} · ${r.days} day(s)</div><div class="small">${esc(r.reason||'')}</div></div>${r.status==='pending'?`<div style="display:flex;gap:8px"><button class="btn btn-green btn-sm" onclick="decideLeave('${r.id}','approved')">Approve</button><button class="btn btn-ghost btn-sm" onclick="decideLeave('${r.id}','rejected')">Reject</button></div>`:''}</div></div>`;}).join(''):'<div class="card"><div class="empty">No leave requests.</div></div>'}`;
 }
 function decideLeave(id,st){const r=(DB.leaveRequests||[]).find(x=>x.id===id);if(!r)return;r.status=st;r.decidedBy=(SES&&SES.label);save();notify(r.employeeId,'Your leave request ('+r.type+', '+r.days+' day(s)) was '+st+'.');audit('Leave '+st+' for '+((empById(r.employeeId)||{}).name||''));toast('Leave '+st);vLeaveRequests();}
-function applyAdvance(){const emp=empById(SES.employeeId);const amt=+prompt('Advance amount (₹)','10000');if(!amt)return;const reason=prompt('Reason','')||'';DB.advances=DB.advances||[];DB.advances.unshift({id:'AD'+Date.now(),employeeId:emp.id,amount:amt,reason:reason,date:new Date().toISOString().slice(0,10),status:'pending'});save();notify(emp.id,'Advance request of '+fmt(amt)+' submitted — pending approval.');toast('Advance requested');go('home');}
+function applyAdvance(){const emp=empById(SES.employeeId);const amt=+prompt('Advance amount (₹)','10000');if(!amt)return;const reason=prompt('Reason','')||'';DB.advances=DB.advances||[];DB.advances.unshift({id:'AD'+Date.now(),employeeId:emp.id,amount:amt,reason:reason,date:new Date().toISOString().slice(0,10),status:'pending'});save();notify(emp.id,'Advance request of '+fmt(amt)+' submitted — pending approval.');toast('Advance requested');go('pay',document.querySelector('[data-pg=pay]'));}
 function vAdvances(){
   const adv=DB.advances||[];
   $('view').innerHTML=`<div><h1 class="page">Salary Advances</h1><p class="page-sub">Advance requests — approve / reject (HRBP + super-admin).</p></div>
@@ -1548,6 +1561,36 @@ function vPayroll(){
 }
 function exportSalarySheet(){const rows=payrollRows().map(r=>[r.e.name,r.e.code,r.e.desig,r.e.dept,Math.round(r.c.m),Math.round(r.c.basic),Math.round(r.c.hra),Math.round(r.c.spl),r.pf,r.esi,r.lop,r.advRec,r.net]);exportCSV('salary-sheet.csv',['Name','Code','Designation','Dept','Gross','Basic','HRA','Special','PF','ESI','LOP deduction','Advance recovery','Net pay'],rows);}
 function generatePayslips(){const m=new Date().toLocaleDateString('en-IN',{month:'long',year:'numeric'});let n=0;payrollRows().forEach(r=>{if(!DB.payslips.find(p=>p.employeeId===r.e.id&&p.month===m)){DB.payslips.push({id:'PS'+Date.now()+r.e.id,employeeId:r.e.id,month:m});n++;}});save();audit('Generated '+n+' payslips for '+m);toast('Generated '+n+' payslips for '+m);vPayroll();}
+
+/* ===== batch 3 — roster/week-off, holiday rules, HR fill-on-behalf ===== */
+function isRosterRole(e){return /\b(sales|support|crm|customer)\b/i.test((e.desig||'')+' '+(e.dept||''));}
+const WEEKDAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function weekOffOf(e){return e.weekOff||(isRosterRole(e)?'Not set':'Sunday');}
+function vRoster(){
+  const roster=DB.employees.filter(e=>['active','onboarding'].indexOf(e.status)>-1&&isRosterRole(e));
+  const fixed=DB.employees.filter(e=>['active','onboarding'].indexOf(e.status)>-1&&!isRosterRole(e));
+  $('view').innerHTML=`<div><h1 class="page">Weekly-Off Roster</h1><p class="page-sub">Sales &amp; Customer Support work a floating week off — set each person's day here. They can be off on any day, and you can change it any time. Everyone else is off on Sunday.</p></div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.roster}</svg></div><h2>Floating roster — Sales / Customer Support</h2></div>
+     ${roster.length?`<table class="list"><tr><th>Employee</th><th>Dept</th><th>Weekly off</th></tr>${roster.map(e=>`<tr><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)} · ${esc(e.desig)}</div></td><td>${esc(e.dept)}</td><td><select onchange="setWeekOff('${e.id}',this.value)" style="font:inherit;font-size:13px;padding:7px 10px;border:1.5px solid var(--rule);border-radius:8px;background:#fff"><option value="">— not set —</option>${WEEKDAYS.map(d=>`<option ${e.weekOff===d?'selected':''}>${d}</option>`).join('')}</select></td></tr>`).join('')}</table>`:'<div class="empty">No Sales / Customer Support staff to roster.</div>'}
+   </div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.team}</svg></div><h2>Fixed week off — Sunday</h2></div>
+     <table class="list"><tr><th>Employee</th><th>Dept</th><th>Weekly off</th></tr>${fixed.map(e=>`<tr><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)}</div></td><td>${esc(e.dept)}</td><td>${esc(e.weekOff||'Sunday')}</td></tr>`).join('')||'<tr><td colspan=3 class="empty">—</td></tr>'}</table>
+   </div>`;
+}
+function setWeekOff(id,day){const e=empById(id);if(!e)return;e.weekOff=day||null;save();audit('Set weekly off for '+e.name+' → '+(day||'unset'));notify(id,'Your weekly off has been set to '+(day||'not set')+'.');toast('Roster updated for '+e.name.split(' ')[0]);}
+function hrEditOnboarding(id){
+  const e=empById(id),off=offerForEmp(id),c=off?calc(off.ctc):null,saved=e.onboardingData||{};
+  const pre={empId:e.code,fullName:e.name,contact:e.phone||'',officialMail:e.email||'',doj:e.doj||'',department:e.dept||'',designation:e.desig||'',ctc:off?off.ctc:'',basic:c?Math.round(c.basic):'',hra:c?Math.round(c.hra):'',special:c?Math.round(c.spl):'',pf:'Yes',esic:(c&&c.m<=21000)?'Yes':'No'};
+  const val=k=>(saved[k]!=null&&saved[k]!=='')?saved[k]:(pre[k]!=null?pre[k]:'');
+  $('view').innerHTML=`<div><button class="btn btn-ghost btn-sm" onclick="openEmp('${id}')">← Back to ${esc(e.name)}</button></div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Fill onboarding form — ${esc(e.name)}</h2></div>
+     <p class="small muted" style="margin:-6px 0 12px">Complete this on the employee's behalf (e.g. details collected on paper or a Google Form). Saves into their record exactly as if they had filled it.</p>
+     <div class="grid2">${ONBOARD_FIELDS.map(f=>`<div class="field"><label>${f.l}</label>${obInput(f,val(f.k))}</div>`).join('')}</div>
+     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="saveHrOnboarding('${id}')">Save</button><button class="btn btn-green" onclick="saveHrOnboarding('${id}',true)">Save &amp; mark onboarded</button></div>
+   </div>`;
+}
+function saveHrOnboarding(id,markDone){const e=empById(id),data=e.onboardingData||{};ONBOARD_FIELDS.forEach(f=>{const el=$('ob_'+f.k);if(el)data[f.k]=(el.value||'').trim();});data.submittedAt=data.submittedAt||new Date().toISOString().slice(0,10);data.filledByHR=(SES&&SES.label)||'HR';e.onboardingData=data;if(data.contact)e.phone=data.contact;if(markDone){e.onboarded=true;if(e.status==='onboarding'||e.status==='offered')e.status='active';}save();audit('HR filled onboarding for '+e.name);toast('Onboarding saved for '+e.name.split(' ')[0]);openEmp(id);}
+function hrMarkDoc(did,id){const d=DB.documents.find(x=>x.id===did);if(!d)return;d.status='uploaded';d.fileName='Received at HR';d.uploadedAt=new Date().toISOString().slice(0,10);save();audit('HR recorded document '+d.type+' for '+((empById(id)||{}).name||''));toast('Marked received');renderEmp360(id);}
 
 /* ---------- boot ---------- */
 load();renderPortals();
