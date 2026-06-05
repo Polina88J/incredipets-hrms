@@ -501,7 +501,7 @@ function vHome(){
   const docsLeft=docsForEmp(emp.id).filter(d=>d.status!=='verified').length;
   $('view').innerHTML=`
    <div><h1 class="page">Welcome back, ${esc(emp.name.split(' ')[0])} 👋</h1><p class="page-sub">${esc(emp.desig)} · ${esc(emp.dept)} · ${esc(emp.code)}</p></div>
-   ${attnStrip([!emp.onboarded?'Complete your onboarding form':null,(emp.status==='active'&&!emp.confirmedOn)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null])}
+   ${attnStrip([!emp.onboarded?'Complete your onboarding form':null,(emp.status==='active'&&!emp.confirmedOn)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
    <div class="stats">
      <div class="stat"><div class="k">Time at IncrediPets</div><div class="v">${t.y}<small>y</small> ${t.mo}<small>m</small> ${t.d}<small>d</small></div><div class="sub">Joined ${dfmt(emp.doj)}</div></div>
      <div class="stat"><div class="k">Total days</div><div class="v num">${t.totalDays}</div><div class="sub">${t.totalMonths} months of service</div></div>
@@ -831,7 +831,7 @@ function savePosition(){
 }
 function raiseFromPosition(pid){go('newoffer');setTimeout(()=>{const sel=$('f_pos');if(sel){sel.value=pid;onPositionPick();}},30);}
 
-let _letterEmp=null,_letterOff=null,_offerBand=null;
+let _letterEmp=null,_letterOff=null,_offerBand=null,_acceptCred=null;
 function vNewOffer(){
   $('view').innerHTML=`
    <div><h1 class="page">New candidate & offer</h1><p class="page-sub">Pick the position, add the candidate, and generate the offer letter. It then goes to HR for approval.</p></div>
@@ -938,24 +938,27 @@ function vOffers(){
    ============================================================ */
 function vApprovals(){
   const pend=DB.offers.filter(o=>o.status==='pending_approval');
-  $('view').innerHTML=`<div><h1 class="page">Approvals</h1><p class="page-sub">Offers raised by recruitment, waiting for your sign-off.</p></div>
+  $('view').innerHTML=`<div><h1 class="page">Approvals</h1><p class="page-sub">Offers raised by recruitment — accept to create the candidate's login.</p></div>
+   ${_acceptCred?`<div class="card card-pad" style="border-color:#7fe0a6;background:#f1fcf5"><div class="sec-h"><div class="si" style="background:var(--aqua);color:#0c5a2e">✓</div><h2>Login created for ${esc(_acceptCred.name)}</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="_acceptCred=null;vApprovals()">Dismiss</button></div><p class="small">Share these with the candidate so they can log in and onboard:</p><div class="breakup" style="margin-top:8px"><div class="bl"><span>Login (employee ID)</span><span class="num">${esc(_acceptCred.login)}</span></div><div class="bl"><span>Temporary password</span><span class="num">${esc(_acceptCred.password)}</span></div></div><p class="small muted" style="margin-top:8px">They'll be prompted to change it on first login.</p></div>`:''}
    ${pend.length?pend.map(o=>{const e=empById(o.employeeId),c=calc(o.ctc);return `<div class="card card-pad">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
         <div><div style="display:flex;align-items:center;gap:11px"><div class="avatar sm">${initials(e.name)}</div><div><b style="font-size:15px">${esc(e.name)}</b><div class="small muted">${esc(e.desig)} · ${esc(e.dept)} · ${esc(e.code)}</div></div></div>
           <div class="row" style="margin-top:12px;gap:24px"><div><div class="small muted">Annual CTC</div><b class="num">${fmt(o.ctc)}</b></div><div><div class="small muted">Monthly gross</div><b class="num">${fmt(c.m)}</b></div><div><div class="small muted">Joining</div><b>${dfmt(e.doj)}</b></div><div><div class="small muted">Raised by</div><b>${esc(o.releasedBy)}</b></div></div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px"><button class="btn btn-green btn-sm" onclick="approveOffer('${o.id}')">Approve & release</button><button class="btn btn-ghost btn-sm" onclick="rejectOffer('${o.id}')">Reject</button></div>
+        <div style="display:flex;flex-direction:column;gap:8px"><button class="btn btn-green btn-sm" onclick="approveOffer('${o.id}')">Accept &amp; create login</button><button class="btn btn-ghost btn-sm" onclick="rejectOffer('${o.id}')">Reject</button></div>
       </div></div>`;}).join(''):'<div class="card"><div class="empty">No offers waiting for approval. 🎉</div></div>'}`;
 }
+function genPassword(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let p='';for(let i=0;i<8;i++)p+=c.charAt(Math.floor(Math.random()*c.length));return p;}
 function approveOffer(id){
   const o=DB.offers.find(x=>x.id===id);if(!o)return;
-  o.status='accepted';o.approvedBy='Priya Perral';
+  o.status='accepted';o.approvedBy=(SES&&SES.label)||'HR';
   const e=empById(o.employeeId);if(e){e.status='onboarding';
-    // create login + document checklist for the new joiner
-    if(!DB.users.find(u=>u.email===e.email)&&e.email){DB.users.push({email:e.email.toLowerCase(),pass:'demo',role:'employee',employeeId:e.id});}
+    const pass=genPassword();e.loginCode=e.code;e.tempPassword=pass;
+    if(!DB.users.find(u=>u.email===e.email)&&e.email){DB.users.push({email:e.email.toLowerCase(),pass:pass,role:'employee',employeeId:e.id});}
     if(!docsForEmp(e.id).length){DB.docTypes.forEach((t,i)=>DB.documents.push({id:'D'+e.id+'_'+i,employeeId:e.id,type:t,status:'requested',fileName:null,uploadedAt:null}));}
+    _acceptCred={name:e.name,login:e.code,password:pass};
   }
-  save();toast('Offer approved & released — '+(e?e.name:'')+' can now onboard');buildNav();vApprovals();
+  save();toast('Accepted — login created for '+(e?e.name:''));buildNav();vApprovals();
 }
 function rejectOffer(id){const o=DB.offers.find(x=>x.id===id);if(!o)return;o.status='rejected';const e=empById(o.employeeId);if(e)e.status='declined';save();toast('Offer rejected');buildNav();vApprovals();}
 
@@ -1074,8 +1077,9 @@ function warningCardHTML(e,id){
   const list=warningsForEmp(id);
   return `<div class="card card-pad">
     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.warnings}</svg></div><h2>Disciplinary &amp; Warnings</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="issueWarning('${id}')">+ Issue warning</button></div>
-    ${list.length?list.map(w=>`<div class="doc"><div class="di" style="background:#fdecef;color:#a81243"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+    ${list.length?list.map((w,i)=>`<div class="doc"><div class="di" style="background:#fdecef;color:#a81243"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
       <div class="dt"><b class="small">${esc(w.type)}</b><div class="dm">${esc(w.reason)} · ${dfmt(w.date)} · by ${esc(w.issuedBy||'HR')}</div></div>
+      <button class="btn btn-ghost btn-sm" onclick="printWarningLetter('${id}',${i})">Letter</button>
     </div>`).join(''):'<div class="empty" style="padding:12px">No warnings on record — clean record.</div>'}
   </div>`;
 }
@@ -1179,6 +1183,7 @@ function vOrg(){
 function vMTeam(){
   const reports=DB.employees.filter(e=>e.managerId===SES.employeeId);
   $('view').innerHTML=`<div><h1 class="page">My Team</h1><p class="page-sub">Your direct reports. Manage their goals &amp; performance; recommend confirmation or promotion to HR.</p></div>
+   ${attnStrip(reports.filter(e=>e.status==='active'&&!e.confirmedOn).map(e=>e.name+' is on probation — review their objectives').concat(reports.filter(e=>e.status==='offboarding').map(e=>e.name+' is serving notice (last day '+dfmt((e.offboarding||{}).lastDay)+')')))}
    ${reports.length?reports.map(e=>{const p=probationInfo(e);return `<div class="card card-pad" style="cursor:pointer" onclick="renderMReport('${e.id}')">
      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
        <div style="display:flex;align-items:center;gap:11px"><div class="avatar sm">${initials(e.name)}</div><div><b style="font-size:14.5px">${esc(e.name)}</b><div class="small muted">${esc(e.desig)} · ${esc(e.level)} · ${esc(e.code)}</div></div></div>
@@ -1280,6 +1285,7 @@ function vMyDocs(){
      ${emp.status==='exited'?`<div class="doc"><div class="dt"><b class="small">Relieving / experience letter</b></div><button class="btn btn-ghost btn-sm" onclick="printLetter('relieving','${emp.id}')">View / print</button></div>`:''}
      ${hasLetters?'':'<div class="empty">No letters yet.</div>'}
    </div>
+   ${warningsForEmp(emp.id).length?`<div class="card card-pad"><div class="sec-h"><div class="si" style="background:#fdecef;color:#a81243"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.warnings}</svg></div><h2>Disciplinary letters</h2></div>${warningsForEmp(emp.id).map((w,i)=>`<div class="doc"><div class="dt"><b class="small">${esc(w.type)}</b><div class="dm">${esc(w.reason)} · ${dfmt(w.date)}</div></div><button class="btn btn-ghost btn-sm" onclick="printWarningLetter('${emp.id}',${i})">View / print</button></div>`).join('')}</div>`:''}
    <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Payslips</h2></div>
      ${slips.length?slips.map(p=>`<div class="doc"><div class="dt"><b class="small">${esc(p.month)}</b></div><button class="btn btn-ghost btn-sm" onclick="toast('Payslip PDF — wired to the salary sheet later')">PDF</button></div>`).join(''):'<div class="empty">No payslips yet.</div>'}
    </div>
@@ -1361,6 +1367,7 @@ function printLetter(type,id){
   else{toast('Letter not available');return;}
   printWindow(`<div class="letter"><div class="lh"><div><div class="wm"><b>Incredi</b>Pets</div><div class="co">Incredipets Pvt. Ltd. · Gurugram, Delhi NCR</div></div><div class="small muted">${dfmt(new Date().toISOString())}</div></div><h3>${title}</h3>${body}<div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>Priya Perral</b><br>General Manager — HR</div><div></div></div></div>`);
 }
+function printWarningLetter(id,idx){const e=empById(id),w=warningsForEmp(id)[idx];if(!w)return;printWindow(`<div class="letter"><div class="lh"><div><div class="wm"><b>Incredi</b>Pets</div><div class="co">Incredipets Pvt. Ltd. · Gurugram, Delhi NCR</div></div><div class="small muted">${dfmt(w.date)}</div></div><h3>${esc(w.type.toUpperCase())}</h3><p>Dear <b>${esc(e.name)}</b> (${esc(e.code)}),</p><p>This letter is to formally place on record a <b>${esc(w.type)}</b> concerning the following:</p><p>${esc(w.reason)}</p><p>You are advised to take corrective action. A copy of this letter has been added to your personnel file.</p><div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>${esc(w.issuedBy||'HR')}</b><br>People &amp; Ops</div><div style="text-align:right">Acknowledged<br><br>_______________<br>${esc(e.name)}</div></div></div>`);}
 function attnStrip(items){items=(items||[]).filter(Boolean);if(!items.length)return '';return `<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)"><b class="small" style="display:block;margin-bottom:6px">⚡ Needs your attention</b>${items.map(i=>`<div class="small" style="padding:3px 0">• ${esc(i)}</div>`).join('')}</div>`;}
 /* ---------- boot ---------- */
 load();renderPortals();
