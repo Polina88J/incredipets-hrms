@@ -285,7 +285,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v10';
+const KEY='incredipets_hrms_v11';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -367,7 +367,10 @@ function seed(){
     {email:'anushka@incredipets.in',pass:'demo',role:'recruiter',employeeId:null},
     {email:'ankit@incredipets.in',pass:'demo',role:'employee',employeeId:'E5'}
   ];
-  return {levels,positions,employees,offers,documents,docTypes,payslips,assets,warnings,leave,kpis,achievements,ladderReq,users};
+  const holidays=[{date:'2026-01-26',name:'Republic Day'},{date:'2026-03-21',name:'Holi'},{date:'2026-08-15',name:'Independence Day'},{date:'2026-10-02',name:'Gandhi Jayanti'},{date:'2026-10-20',name:'Diwali'},{date:'2026-12-25',name:'Christmas'}];
+  const attendance={E5:[{date:'2026-06-01',inT:'09:58',outT:'18:32',hours:7.6,status:'Present'},{date:'2026-06-02',inT:'10:05',outT:'18:40',hours:7.6,status:'Present'},{date:'2026-06-03',inT:'—',outT:'—',hours:0,status:'Absent (LOP)'},{date:'2026-06-04',inT:'09:50',outT:'18:25',hours:7.6,status:'Present'}]};
+  const leaveRequests=[],advances=[],notifications=[],audit=[];
+  return {levels,positions,employees,offers,documents,docTypes,payslips,assets,warnings,leave,kpis,achievements,ladderReq,users,holidays,attendance,leaveRequests,advances,notifications,audit};
 }
 
 /* ---------- store ---------- */
@@ -428,8 +431,8 @@ function logout(){SES=null;$('app').classList.add('hidden');$('login').classList
 
 /* ---------- nav ---------- */
 const NAVS={
-  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['mydocs','My Documents'],['team','My Team']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['settings','Settings'],['hrdocs','Documents']],
+  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['attendme','Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['holidays','Holidays'],['team','My Team']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['leaverequests','Leave'],['advances','Advances'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['newoffer','New Candidate / Offer'],['offers','My Offers']],
   manager:[['mteam','My Team']]
 };
@@ -441,6 +444,13 @@ const ICONS={
   leave:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/>',
   mydocs:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
   reports:'<path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="13" width="3" height="4"/>',
+  attendme:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  attendance:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  notify:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+  holidays:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9"/><path d="M12 8a3 3 0 1 0-3-3"/><path d="M12 8a3 3 0 1 1 3-3"/>',
+  leaverequests:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/><path d="M9 16l2 2 4-4"/>',
+  advances:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h5"/>',
+  audit:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 5l1.2 1.2L8 3.6M4 11l1.2 1.2L8 9.6M4 17l1.2 1.2L8 15.6"/>',
   growth:'<path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/>',
   ladder:'<path d="M8 3v18M16 3v18M8 7h8M8 12h8M8 17h8"/>',
   team:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
@@ -480,14 +490,14 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 function go(page,el){
   closeSidebar();
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
-  const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
+  const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,audit:vAudit,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
     dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
 }
@@ -536,8 +546,9 @@ function vHome(){
        <div class="info-cell"><div class="k">Status</div><div class="v"><span class="pill ${emp.status}">${esc(emp.status)}</span></div></div>
      </div>
    </div>
+   ${(emp.tempPassword&&!emp.passwordSet)?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)"><div class="sec-h"><div class="si">!</div><h2>Set your password</h2></div><p class="small muted" style="margin-bottom:10px">You're using a temporary password — please set your own.</p><button class="btn btn-primary btn-sm" onclick="setNewPassword()">Set new password</button></div>`:''}
    ${(emp.onboarded&&emp.status!=='exited')?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.settings}</svg></div><h2>Self-service</h2></div>
-     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button>${emp.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="employeeResign()">Resign / apply for exit</button>`:''}</div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button>${leaveEligible(emp)?`<button class="btn btn-ghost btn-sm" onclick="applyLeave()">Apply for leave</button>`:''}<button class="btn btn-ghost btn-sm" onclick="applyAdvance()">Request advance</button>${emp.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="employeeResign()">Resign / apply for exit</button>`:''}</div>
    </div>`:''}`;
 }
 
@@ -652,8 +663,15 @@ function vPay(){
 function vLeave(){
   const emp=empById(SES.employeeId),L=(DB.leave[emp.id])||{paidTotal:0,used:0,lwp:0,absent:[],ledger:[]};
   const unused=L.paidTotal-L.used;
+  if(!leaveEligible(emp)){
+    $('view').innerHTML=`<div><h1 class="page">Leave &amp; Attendance</h1><p class="page-sub">Your attendance and working hours.</p></div>
+     <div class="card card-pad muted small">Your role (Customer Support / Sales) follows the attendance-based policy — leave application isn't enabled for it right now. See your hours under <a onclick="go('attendme',document.querySelector('[data-pg=attendme]'))" style="cursor:pointer">Attendance</a>.</div>`;
+    return;
+  }
+  const myReqs=(DB.leaveRequests||[]).filter(r=>r.employeeId===emp.id);
   $('view').innerHTML=`
-   <div><h1 class="page">Leave & Attendance</h1><p class="page-sub">Your leave balance, what you've used, and any unpaid or absent days.</p></div>
+   <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Leave &amp; Attendance</h1><p class="page-sub">Your leave balance, usage and applications.</p></div><button class="btn btn-primary btn-sm" onclick="applyLeave()">Apply for leave</button></div>
+   ${myReqs.length?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.leaverequests}</svg></div><h2>My leave requests</h2></div>${myReqs.map(r=>`<div class="doc"><div class="dt"><b class="small">${esc(r.type)} · ${r.days} day(s)</b><div class="dm">${dfmt(r.from)} → ${dfmt(r.to)}</div></div><span class="pill ${r.status}">${esc(r.status)}</span></div>`).join('')}</div>`:''}
    <div class="stats">
      <div class="stat"><div class="k">Paid leave balance</div><div class="v num">${unused}<small>/ ${L.paidTotal}</small></div><div class="sub">days remaining this year</div></div>
      <div class="stat"><div class="k">Paid leave used</div><div class="v num">${L.used}</div><div class="sub">days taken</div></div>
@@ -800,7 +818,7 @@ function vPositions(){
    <div id="posFormWrap"></div>
    <div class="card"><table class="list"><tr><th>Role</th><th>Dept</th><th>Level</th><th>Openings</th><th>Hiring mgr</th><th>Status</th><th></th></tr>
      ${DB.positions.map(p=>`<tr><td><b>${esc(p.title)}</b><div class="small muted">${esc(p.location)}</div></td><td>${esc(p.dept)}</td><td>${esc(p.level)}</td><td class="num">${p.openings}</td><td>${esc(p.hiringManager)}</td><td><span class="pill active">${esc(p.status)}</span></td>
-       <td><button class="btn btn-ghost btn-sm" onclick="raiseFromPosition('${p.id}')">Raise candidate</button></td></tr>`).join('')}
+       <td style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="raiseFromPosition('${p.id}')">Raise candidate</button><button class="btn btn-ghost btn-sm" onclick="closePosition('${p.id}')">${p.status==='Open'?'Close':'Reopen'}</button></td></tr>`).join('')}
    </table></div>`;
 }
 const LEVEL_BAND={L1:[0,420000],L2:[420000,600000],L3:[600000,1200000],L4:[1200000,2200000],L5:[2200000,4500000],L6:[4500000,9000000]};
@@ -1085,7 +1103,7 @@ function warningCardHTML(e,id){
     </div>`).join(''):'<div class="empty" style="padding:12px">No warnings on record — clean record.</div>'}
   </div>`;
 }
-function issueWarning(id){const type=prompt('Warning type ('+WARNING_TYPES.join(' / ')+')','Verbal warning');if(!type)return;const reason=prompt('Reason / details');if(!reason)return;DB.warnings.push({id:'W'+(Date.now()),employeeId:id,type:type.trim(),reason:reason.trim(),date:new Date().toISOString().slice(0,10),issuedBy:(SES&&SES.label)||'HR'});save();toast('Warning issued');renderEmp360(id);}
+function issueWarning(id){const type=prompt('Warning type ('+WARNING_TYPES.join(' / ')+')','Verbal warning');if(!type)return;const reason=prompt('Reason / details');if(!reason)return;DB.warnings.push({id:'W'+(Date.now()),employeeId:id,type:type.trim(),reason:reason.trim(),date:new Date().toISOString().slice(0,10),issuedBy:(SES&&SES.label)||'HR'});notify(id,'A '+type.trim()+' has been issued to you — view it in My Documents.');audit('Issued '+type.trim()+' to '+((empById(id)||{}).name||''));save();toast('Warning issued');renderEmp360(id);}
 function vWarnings(){
   const rows=DB.warnings.map(w=>{const e=empById(w.employeeId);if(!e)return '';return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)}</div></td><td>${esc(w.type)}</td><td class="small">${esc(w.reason)}</td><td>${dfmt(w.date)}</td><td>${esc(w.issuedBy||'HR')}</td></tr>`;}).join('');
   $('view').innerHTML=`<div><h1 class="page">Disciplinary &amp; Warnings</h1><p class="page-sub">Warning letters and disciplinary actions on record.</p></div>
@@ -1305,11 +1323,17 @@ function editMyDetails(){
      <div class="field"><label>Bank name</label><input id="md_bank" value="${esc(d.bankName||'')}"></div>
      <div class="field"><label>Account number</label><input id="md_acct" value="${esc(d.account||'')}"></div>
      <div class="field"><label>IFSC</label><input id="md_ifsc" value="${esc(d.ifsc||'')}"></div>
+     <div class="field"><label>Official email</label><input id="md_omail" value="${esc(d.officialMail||emp.email||'')}"></div>
+     <div class="field full"><label>Current address</label><input id="md_addr" value="${esc(d.address||'')}"></div>
+     <div class="field"><label>Emergency contact name</label><input id="md_ecn" value="${esc(d.emergencyName||'')}"></div>
+     <div class="field"><label>Emergency contact number</label><input id="md_ecp" value="${esc(d.emergencyPhone||'')}"></div>
+     <div class="field"><label>PF / gratuity nominee</label><input id="md_nom" value="${esc(d.nominee||'')}"></div>
+     <div class="field"><label>Blood group</label><input id="md_blood" value="${esc(d.bloodGroup||'')}"></div>
    </div>
    <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveMyDetails()">Save</button></div>
    <div class="lock-row" style="margin-top:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Updates are visible to your HR team.</div></div>`;
 }
-function saveMyDetails(){const emp=empById(SES.employeeId);emp.phone=$('md_phone').value.trim();emp.onboardingData=emp.onboardingData||{};emp.onboardingData.personalMail=$('md_pmail').value.trim();emp.onboardingData.bankName=$('md_bank').value.trim();emp.onboardingData.account=$('md_acct').value.trim();emp.onboardingData.ifsc=$('md_ifsc').value.trim();save();toast('Details updated');go('home',document.querySelector('[data-pg=home]'));}
+function saveMyDetails(){const emp=empById(SES.employeeId),g=id=>($(id)&&$(id).value||'').trim();emp.phone=g('md_phone');const d=emp.onboardingData=emp.onboardingData||{};d.personalMail=g('md_pmail');d.bankName=g('md_bank');d.account=g('md_acct');d.ifsc=g('md_ifsc');d.officialMail=g('md_omail');d.address=g('md_addr');d.emergencyName=g('md_ecn');d.emergencyPhone=g('md_ecp');d.nominee=g('md_nom');d.bloodGroup=g('md_blood');if(g('md_omail'))emp.email=g('md_omail');save();toast('Details updated');go('home',document.querySelector('[data-pg=home]'));}
 function employeeResign(){const emp=empById(SES.employeeId);const reason=prompt('Reason for leaving','Resignation');if(!reason)return;const lastDay=prompt('Your intended last working day (YYYY-MM-DD)','');if(!lastDay)return;emp.status='offboarding';emp.offboarding={reason:reason.trim(),lastDay:lastDay.trim(),initiatedAt:new Date().toISOString().slice(0,10),tasks:{},selfInitiated:true};save();toast('Resignation submitted — HR has been notified');buildNav();go('home');}
 function vReports(){
   const emps=DB.employees;
@@ -1371,6 +1395,66 @@ function printLetter(type,id){
 }
 function printWarningLetter(id,idx){const e=empById(id),w=warningsForEmp(id)[idx];if(!w)return;printWindow(`<div class="letter"><div class="lh"><div><div class="wm"><b>Incredi</b>Pets</div><div class="co">Incredipets Pvt. Ltd. · Gurugram, Delhi NCR</div></div><div class="small muted">${dfmt(w.date)}</div></div><h3>${esc(w.type.toUpperCase())}</h3><p>Dear <b>${esc(e.name)}</b> (${esc(e.code)}),</p><p>This letter is to formally place on record a <b>${esc(w.type)}</b> concerning the following:</p><p>${esc(w.reason)}</p><p>You are advised to take corrective action. A copy of this letter has been added to your personnel file.</p><div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>${esc(w.issuedBy||'HR')}</b><br>People &amp; Ops</div><div style="text-align:right">Acknowledged<br><br>_______________<br>${esc(e.name)}</div></div></div>`);}
 function attnStrip(items){items=(items||[]).filter(Boolean);if(!items.length)return '';return `<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)"><b class="small" style="display:block;margin-bottom:6px">⚡ Needs your attention</b>${items.map(i=>`<div class="small" style="padding:3px 0">• ${esc(i)}</div>`).join('')}</div>`;}
+/* ============================================================
+   PHASE D/E MODULES — attendance, leave, advances, notifications, audit
+   ============================================================ */
+function leaveEligible(e){return !/\b(sales|support|crm|customer)\b/i.test((e.desig||'')+' '+(e.dept||''));}
+function notify(empId,text){DB.notifications=DB.notifications||[];DB.notifications.unshift({id:'N'+Date.now()+Math.floor(Math.random()*1000),employeeId:empId,text:text,date:new Date().toISOString(),read:false});}
+function audit(text){DB.audit=DB.audit||[];DB.audit.unshift({id:'AU'+Date.now()+Math.floor(Math.random()*1000),who:(SES&&SES.label)||'System',text:text,at:new Date().toISOString()});}
+function notifFor(id){return (DB.notifications||[]).filter(n=>n.employeeId===id);}
+function vNotify(){
+  const id=SES.employeeId,list=notifFor(id);list.forEach(n=>n.read=true);save();buildNav&&0;
+  $('view').innerHTML=`<div><h1 class="page">Notifications</h1><p class="page-sub">Updates for you (these will also email your official/personal address once live).</p></div>
+   <div class="card card-pad">${list.length?list.map(n=>`<div class="doc"><div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div><div class="dt"><b class="small">${esc(n.text)}</b><div class="dm">${dfmt(n.date)}</div></div></div>`).join(''):'<div class="empty">No notifications yet.</div>'}</div>`;
+}
+function vHolidays(){
+  $('view').innerHTML=`<div><h1 class="page">Holiday Calendar</h1><p class="page-sub">Company holidays for the year.</p></div>
+   <div class="card"><table class="list"><tr><th>Date</th><th>Holiday</th></tr>${(DB.holidays||[]).map(h=>`<tr><td class="num">${dfmt(h.date)}</td><td>${esc(h.name)}</td></tr>`).join('')}</table></div>`;
+}
+function attFor(id){return (DB.attendance&&DB.attendance[id])||[];}
+function vAttendanceMe(){
+  const emp=empById(SES.employeeId),rows=attFor(emp.id),totalH=rows.reduce((s,r)=>s+(r.hours||0),0);
+  $('view').innerHTML=`<div><h1 class="page">Attendance &amp; Hours</h1><p class="page-sub">Your shift, working hours and attendance.</p></div>
+   <div class="stats">
+     <div class="stat"><div class="k">Shift</div><div class="v" style="font-size:15px">10:00–18:30</div><div class="sub">Mon–Sat</div></div>
+     <div class="stat"><div class="k">Hours (this period)</div><div class="v num">${totalH.toFixed(1)}</div></div>
+     <div class="stat"><div class="k">Days present</div><div class="v num">${rows.filter(r=>r.status==='Present').length}</div></div>
+   </div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.leave}</svg></div><h2>Daily log</h2></div>
+     <table class="list"><tr><th>Date</th><th>In</th><th>Out</th><th>Hours</th><th>Status</th></tr>${rows.map(r=>`<tr><td class="num">${dfmt(r.date)}</td><td class="num">${esc(r.inT)}</td><td class="num">${esc(r.outT)}</td><td class="num">${r.hours}</td><td>${r.status==='Present'?'<span class="pill active">Present</span>':'<span class="pill declined">'+esc(r.status)+'</span>'}</td></tr>`).join('')||'<tr><td colspan=5 class="empty">No records yet.</td></tr>'}</table>
+     <div class="lock-row" style="margin-top:12px">Your day includes a 1-hour break — 30-min lunch + two 15-min tea breaks (shown for info; not separately tracked).</div>
+   </div>`;
+}
+function attRowsHTML(rows){return rows.map(r=>`<tr><td class="num">${dfmt(r.date)}</td><td class="num">${esc(r.inT)}</td><td class="num">${esc(r.outT)}</td><td class="num">${r.hours}</td><td>${esc(r.status)}</td></tr>`).join('');}
+function vAttendanceHR(){
+  const all=DB.employees.filter(e=>e.status==='active');
+  const cards=all.map(e=>{const rows=attFor(e.id);const tbl=rows.length?`<table class="list" style="margin-top:10px"><tr><th>Date</th><th>In</th><th>Out</th><th>Hours</th><th>Status</th></tr>${attRowsHTML(rows)}</table>`:'<div class="small muted" style="margin-top:8px">No records.</div>';return `<div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div style="display:flex;align-items:center;gap:10px"><div class="avatar sm">${initials(e.name)}</div><div><b class="small">${esc(e.name)}</b><div class="small muted">${esc(e.code)} · ${esc(e.dept)}</div></div></div><button class="btn btn-ghost btn-sm" onclick="addAttendance('${e.id}')">+ Add day</button></div>${tbl}</div>`;}).join('');
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Attendance</h1><p class="page-sub">Login/logout times per employee — replaces the manual Excel.</p></div><button class="btn btn-ghost btn-sm" onclick="exportAttendance()">Export CSV</button></div>${cards}`;
+}
+function addAttendance(id){const date=prompt('Date (YYYY-MM-DD)','2026-06-05');if(!date)return;const inT=prompt('Login time (or — for absent)','10:00')||'—';const outT=inT==='—'?'—':(prompt('Logout time','18:30')||'—');let hours=0;if(inT!=='—'&&outT!=='—'){const a=inT.split(':'),b=outT.split(':');hours=Math.max(0,(+b[0]+(+b[1]||0)/60)-(+a[0]+(+a[1]||0)/60)-1);hours=Math.round(hours*10)/10;}DB.attendance=DB.attendance||{};(DB.attendance[id]=DB.attendance[id]||[]).unshift({date:date,inT:inT,outT:outT,hours:hours,status:inT==='—'?'Absent (LOP)':'Present'});save();audit('Recorded attendance for '+(empById(id)||{}).name+' on '+date);toast('Attendance recorded');vAttendanceHR();}
+function exportAttendance(){const rows=[];DB.employees.forEach(e=>attFor(e.id).forEach(r=>rows.push([e.name,e.code,r.date,r.inT,r.outT,r.hours,r.status])));exportCSV('attendance.csv',['Name','Code','Date','In','Out','Hours','Status'],rows);}
+function applyLeave(){const emp=empById(SES.employeeId);if(!leaveEligible(emp)){toast('Leave application is not available for your role.');return;}const type=prompt('Leave type (Casual / Sick / Earned)','Casual leave');if(!type)return;const from=prompt('From (YYYY-MM-DD)','');if(!from)return;const to=prompt('To (YYYY-MM-DD)',from)||from;const days=Math.max(1,Math.round((new Date(to)-new Date(from))/86400000)+1);const reason=prompt('Reason','')||'';DB.leaveRequests=DB.leaveRequests||[];DB.leaveRequests.unshift({id:'LR'+Date.now(),employeeId:emp.id,type:type.trim(),from:from,to:to,days:days,reason:reason,status:'pending'});save();notify(emp.id,'Leave request submitted ('+type+', '+days+' day(s)) — pending approval.');toast('Leave request submitted');go('leave',document.querySelector('[data-pg=leave]'));}
+function vLeaveRequests(){
+  const reqs=DB.leaveRequests||[];
+  $('view').innerHTML=`<div><h1 class="page">Leave Requests</h1><p class="page-sub">Standard Indian leave policy. Customer Support &amp; Sales roles are attendance-only.</p></div>
+   ${reqs.length?reqs.map(r=>{const e=empById(r.employeeId);return `<div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px"><div><b class="small">${esc(e?e.name:'')}</b> <span class="pill ${r.status}">${esc(r.status)}</span><div class="small muted">${esc(r.type)} · ${dfmt(r.from)} → ${dfmt(r.to)} · ${r.days} day(s)</div><div class="small">${esc(r.reason||'')}</div></div>${r.status==='pending'?`<div style="display:flex;gap:8px"><button class="btn btn-green btn-sm" onclick="decideLeave('${r.id}','approved')">Approve</button><button class="btn btn-ghost btn-sm" onclick="decideLeave('${r.id}','rejected')">Reject</button></div>`:''}</div></div>`;}).join(''):'<div class="card"><div class="empty">No leave requests.</div></div>'}`;
+}
+function decideLeave(id,st){const r=(DB.leaveRequests||[]).find(x=>x.id===id);if(!r)return;r.status=st;r.decidedBy=(SES&&SES.label);save();notify(r.employeeId,'Your leave request ('+r.type+', '+r.days+' day(s)) was '+st+'.');audit('Leave '+st+' for '+((empById(r.employeeId)||{}).name||''));toast('Leave '+st);vLeaveRequests();}
+function applyAdvance(){const emp=empById(SES.employeeId);const amt=+prompt('Advance amount (₹)','10000');if(!amt)return;const reason=prompt('Reason','')||'';DB.advances=DB.advances||[];DB.advances.unshift({id:'AD'+Date.now(),employeeId:emp.id,amount:amt,reason:reason,date:new Date().toISOString().slice(0,10),status:'pending'});save();notify(emp.id,'Advance request of '+fmt(amt)+' submitted — pending approval.');toast('Advance requested');go('home');}
+function vAdvances(){
+  const adv=DB.advances||[];
+  $('view').innerHTML=`<div><h1 class="page">Salary Advances</h1><p class="page-sub">Advance requests — approve / reject (HRBP + super-admin).</p></div>
+   ${adv.length?adv.map(a=>{const e=empById(a.employeeId);return `<div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px"><div><b class="small">${esc(e?e.name:'')}</b> <span class="pill ${a.status}">${esc(a.status)}</span><div class="small muted">${fmt(a.amount)} · ${esc(a.reason||'')} · ${dfmt(a.date)}</div></div>${a.status==='pending'?`<div style="display:flex;gap:8px"><button class="btn btn-green btn-sm" onclick="decideAdvance('${a.id}','approved')">Approve</button><button class="btn btn-ghost btn-sm" onclick="decideAdvance('${a.id}','rejected')">Reject</button></div>`:''}</div></div>`;}).join(''):'<div class="card"><div class="empty">No advance requests.</div></div>'}`;
+}
+function decideAdvance(id,st){const a=(DB.advances||[]).find(x=>x.id===id);if(!a)return;a.status=st;a.decidedBy=(SES&&SES.label);save();notify(a.employeeId,'Your salary advance of '+fmt(a.amount)+' was '+st+(st==='approved'?' — it will be recovered from your salary.':'.'));audit('Advance '+st+' for '+((empById(a.employeeId)||{}).name||''));toast('Advance '+st);vAdvances();}
+function vAudit(){
+  const a=DB.audit||[];
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Audit Trail</h1><p class="page-sub">Key actions taken in the system.</p></div><button class="btn btn-ghost btn-sm" onclick="exportCSV('audit.csv',['When','Who','Action'],(DB.audit||[]).map(x=>[x.at,x.who,x.text]))">Export CSV</button></div>
+   <div class="card"><table class="list"><tr><th>When</th><th>Who</th><th>Action</th></tr>${a.length?a.map(x=>`<tr><td class="small">${dfmt(x.at)}</td><td class="small">${esc(x.who)}</td><td class="small">${esc(x.text)}</td></tr>`).join(''):'<tr><td colspan=3 class="empty">No actions logged yet.</td></tr>'}</table></div>`;
+}
+function closePosition(id){const p=DB.positions.find(x=>x.id===id);if(!p)return;p.status=p.status==='Open'?'Closed':'Open';save();audit('Position "'+p.title+'" marked '+p.status);toast('Position '+p.status);vPositions();}
+function setNewPassword(){const emp=empById(SES.employeeId),np=prompt('Set a new password (min 6 characters)');if(!np||np.length<6){toast('Password must be at least 6 characters');return;}const u=DB.users.find(x=>x.employeeId===emp.id);if(u)u.pass=np;emp.passwordSet=true;emp.tempPassword=null;save();toast('Password updated');go('home');}
+function acknowledgeDoc(kind){const emp=empById(SES.employeeId);emp.acks=emp.acks||{};emp.acks[kind]=new Date().toISOString().slice(0,10);save();audit(emp.name+' acknowledged '+kind);toast('Acknowledged');go(kind==='offer'?'pay':'mydocs',null);}
 /* ---------- boot ---------- */
 load();renderPortals();
 </script>
