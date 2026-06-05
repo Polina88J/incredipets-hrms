@@ -285,7 +285,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v9';
+const KEY='incredipets_hrms_v10';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -364,7 +364,8 @@ function seed(){
     {email:'rohit@incredipets.in', pass:'demo', role:'employee', employeeId:'E3'},
     {email:'sneha@incredipets.in', pass:'demo', role:'employee', employeeId:'E4'},
     {email:'priya@incredipets.in', pass:'demo', role:'hr',       employeeId:'E2'},
-    {email:'anushka@incredipets.in',pass:'demo',role:'recruiter',employeeId:null}
+    {email:'anushka@incredipets.in',pass:'demo',role:'recruiter',employeeId:null},
+    {email:'ankit@incredipets.in',pass:'demo',role:'employee',employeeId:'E5'}
   ];
   return {levels,positions,employees,offers,documents,docTypes,payslips,assets,warnings,leave,kpis,achievements,ladderReq,users};
 }
@@ -397,8 +398,7 @@ let SES=null; // {role(viewset), label, employeeId}
 const ROLEMETA={employee:{title:'My Portal'},manager:{title:'Manager'},hr:{title:'HR Admin'},recruiter:{title:'Recruitment'}};
 // The four sign-in portals on the starter page — role-based, no personal names.
 const PORTALS=[
-  {key:'employee',label:'Employee',          viewset:'employee', employeeId:'E3',  desc:'My profile, pay, leave, growth & career ladder'},
-  {key:'manager', label:'Manager',           viewset:'manager',  employeeId:'E5', desc:'My team · performance · recommendations'},
+  {key:'employee',label:'Employee',          viewset:'employee', employeeId:'E3',  desc:'My profile, pay, leave, growth, team & career ladder'},
   {key:'hrbp',    label:'HRBP',              viewset:'hr',       employeeId:null, desc:'Day-to-day lifecycle · approvals · documents'},
   {key:'gm',      label:'General Manager',   viewset:'hr',       employeeId:null, desc:'Full HR oversight · all records'},
   {key:'ta',      label:'TA — Talent Acquisition', viewset:'recruiter', employeeId:null, desc:'Positions · candidates · offers'}
@@ -755,15 +755,17 @@ function vTeam(){
   const peers=DB.employees.filter(e=>e.managerId===emp.managerId&&e.id!==emp.id&&mgr);
   const reports=DB.employees.filter(e=>e.managerId===emp.id);
   $('view').innerHTML=`
-   <div><h1 class="page">My Team</h1><p class="page-sub">Your reporting line.</p></div>
+   <div><h1 class="page">My Team</h1><p class="page-sub">${reports.length?'You manage the people below — open anyone to manage their goals, performance and probation.':'Your reporting line.'}</p></div>
    <div class="card card-pad" style="text-align:center">
      ${mgr?`<div class="small muted" style="margin-bottom:8px">Reports to</div>
        <div style="display:inline-flex;align-items:center;gap:11px;border:1.5px solid var(--amaranth);background:#fff5fa;border-radius:12px;padding:11px 16px"><div class="avatar sm">${initials(mgr.name)}</div><div style="text-align:left"><b>${esc(mgr.name)}</b><div class="small muted">${esc(mgr.desig)}</div></div></div>
        <div style="height:18px;width:2px;background:var(--rule);margin:10px auto"></div>`:''}
      <div style="display:inline-flex;align-items:center;gap:11px;border:1.5px solid var(--rule);border-radius:12px;padding:11px 16px;background:var(--soft)"><div class="avatar sm">${initials(emp.name)}</div><div style="text-align:left"><b>${esc(emp.name)} (you)</b><div class="small muted">${esc(emp.desig)}</div></div></div>
-     ${reports.length?`<div style="height:18px;width:2px;background:var(--rule);margin:10px auto"></div><div class="row" style="justify-content:center">${reports.map(r=>`<div style="border:1px solid var(--rule);border-radius:11px;padding:10px 14px"><b class="small">${esc(r.name)}</b><div class="small muted">${esc(r.desig)}</div></div>`).join('')}</div>`:''}
      ${peers.length?`<div class="small muted" style="margin-top:18px">Peers on your team: ${peers.map(p=>esc(p.name)).join(', ')}</div>`:''}
-   </div>`;
+   </div>
+   ${reports.length?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.mteam}</svg></div><h2>My direct reports</h2></div>
+     ${reports.map(r=>{const p=probationInfo(r);return `<div class="doc" style="cursor:pointer" onclick="renderMReport('${r.id}')"><div class="avatar sm">${initials(r.name)}</div><div class="dt"><b class="small">${esc(r.name)}</b><div class="dm">${esc(r.desig)} · ${esc(r.level)}</div></div>${(r.status==='active'&&!r.confirmedOn)?`<span class="pill ${p.overdue?'offboarding':'onboarding'}">On probation</span>`:`<span class="pill ${r.status}">${esc(r.status)}</span>`}</div>`;}).join('')}
+   </div>`:'<div class="card card-pad muted small">You are not managing anyone yet — this page will let you manage your team when you do.</div>'}`;
 }
 
 /* ============================================================
@@ -1193,7 +1195,7 @@ function vMTeam(){
 function renderMReport(id){
   const e=empById(id);if(!e)return;const t=tenure(e.doj),p=probationInfo(e),ks=DB.kpis[id]||[],ach=DB.achievements[id]||[];
   $('view').innerHTML=`
-   <div><button class="btn btn-ghost btn-sm" onclick="go('mteam',document.querySelector('[data-pg=mteam]'))">← My Team</button></div>
+   <div><button class="btn btn-ghost btn-sm" onclick="go('team',document.querySelector('[data-pg=team]'))">← My Team</button></div>
    <div class="card card-pad"><div style="display:flex;align-items:center;gap:16px"><div class="avatar lg">${initials(e.name)}</div>
      <div><h1 class="page" style="font-size:21px">${esc(e.name)}</h1><p class="page-sub">${esc(e.desig)} · ${esc(e.dept)} · ${esc(e.level)} · <span class="pill ${e.status}">${esc(e.status)}</span></p></div></div></div>
    <div class="info-grid">
