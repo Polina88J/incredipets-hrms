@@ -285,7 +285,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v13';
+const KEY='incredipets_hrms_v14';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -316,7 +316,8 @@ function seed(){
   ];
   const offers=[
     {id:'O1',employeeId:'E3',positionId:'P1',ctc:360000,status:'accepted',releasedBy:'Anushka',approvedBy:'Priya Perral',createdAt:'2025-08-20'},
-    {id:'O2',employeeId:'E4',positionId:'P2',ctc:300000,status:'accepted',releasedBy:'Anushka',approvedBy:'Priya Perral',createdAt:'2026-05-22'}
+    {id:'O2',employeeId:'E4',positionId:'P2',ctc:300000,status:'accepted',releasedBy:'Anushka',approvedBy:'Priya Perral',createdAt:'2026-05-22'},
+    {id:'O3',employeeId:'E5',positionId:null,ctc:1100000,status:'accepted',releasedBy:'—',approvedBy:'Jiten Kakar',createdAt:'2024-02-15'}
   ];
   const docTypes=['PAN card','Aadhaar card','Bank proof (cancelled cheque / passbook)','Passport-size photograph','Education certificates','Previous employment (relieving / experience letter)','Address proof'];
   const documents=[];
@@ -340,6 +341,11 @@ function seed(){
           {date:'2026-03-21',type:'Sick leave',days:2,paid:true},
           {date:'2026-02-10',type:'Earned leave',days:2,paid:true},
           {date:'2026-04-18',type:'Leave without pay',days:1,paid:false}
+        ]},
+    E5:{paidTotal:18,used:4,lwp:0,absent:[],
+        ledger:[
+          {date:'2026-05-09',type:'Casual leave',days:1,paid:true},
+          {date:'2026-04-02',type:'Earned leave',days:3,paid:true}
         ]}
   };
   const kpis={
@@ -408,7 +414,8 @@ let SES=null; // {role(viewset), label, employeeId}
 const ROLEMETA={employee:{title:'My Portal'},manager:{title:'Manager'},hr:{title:'HR Admin'},recruiter:{title:'Recruitment'}};
 // The four sign-in portals on the starter page — role-based, no personal names.
 const PORTALS=[
-  {key:'employee',label:'Employee',          viewset:'employee', employeeId:'E3',  desc:'My profile, pay, leave, growth, team & career ladder'},
+  {key:'employee',label:'Employee',          viewset:'employee', employeeId:'E5',  desc:'Full employee view — pay, leave, advances, growth & team'},
+  {key:'employeeSales',label:'Employee · Sales / Support', viewset:'employee', employeeId:'E3', desc:'Roster role — attendance-only (no leave), onboarding, advances'},
   {key:'hrbp',    label:'HRBP',              viewset:'hr',       employeeId:null, desc:'Day-to-day lifecycle · approvals · documents'},
   {key:'gm',      label:'General Manager',   viewset:'hr',       employeeId:null, desc:'Full HR oversight · all records'},
   {key:'ta',      label:'TA — Talent Acquisition', viewset:'recruiter', employeeId:null, desc:'Positions · candidates · offers'}
