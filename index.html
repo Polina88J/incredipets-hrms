@@ -285,7 +285,7 @@
    positions, documents, payslips, leave, kpis, levels.
    ============================================================ */
 
-const KEY='incredipets_hrms_v8';
+const KEY='incredipets_hrms_v9';
 const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -310,8 +310,9 @@ function seed(){
   const employees=[
     {id:'E1',code:'IN-001',name:'Jiten Kakar',desig:'Founder & CEO',dept:"Founder's Office",level:'L6',location:'Gurugram, Delhi NCR',doj:'2021-04-01',managerId:null,phone:'+91 90000 00001',email:'jiten@incredipets.in',status:'active',onboarded:true,confirmedOn:'2021-10-01'},
     {id:'E2',code:'IN-014',name:'Priya Perral',desig:'General Manager — HR',dept:'People & Ops',level:'L5',location:'Gurugram, Delhi NCR',doj:'2023-02-15',managerId:'E1',phone:'+91 90000 00014',email:'priya@incredipets.in',status:'active',onboarded:true,confirmedOn:'2023-08-15',track:'HR & People Ops',ladderTitle:'Head of HR & People Ops'},
-    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L1',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E1',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,track:'Field Sales',ladderTitle:'Field Sales Executive',probationGoals:[{text:'Complete product, CRM & field-process training',done:true},{text:'Hit ≥90% of monthly acquisition target for 3 consecutive months',done:false},{text:'Positive 90-day review from reporting manager',done:false}],positionId:'P1'},
-    {id:'E4',code:'IN-319',name:'Sneha Iyer',desig:'CRM Associate',dept:'Customer Care',level:'L1',location:'Gurugram, Delhi NCR',doj:'2026-06-09',managerId:'E1',phone:'+91 98111 23319',email:'sneha@incredipets.in',status:'onboarding',onboarded:false,track:'CRM',ladderTitle:'CRM Executive',positionId:'P2'}
+    {id:'E3',code:'IN-318',name:'Rohit Verma',desig:'Field Sales Executive',dept:'Supply',level:'L1',location:'Gurugram, Delhi NCR',doj:'2025-09-15',managerId:'E5',phone:'+91 98111 23318',email:'rohit@incredipets.in',status:'onboarding',onboarded:false,track:'Field Sales',ladderTitle:'Field Sales Executive',probationGoals:[{text:'Complete product, CRM & field-process training',done:true},{text:'Hit ≥90% of monthly acquisition target for 3 consecutive months',done:false},{text:'Positive 90-day review from reporting manager',done:false}],positionId:'P1'},
+    {id:'E4',code:'IN-319',name:'Sneha Iyer',desig:'CRM Associate',dept:'Customer Care',level:'L1',location:'Gurugram, Delhi NCR',doj:'2026-06-09',managerId:'E5',phone:'+91 98111 23319',email:'sneha@incredipets.in',status:'onboarding',onboarded:false,track:'CRM',ladderTitle:'CRM Executive',positionId:'P2'},
+    {id:'E5',code:'IN-040',name:'Ankit Rao',desig:'Manager — Supply',dept:'Supply',level:'L3',location:'Gurugram, Delhi NCR',doj:'2024-03-01',managerId:'E1',phone:'+91 90000 00040',email:'ankit@incredipets.in',status:'active',onboarded:true,confirmedOn:'2024-09-01',track:'Supply Chain',ladderTitle:'Manager – Supply'}
   ];
   const offers=[
     {id:'O1',employeeId:'E3',positionId:'P1',ctc:360000,status:'accepted',releasedBy:'Anushka',approvedBy:'Priya Perral',createdAt:'2025-08-20'},
@@ -393,10 +394,11 @@ function dfmt(s){if(!s)return'—';return new Date(s).toLocaleDateString('en-IN'
 
 /* ---------- session & portals ---------- */
 let SES=null; // {role(viewset), label, employeeId}
-const ROLEMETA={employee:{title:'My Portal'},hr:{title:'HR Admin'},recruiter:{title:'Recruitment'}};
+const ROLEMETA={employee:{title:'My Portal'},manager:{title:'Manager'},hr:{title:'HR Admin'},recruiter:{title:'Recruitment'}};
 // The four sign-in portals on the starter page — role-based, no personal names.
 const PORTALS=[
   {key:'employee',label:'Employee',          viewset:'employee', employeeId:'E3',  desc:'My profile, pay, leave, growth & career ladder'},
+  {key:'manager', label:'Manager',           viewset:'manager',  employeeId:'E5', desc:'My team · performance · recommendations'},
   {key:'hrbp',    label:'HRBP',              viewset:'hr',       employeeId:null, desc:'Day-to-day lifecycle · approvals · documents'},
   {key:'gm',      label:'General Manager',   viewset:'hr',       employeeId:null, desc:'Full HR oversight · all records'},
   {key:'ta',      label:'TA — Talent Acquisition', viewset:'recruiter', employeeId:null, desc:'Positions · candidates · offers'}
@@ -415,7 +417,7 @@ function toggleEmail(){const f=$('emailFields'),t=$('emailToggle');f.classList.t
 function startSession(p){
   SES={role:p.viewset,label:p.label,employeeId:p.employeeId};
   const emp=p.employeeId?empById(p.employeeId):null;
-  const ident=(p.viewset==='employee'&&emp)?emp.name:p.label;
+  const ident=((p.viewset==='employee'||p.viewset==='manager')&&emp)?emp.name:p.label;
   $('login').classList.add('hidden');$('app').classList.remove('hidden');
   $('roleTag').textContent=p.label;
   $('topAvatar').textContent=initials(ident);
@@ -428,10 +430,12 @@ function logout(){SES=null;$('app').classList.add('hidden');$('login').classList
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['team','My Team']],
   hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['settings','Settings'],['hrdocs','Documents']],
-  recruiter:[['positions','Positions'],['newoffer','New Candidate / Offer'],['offers','My Offers']]
+  recruiter:[['positions','Positions'],['newoffer','New Candidate / Offer'],['offers','My Offers']],
+  manager:[['mteam','My Team']]
 };
 const ICONS={
   home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+  mteam:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
   onboard:'<path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   pay:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>',
   leave:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/>',
@@ -474,14 +478,14 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 function go(page,el){
   closeSidebar();
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
-  const fn={home:vHome,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
+  const fn={home:vHome,mteam:vMTeam,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
     dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
 }
@@ -780,7 +784,7 @@ function offerLetterHTML(emp,off,stampMode){
 function vPositions(){
   $('view').innerHTML=`
    <div style="display:flex;justify-content:space-between;align-items:flex-end"><div><h1 class="page">Positions</h1><p class="page-sub">The vacancies you're hiring for. Open a position with its JD &amp; level, then raise candidates against it.</p></div>
-     <button class="btn btn-primary btn-sm" onclick="newPositionForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Open position</button></div>
+     <div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="exportPositions()">Export CSV</button><button class="btn btn-primary btn-sm" onclick="newPositionForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Open position</button></div></div>
    <div id="posFormWrap"></div>
    <div class="card"><table class="list"><tr><th>Role</th><th>Dept</th><th>Level</th><th>Openings</th><th>Hiring mgr</th><th>Status</th><th></th></tr>
      ${DB.positions.map(p=>`<tr><td><b>${esc(p.title)}</b><div class="small muted">${esc(p.location)}</div></td><td>${esc(p.dept)}</td><td>${esc(p.level)}</td><td class="num">${p.openings}</td><td>${esc(p.hiringManager)}</td><td><span class="pill active">${esc(p.status)}</span></td>
@@ -915,7 +919,7 @@ function submitForApproval(){
 }
 function vOffers(){
   const rows=DB.offers.map(o=>{const e=empById(o.employeeId);if(!e)return'';return `<tr><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)} · ${esc(e.desig)}</div></td><td>${esc(e.dept)}</td><td>${dfmt(e.doj)}</td><td><span class="pill ${o.status}">${esc(o.status.replace('_',' '))}</span></td></tr>`;}).join('');
-  $('view').innerHTML=`<div><h1 class="page">My offers</h1><p class="page-sub">Candidates you've raised. HR approval status shown.</p></div>
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">My offers</h1><p class="page-sub">Candidates you've raised. HR approval status shown.</p></div><button class="btn btn-ghost btn-sm" onclick="exportOffers()">Export CSV</button></div>
    <div class="card"><table class="list"><tr><th>Candidate</th><th>Dept</th><th>Joining</th><th>Status</th></tr>${rows||'<tr><td colspan=4 class="empty">No offers yet.</td></tr>'}</table></div>`;
 }
 
@@ -953,7 +957,7 @@ function vBoard(){
 }
 function vDirectory(){
   const rows=DB.employees.map(e=>`<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b></td><td>${esc(e.code)}</td><td>${esc(e.desig)}</td><td>${esc(e.dept)}</td><td>${esc(e.level)}</td><td><span class="pill ${e.status}">${esc(e.status)}</span></td></tr>`).join('');
-  $('view').innerHTML=`<div><h1 class="page">Directory</h1><p class="page-sub">Everyone in the system. Click a row for the full 360 record.</p></div>
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Directory</h1><p class="page-sub">Everyone in the system. Click a row for the full 360 record.</p></div><button class="btn btn-ghost btn-sm" onclick="exportDirectory()">Export CSV</button></div>
    <div class="card"><table class="list"><tr><th>Name</th><th>Code</th><th>Designation</th><th>Dept</th><th>Level</th><th>Status</th></tr>${rows}</table></div>`;
 }
 function openEmp(id){_emp360=id;go('directory');setTimeout(()=>renderEmp360(id),10);}
@@ -1097,6 +1101,7 @@ function probationCardHTML(e,id){
       <div style="margin-top:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b class="small">Probation objectives <span class="muted" style="font-weight:600">(the employee sees these)</span></b><button class="btn btn-ghost btn-sm" onclick="addProbationGoal('${id}')">+ Add</button></div>
         ${(e.probationGoals||[]).map((g,i)=>`<div class="req"><span class="ck ${g.done?'ok':'no'}" style="cursor:pointer" onclick="toggleProbationGoal('${id}',${i})">${g.done?'✓':'•'}</span>${esc(g.text)}</div>`).join('')||'<div class="small muted">No objectives set yet.</div>'}
       </div>`}
+    ${e.recommendation?`<div class="lock-row" style="margin-top:10px;color:#0c5a2e;background:#f1fcf5;border-color:#7fe0a6">Manager recommended this person for <b>${esc(e.recommendation.type)}</b> (${dfmt(e.recommendation.date)}).</div>`:''}
   </div>`;
 }
 function addProbationGoal(id){const e=empById(id),text=prompt('Probation objective for '+e.name);if(!text)return;(e.probationGoals=e.probationGoals||[]).push({text:text.trim(),done:false});save();toast('Objective added');renderEmp360(id);}
@@ -1105,12 +1110,12 @@ function confirmEmployee(id){const e=empById(id);e.confirmedOn=new Date().toISOS
 function extendProbation(id){const e=empById(id);e.probationMonths=(e.probationMonths||6)+3;save();toast('Probation extended by 3 months');renderEmp360(id);}
 function vProbation(){
   const list=DB.employees.filter(e=>e.status==='active'&&!e.confirmedOn);
-  $('view').innerHTML=`<div><h1 class="page">Probation</h1><p class="page-sub">Employees on probation and when their confirmation review falls due.</p></div>
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Probation</h1><p class="page-sub">Employees on probation and when their confirmation review falls due.</p></div><button class="btn btn-ghost btn-sm" onclick="exportProbation()">Export CSV</button></div>
    ${list.length?`<div class="card"><table class="list"><tr><th>Employee</th><th>Joined</th><th>Review due</th><th>Status</th></tr>${list.map(e=>{const p=probationInfo(e);return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)} · ${esc(e.desig)}</div></td><td>${dfmt(e.doj)}</td><td>${dfmt(p.due)}</td><td>${p.overdue?'<span class="pill offboarding">Review overdue</span>':'<span class="pill onboarding">On probation</span>'}</td></tr>`;}).join('')}</table></div>`:'<div class="card"><div class="empty">No one is on probation.</div></div>'}`;
 }
 function vOffboarding(){
   const list=DB.employees.filter(e=>e.status==='offboarding');
-  $('view').innerHTML=`<div><h1 class="page">Offboarding &amp; Exit</h1><p class="page-sub">Employees in their notice period. Work the exit checklist, then close them out.</p></div>
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Offboarding &amp; Exit</h1><p class="page-sub">Employees in their notice period. Work the exit checklist, then close them out.</p></div><button class="btn btn-ghost btn-sm" onclick="exportOffboarding()">Export CSV</button></div>
    ${list.length?list.map(e=>{const ob=e.offboarding||{tasks:{}},done=EXIT_TASKS.filter(t=>ob.tasks&&ob.tasks[t[0]]).length,pct=Math.round(done/EXIT_TASKS.length*100);return `<div class="card card-pad">
      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
        <div style="display:flex;align-items:center;gap:11px"><div class="avatar sm">${initials(e.name)}</div><div><b style="font-size:14.5px">${esc(e.name)}</b><div class="small muted">${esc(e.desig)} · ${esc(e.code)} · ${esc(ob.reason||'')} · last day ${dfmt(ob.lastDay)}</div></div></div>
@@ -1152,6 +1157,53 @@ function vOrg(){
   $('view').innerHTML=`<div><h1 class="page">Org Chart</h1><p class="page-sub">Reporting structure. Click anyone to open their record.</p></div>
    <div class="card card-pad" style="overflow:auto"><div class="orgtree">${roots.map(node).join('')||'<div class="empty">No reporting structure yet.</div>'}</div></div>`;
 }
+/* ============================================================
+   MANAGER VIEWS (no compensation — that stays with HR)
+   ============================================================ */
+function vMTeam(){
+  const reports=DB.employees.filter(e=>e.managerId===SES.employeeId);
+  $('view').innerHTML=`<div><h1 class="page">My Team</h1><p class="page-sub">Your direct reports. Manage their goals &amp; performance; recommend confirmation or promotion to HR.</p></div>
+   ${reports.length?reports.map(e=>{const p=probationInfo(e);return `<div class="card card-pad" style="cursor:pointer" onclick="renderMReport('${e.id}')">
+     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+       <div style="display:flex;align-items:center;gap:11px"><div class="avatar sm">${initials(e.name)}</div><div><b style="font-size:14.5px">${esc(e.name)}</b><div class="small muted">${esc(e.desig)} · ${esc(e.level)} · ${esc(e.code)}</div></div></div>
+       ${(e.status==='active'&&!e.confirmedOn)?`<span class="pill ${p.overdue?'offboarding':'onboarding'}">On probation</span>`:`<span class="pill ${e.status}">${esc(e.status)}</span>`}
+     </div></div>`;}).join(''):'<div class="card"><div class="empty">No direct reports.</div></div>'}`;
+}
+function renderMReport(id){
+  const e=empById(id);if(!e)return;const t=tenure(e.doj),p=probationInfo(e),ks=DB.kpis[id]||[],ach=DB.achievements[id]||[];
+  $('view').innerHTML=`
+   <div><button class="btn btn-ghost btn-sm" onclick="go('mteam',document.querySelector('[data-pg=mteam]'))">← My Team</button></div>
+   <div class="card card-pad"><div style="display:flex;align-items:center;gap:16px"><div class="avatar lg">${initials(e.name)}</div>
+     <div><h1 class="page" style="font-size:21px">${esc(e.name)}</h1><p class="page-sub">${esc(e.desig)} · ${esc(e.dept)} · ${esc(e.level)} · <span class="pill ${e.status}">${esc(e.status)}</span></p></div></div></div>
+   <div class="info-grid">
+     <div class="info-cell"><div class="k">Tenure</div><div class="v">${t.y}y ${t.mo}m ${t.d}d</div></div>
+     <div class="info-cell"><div class="k">Date of joining</div><div class="v">${dfmt(e.doj)}</div></div>
+     <div class="info-cell"><div class="k">Level</div><div class="v">${esc(e.level)}</div></div>
+   </div>
+   ${(e.status==='active'&&!e.confirmedOn)?`<div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.probation}</svg></div><h2>Probation</h2><span class="pill ${p.overdue?'offboarding':'onboarding'}" style="margin-left:auto">Due ${dfmt(p.due)}</span></div>
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b class="small">Objectives (the employee sees these)</b><button class="btn btn-ghost btn-sm" onclick="mAddGoal('${id}')">+ Add</button></div>
+     ${(e.probationGoals||[]).map((g,i)=>`<div class="req"><span class="ck ${g.done?'ok':'no'}" style="cursor:pointer" onclick="mToggleGoal('${id}',${i})">${g.done?'✓':'•'}</span>${esc(g.text)}</div>`).join('')||'<div class="small muted">No objectives yet.</div>'}
+     <div style="margin-top:12px"><button class="btn btn-green btn-sm" onclick="recommendConfirm('${id}')">Recommend for confirmation</button></div>
+   </div>`:''}
+   <div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.growth}</svg></div><h2>Performance</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="recommendPromote('${id}')">Recommend promotion</button></div>
+     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b class="small">KPIs</b><button class="btn btn-ghost btn-sm" onclick="mAddKpi('${id}')">+ Add KPI</button></div>
+     ${ks.length?ks.map((k,i)=>{const pct=Math.min(100,Math.round(k.actual/k.target*100)),hit=k.actual>=k.target;return `<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span class="small">${esc(k.name)}</span><span class="small">${k.actual}${esc(k.unit||'')} / ${k.target}${esc(k.unit||'')} · <a onclick="mEditKpi('${id}',${i})" style="cursor:pointer">edit</a></span></div><div class="bar ${hit?'green':''}"><i style="width:${pct}%"></i></div></div>`;}).join(''):'<div class="empty" style="padding:12px">No KPIs set yet.</div>'}
+     <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px"><b class="small">Achievements</b><button class="btn btn-ghost btn-sm" onclick="mAddAch('${id}')">+ Log</button></div>
+     ${ach.length?ach.map(a=>`<div class="doc" style="padding:8px 4px"><div class="dt"><b class="small">${esc(a.title)}</b><div class="dm">${dfmt(a.date)}</div></div></div>`).join(''):'<div class="empty" style="padding:12px">None logged yet.</div>'}
+   </div>
+   ${e.recommendation?`<div class="card card-pad" style="border-color:#7fe0a6;background:#f1fcf5"><span class="small">You recommended <b>${esc(e.name)}</b> for <b>${esc(e.recommendation.type)}</b> on ${dfmt(e.recommendation.date)} — HR has been notified.</span></div>`:''}
+   <div class="card card-pad muted small">As this person's manager you see their goals, performance and probation — not their compensation (that stays with HR).</div>`;
+  $('topTitle').textContent=e.name;
+}
+function mAddKpi(id){const name=prompt('KPI name (e.g. Monthly target)');if(!name)return;const target=parseFloat(prompt('Target (number)','100'))||0;const actual=parseFloat(prompt('Current actual (number)','0'))||0;const unit=(prompt('Unit (e.g. % — blank for none)','%')||'').trim();(DB.kpis[id]=DB.kpis[id]||[]).push({name:name.trim(),target,actual,unit});save();toast('KPI added');renderMReport(id);}
+function mEditKpi(id,i){const k=(DB.kpis[id]||[])[i];if(!k)return;const v=prompt('Update actual for "'+k.name+'"',k.actual);if(v===null)return;k.actual=parseFloat(v)||0;save();renderMReport(id);}
+function mAddAch(id){const t=prompt('Achievement / recognition');if(!t)return;(DB.achievements[id]=DB.achievements[id]||[]).push({title:t.trim(),date:new Date().toISOString().slice(0,10)});save();toast('Logged');renderMReport(id);}
+function mAddGoal(id){const t=prompt('Probation objective');if(!t)return;const e=empById(id);(e.probationGoals=e.probationGoals||[]).push({text:t.trim(),done:false});save();toast('Objective added');renderMReport(id);}
+function mToggleGoal(id,i){const e=empById(id);if(e.probationGoals&&e.probationGoals[i]){e.probationGoals[i].done=!e.probationGoals[i].done;save();renderMReport(id);}}
+function recommendConfirm(id){const e=empById(id);e.recommendation={type:'Confirmation',by:(SES&&SES.label)||'Manager',date:new Date().toISOString().slice(0,10)};save();toast('Recommended '+e.name+' for confirmation — sent to HR');renderMReport(id);}
+function recommendPromote(id){const e=empById(id);e.recommendation={type:'Promotion',by:(SES&&SES.label)||'Manager',date:new Date().toISOString().slice(0,10)};save();toast('Recommended '+e.name+' for promotion — sent to HR');renderMReport(id);}
 function vHrOnboard(){
   const joiners=DB.employees.filter(e=>e.status==='offered'||e.status==='onboarding');
   const recent=DB.employees.filter(e=>e.onboardingData&&e.status==='active');
@@ -1181,6 +1233,12 @@ function vHrDocs(){
 }
 
 /* ---------- toast ---------- */
+function exportCSV(filename,headers,rows){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const csv=[headers.map(q).join(',')].concat(rows.map(r=>r.map(q).join(','))).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=filename;document.body.appendChild(a);a.click();a.remove();toast('Exported '+filename);}
+function exportDirectory(){exportCSV('directory.csv',['Name','Code','Designation','Dept','Level','Status'],DB.employees.map(e=>[e.name,e.code,e.desig,e.dept,e.level,e.status]));}
+function exportProbation(){const list=DB.employees.filter(e=>e.status==='active'&&!e.confirmedOn);exportCSV('probation.csv',['Name','Code','Designation','Joined','Review due'],list.map(e=>{const p=probationInfo(e);return [e.name,e.code,e.desig,e.doj,p.due];}));}
+function exportOffboarding(){const list=DB.employees.filter(e=>e.status==='offboarding');exportCSV('resignations.csv',['Name','Code','Reason','Last day'],list.map(e=>[e.name,e.code,(e.offboarding&&e.offboarding.reason)||'',(e.offboarding&&e.offboarding.lastDay)||'']));}
+function exportOffers(){const rows=DB.offers.map(o=>{const e=empById(o.employeeId);return e?[e.name,e.code,e.desig,e.dept,e.doj,o.status]:null;}).filter(Boolean);exportCSV('offers.csv',['Candidate','Code','Designation','Dept','Joining','Status'],rows);}
+function exportPositions(){exportCSV('positions.csv',['Role','Dept','Level','Openings','Hiring manager','Band min','Band max','Status'],DB.positions.map(p=>[p.title,p.dept,p.level,p.openings,p.hiringManager,p.bandMin,p.bandMax,p.status]));}
 function toast(msg){const t=document.createElement('div');t.className='toast';t.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="#A4F4C6"><path d="M20 6L9 17l-5-5"/></svg>'+esc(msg);document.body.appendChild(t);setTimeout(()=>t.remove(),2600);}
 
 /* ---------- demo login buttons ---------- */
