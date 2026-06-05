@@ -779,27 +779,30 @@ function offerLetterHTML(emp,off,stampMode){
    ============================================================ */
 function vPositions(){
   $('view').innerHTML=`
-   <div style="display:flex;justify-content:space-between;align-items:flex-end"><div><h1 class="page">Positions</h1><p class="page-sub">Open roles you're hiring for. Add a role, then raise candidates against it.</p></div>
-     <button class="btn btn-primary btn-sm" onclick="newPositionForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Add position</button></div>
+   <div style="display:flex;justify-content:space-between;align-items:flex-end"><div><h1 class="page">Positions</h1><p class="page-sub">The vacancies you're hiring for. Open a position with its JD &amp; level, then raise candidates against it.</p></div>
+     <button class="btn btn-primary btn-sm" onclick="newPositionForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Open position</button></div>
    <div id="posFormWrap"></div>
    <div class="card"><table class="list"><tr><th>Role</th><th>Dept</th><th>Level</th><th>Openings</th><th>Hiring mgr</th><th>Status</th><th></th></tr>
      ${DB.positions.map(p=>`<tr><td><b>${esc(p.title)}</b><div class="small muted">${esc(p.location)}</div></td><td>${esc(p.dept)}</td><td>${esc(p.level)}</td><td class="num">${p.openings}</td><td>${esc(p.hiringManager)}</td><td><span class="pill active">${esc(p.status)}</span></td>
        <td><button class="btn btn-ghost btn-sm" onclick="raiseFromPosition('${p.id}')">Raise candidate</button></td></tr>`).join('')}
    </table></div>`;
 }
+const LEVEL_BAND={L1:[0,420000],L2:[420000,600000],L3:[600000,1200000],L4:[1200000,2200000],L5:[2200000,4500000],L6:[4500000,9000000]};
+function fillBandFromLevel(){const b=LEVEL_BAND[$('p_level').value];if(b){$('p_bmin').value=b[0];$('p_bmax').value=b[1];}}
 function newPositionForm(){
   $('posFormWrap').innerHTML=`<div class="card card-pad">
-    <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.positions}</svg></div><h2>New position</h2></div>
+    <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.positions}</svg></div><h2>Open a position</h2></div>
     <div class="grid2">
       <div class="field"><label>Role title</label><input id="p_title" placeholder="e.g. Field Sales Executive"></div>
       <div class="field"><label>Department</label><input id="p_dept" placeholder="e.g. Supply"></div>
-      <div class="field"><label>Level</label><select id="p_level">${DB.levels.map(l=>`<option value="${l.level}">${l.level} — ${l.title}</option>`).join('')}</select></div>
+      <div class="field"><label>Level <span class="muted" style="font-weight:600">(sets the salary band)</span></label><select id="p_level" onchange="fillBandFromLevel()">${DB.levels.map(l=>`<option value="${l.level}">${l.level} — ${l.title}</option>`).join('')}</select></div>
       <div class="field"><label>Location</label><input id="p_loc" value="Gurugram, Delhi NCR"></div>
       <div class="field"><label>Openings</label><input id="p_open" type="number" value="1"></div>
       <div class="field"><label>Hiring manager</label><input id="p_mgr" placeholder="e.g. Ankit"></div>
-      <div class="field"><label>Salary band — min (₹/yr)</label><input id="p_bmin" type="number" placeholder="300000"></div>
-      <div class="field"><label>Salary band — max (₹/yr)</label><input id="p_bmax" type="number" placeholder="420000"></div>
-      <div class="field full"><label>Job description (JD)</label><textarea id="p_jd" placeholder="Responsibilities, KPIs, must-haves…"></textarea></div>
+      <div class="field"><label>Salary band — min (₹/yr)</label><input id="p_bmin" type="number" placeholder="auto from level"></div>
+      <div class="field"><label>Salary band — max (₹/yr)</label><input id="p_bmax" type="number" placeholder="auto from level"></div>
+      <div class="field full"><label>Job description (JD)</label><textarea id="p_jd" placeholder="Responsibilities, KPIs, must-haves… (or upload a file below)"></textarea></div>
+      <div class="field full"><label>Upload JD file (optional)</label><input id="p_jdfile" type="file"></div>
     </div>
     <div style="margin-top:16px;display:flex;gap:10px"><button class="btn btn-primary" onclick="savePosition()">Save position</button><button class="btn btn-ghost" onclick="$('posFormWrap').innerHTML=''">Cancel</button></div>
   </div>`;
@@ -808,12 +811,13 @@ function newPositionForm(){
 function savePosition(){
   const g=id=>$(id).value.trim();
   if(!g('p_title')){toast('Add a role title');return;}
-  DB.positions.unshift({id:'P'+(Date.now()),title:g('p_title'),dept:g('p_dept')||'—',level:$('p_level').value,location:g('p_loc')||'—',openings:+g('p_open')||1,hiringManager:g('p_mgr')||'—',bandMin:+g('p_bmin')||0,bandMax:+g('p_bmax')||0,status:'Open',jd:g('p_jd')});
-  save();toast('Position added');vPositions();
+  const jdFile=($('p_jdfile')&&$('p_jdfile').files[0]&&$('p_jdfile').files[0].name)||null;
+  DB.positions.unshift({id:'P'+(Date.now()),title:g('p_title'),dept:g('p_dept')||'—',level:$('p_level').value,location:g('p_loc')||'—',openings:+g('p_open')||1,hiringManager:g('p_mgr')||'—',bandMin:+g('p_bmin')||0,bandMax:+g('p_bmax')||0,status:'Open',jd:g('p_jd'),jdFile:jdFile});
+  save();toast('Position opened');vPositions();
 }
 function raiseFromPosition(pid){go('newoffer');setTimeout(()=>{const sel=$('f_pos');if(sel){sel.value=pid;onPositionPick();}},30);}
 
-let _letterEmp=null,_letterOff=null;
+let _letterEmp=null,_letterOff=null,_offerBand=null;
 function vNewOffer(){
   $('view').innerHTML=`
    <div><h1 class="page">New candidate & offer</h1><p class="page-sub">Pick the position, add the candidate, and generate the offer letter. It then goes to HR for approval.</p></div>
@@ -848,16 +852,22 @@ function onPositionPick(){
   const pid=$('f_pos').value,p=DB.positions.find(x=>x.id===pid);
   if(!p){$('jdBox').innerHTML='';return;}
   $('f_desig').value=p.title;$('f_dept').value=p.dept;$('f_loc').value=p.location;$('f_mgr').value=p.hiringManager;
-  $('jdBox').innerHTML=`<div class="breakup" style="margin-top:12px"><h4>Job description · ${esc(p.level)} · band ${p.bandMin?fmt(p.bandMin):'—'}–${p.bandMax?fmt(p.bandMax):'—'}</h4><div class="small">${esc(p.jd)}</div></div>`;
+  _offerBand=(p.bandMin||p.bandMax)?[p.bandMin,p.bandMax]:null;
+  const lvl=LEVELS.find(l=>l.lv===p.level);
+  $('jdBox').innerHTML=`<div class="breakup" style="margin-top:12px"><h4>Job description · level ${esc(p.level)}${lvl?' ('+esc(lvl.comp)+')':''} · band ${p.bandMin?fmt(p.bandMin):'—'}–${p.bandMax?fmt(p.bandMax):'—'}</h4><div class="small">${esc(p.jd)||'<span class="muted">No JD text.</span>'}${p.jdFile?` <span class="muted">· file: ${esc(p.jdFile)}</span>`:''}</div></div>`;
+  liveBreakup();
 }
 function liveBreakup(){
   const ctc=+$('f_ctc').value||0,b=$('bk');
   if(!ctc){b.innerHTML='<h4>Auto breakup (62 / 31 / 7)</h4><div class="small muted">Enter CTC to see the split.</div>';return;}
-  const c=calc(ctc);b.innerHTML=`<h4>Monthly breakup (62 / 31 / 7)</h4>
+  const c=calc(ctc);
+  let bandNote='';
+  if(_offerBand){const mn=_offerBand[0],mx=_offerBand[1];if(mn&&ctc<mn)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">Below the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else if(mx&&ctc>mx)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">Above the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else bandNote='<div class="bl"><span class="small" style="color:var(--green);font-weight:700">Within the level band ✓</span></div>';}
+  b.innerHTML=`<h4>Monthly breakup (62 / 31 / 7)</h4>
    <div class="bl"><span>Basic (62%)</span><span class="num">${fmt(c.basic)}</span></div>
    <div class="bl"><span>HRA (31%)</span><span class="num">${fmt(c.hra)}</span></div>
    <div class="bl"><span>Special allowance (7%)</span><span class="num">${fmt(c.spl)}</span></div>
-   <div class="bl tot"><span>Monthly gross</span><span class="num">${fmt(c.m)}</span></div>`;
+   <div class="bl tot"><span>Monthly gross</span><span class="num">${fmt(c.m)}</span></div>${bandNote}`;
 }
 function genOffer(){
   const g=id=>$(id).value;
