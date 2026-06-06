@@ -1025,7 +1025,7 @@ function vBoard(){
 }
 function vDirectory(){
   const rows=DB.employees.map(e=>`<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b></td><td>${esc(e.code)}</td><td>${esc(e.desig)}</td><td>${esc(e.dept)}</td><td>${esc(e.level)}</td><td><span class="pill ${e.status}">${esc(e.status)}</span></td></tr>`).join('');
-  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Directory</h1><p class="page-sub">Everyone in the system. Click a row for the full 360 record.</p></div><button class="btn btn-ghost btn-sm" onclick="exportDirectory()">Export CSV</button></div>
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Directory</h1><p class="page-sub">Everyone in the system. Click a row for the full 360 record.</p></div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="vAddEmployee()">+ Add employee</button><button class="btn btn-ghost btn-sm" onclick="exportDirectory()">Export CSV</button></div></div>
    <div class="card card-pad" style="padding:14px 16px"><input id="dirSearch" oninput="filterDirectory()" placeholder="Search name, code, designation, department…" style="width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1.5px solid var(--rule);border-radius:10px;outline:none"></div>
    <div class="card"><table class="list"><tr><th>Name</th><th>Code</th><th>Designation</th><th>Dept</th><th>Level</th><th>Status</th></tr>${rows}</table></div>`;
 }
@@ -1057,10 +1057,10 @@ function renderEmp360(id){
      ${e.onboardingData?`<div class="info-grid">${ONBOARD_FIELDS.filter(f=>e.onboardingData[f.k]!=null&&e.onboardingData[f.k]!=='').map(f=>`<div class="info-cell"><div class="k">${f.l}</div><div class="v" style="font-size:13px">${esc(maskPII(f.k,e.onboardingData[f.k]))}</div></div>`).join('')}</div>`:'<div class="empty">Not submitted yet — waiting on the employee.</div>'}
    </div>
    <div class="card card-pad">
-     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Document uploads</h2></div>
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Document uploads</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="hrAddDoc('${id}')">+ Add document</button></div>
      ${docs.length?docs.map(d=>`<div class="doc"><div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div>
         <div class="dt"><b>${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Awaiting upload':((d.fileName||'')+' · '+dfmt(d.uploadedAt))}</div></div>
-        ${d.status==='uploaded'?`<button class="btn btn-green btn-sm" onclick="verifyDoc('${d.id}','${id}')">Verify</button>`:(d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="hrMarkDoc('${d.id}','${id}')">Mark received</button>`:`<span class="pill ${d.status}">Verified</span>`)}
+        ${d.status==='uploaded'?`<button class="btn btn-green btn-sm" onclick="verifyDoc('${d.id}','${id}')">Verify</button> <button class="btn btn-ghost btn-sm" onclick="hrUploadDoc('${d.id}','${id}')">Replace</button>`:(d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="hrUploadDoc('${d.id}','${id}')">Upload</button>`:`<span class="pill ${d.status}">Verified</span> <button class="btn btn-ghost btn-sm" onclick="hrUploadDoc('${d.id}','${id}')">Replace</button>`)}
       </div>`).join(''):'<div class="empty">No documents requested.</div>'}
    </div>
    <div class="card card-pad">
@@ -1614,6 +1614,52 @@ function hrMarkDoc(did,id){const d=DB.documents.find(x=>x.id===did);if(!d)return
 /* ===== batch 4 — onboarding approval gate, real payslip, recruiter strip ===== */
 function payslipFor(empId){const e=empById(empId),o=offerForEmp(empId);if(!o)return null;const c=calc(o.ctc);const pf=Math.round(Math.min(c.basic,15000)*0.12),esi=c.m<=21000?Math.round(c.m*0.0075):0;const L=DB.leave[empId]||{lwp:0,absent:[]},lopDays=(L.lwp||0)+((L.absent||[]).length),lop=Math.round((c.m/30)*lopDays);const adv=(DB.advances||[]).filter(a=>a.employeeId===empId&&a.status==='approved').reduce((s,a)=>s+a.amount,0),advRec=Math.min(adv,Math.round(c.m*0.25));const net=Math.round(c.m-pf-esi-lop-advRec);return {e,c,pf,esi,lopDays,lop,advRec,net};}
 function printPayslip(empId,month){const r=payslipFor(empId);if(!r){toast('No salary on record');return;}const e=r.e,ded=r.pf+r.esi+r.lop+r.advRec;printWindow(`<div class="letter"><div class="lh"><div><div class="wm"><b>Incredi</b>Pets</div><div class="co">Incredipets Pvt. Ltd. · Gurugram, Delhi NCR</div></div><div class="small muted">Payslip · ${esc(month||'')}</div></div><h3>SALARY SLIP — ${esc(month||'')}</h3><p><b>${esc(e.name)}</b> (${esc(e.code)}) · ${esc(e.desig)} · ${esc(e.dept)}</p><table><tr><th>Earnings</th><th>Monthly</th></tr><tr><td>Basic</td><td class="num">${fmt(r.c.basic)}</td></tr><tr><td>HRA</td><td class="num">${fmt(r.c.hra)}</td></tr><tr><td>Special allowance</td><td class="num">${fmt(r.c.spl)}</td></tr><tr><th>Gross</th><th class="num">${fmt(r.c.m)}</th></tr></table><table><tr><th>Deductions</th><th>Monthly</th></tr><tr><td>Provident Fund (PF)</td><td class="num">${fmt(r.pf)}</td></tr><tr><td>ESI</td><td class="num">${fmt(r.esi)}</td></tr><tr><td>Loss of pay (${r.lopDays} day(s))</td><td class="num">${fmt(r.lop)}</td></tr><tr><td>Advance recovery</td><td class="num">${fmt(r.advRec)}</td></tr><tr><th>Total deductions</th><th class="num">${fmt(ded)}</th></tr></table><p style="font-size:16px;margin-top:14px"><b>Net pay: ${fmt(r.net)}</b></p><p class="small muted">Computer-generated payslip — figures from prototype demo data; statutory rates as per law.</p></div>`);}
+
+/* ===== batch 5 — manual create employee + HR document upload ===== */
+function vAddEmployee(){
+  const mgrs=DB.employees.filter(e=>e.status!=='exited');
+  $('view').innerHTML=`<div><button class="btn btn-ghost btn-sm" onclick="go('directory',document.querySelector('[data-pg=directory]'))">← Directory</button></div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.directory}</svg></div><h2>Add employee</h2></div>
+     <p class="small muted" style="margin:-6px 0 14px">For staff not on the sheet (e.g. ground staff) or any new joiner. Creates the profile and a login the employee can use.</p>
+     <div class="grid2">
+       <div class="field"><label>Full name *</label><input id="ne_name"></div>
+       <div class="field"><label>Employee code *</label><input id="ne_code" placeholder="e.g. IN-321"></div>
+       <div class="field"><label>Designation</label><input id="ne_desig"></div>
+       <div class="field"><label>Department</label><input id="ne_dept"></div>
+       <div class="field"><label>Level</label><select id="ne_level"><option value="">—</option>${['L1','L2','L3','L4','L5','L6'].map(l=>`<option>${l}</option>`).join('')}</select></div>
+       <div class="field"><label>Date of joining (first working day)</label><input id="ne_doj" type="date"></div>
+       <div class="field"><label>Reporting manager</label><select id="ne_mgr"><option value="">—</option>${mgrs.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')}</select></div>
+       <div class="field"><label>Status</label><select id="ne_status"><option value="active">Active (already working)</option><option value="onboarding">Onboarding (new joiner)</option></select></div>
+       <div class="field"><label>Phone</label><input id="ne_phone"></div>
+       <div class="field"><label>Official email (used as login)</label><input id="ne_email" placeholder="name@incredipets.in"></div>
+       <div class="field"><label>Personal email</label><input id="ne_pmail"></div>
+       <div class="field"><label>Location</label><input id="ne_loc" value="Gurugram, Delhi NCR"></div>
+     </div>
+     <div style="margin-top:16px"><button class="btn btn-primary" onclick="createEmployee()">Create employee &amp; login</button></div>
+   </div>`;
+}
+function createEmployee(){
+  const g=id=>($(id)&&$(id).value||'').trim();
+  const name=g('ne_name'),code=g('ne_code');
+  if(!name||!code){toast('Name and employee code are required');return;}
+  if(DB.employees.some(e=>(e.code||'').toLowerCase()===code.toLowerCase())){toast('That employee code already exists');return;}
+  const id='E'+Date.now();
+  const email=(g('ne_email')||(code.toLowerCase().replace(/[^a-z0-9]/g,'')+'@incredipets.in')).toLowerCase();
+  const status=g('ne_status')||'active';
+  const emp={id:id,code:code,name:name,desig:g('ne_desig'),dept:g('ne_dept'),level:g('ne_level'),location:g('ne_loc'),doj:g('ne_doj'),managerId:g('ne_mgr')||null,phone:g('ne_phone'),email:email,status:status,onboarded:status!=='onboarding',createdManually:true};
+  if(g('ne_pmail'))emp.onboardingData={personalMail:g('ne_pmail')};
+  DB.employees.push(emp);
+  const pass=genPassword();
+  if(!DB.users.find(u=>u.email===email))DB.users.push({email:email,pass:pass,role:'employee',employeeId:id});
+  emp.tempPassword=pass;emp.passwordSet=false;emp.loginCode=code;
+  DB.docTypes.forEach((t,i)=>DB.documents.push({id:'D'+id+'_'+i,employeeId:id,type:t,status:'requested',fileName:null,uploadedAt:null}));
+  audit('Created employee '+name+' ('+code+')');save();
+  toast('Employee created');
+  alert('Login created for '+name+'\n\nLogin (email): '+email+'\nTemporary password: '+pass+'\n\nShare these with the employee. They will be asked to change the password on first login.');
+  openEmp(id);
+}
+function hrUploadDoc(did,id){const d=DB.documents.find(x=>x.id===did);if(!d)return;const inp=document.createElement('input');inp.type='file';inp.onchange=()=>{d.status='uploaded';d.fileName=(inp.files[0]&&inp.files[0].name)||'document.pdf';d.uploadedAt=new Date().toISOString().slice(0,10);save();audit('HR uploaded '+d.type+' for '+((empById(id)||{}).name||''));toast('Uploaded '+d.type);renderEmp360(id);};inp.click();}
+function hrAddDoc(id){const t=prompt('Document name (e.g. Signed offer letter, Address proof, Police verification)');if(!t)return;DB.documents.push({id:'D'+id+'_x'+Date.now(),employeeId:id,type:t.trim(),status:'requested',fileName:null,uploadedAt:null});save();audit('Added document slot "'+t.trim()+'" for '+((empById(id)||{}).name||''));toast('Document added — now upload it');renderEmp360(id);}
 
 /* ---------- boot ---------- */
 load();renderPortals();
