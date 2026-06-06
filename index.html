@@ -297,6 +297,7 @@ const SB_URL='https://dxhravqtmmxeubdwxblo.supabase.co';
 const SB_KEY='sb_publishable_m2rIXmKjXjV0b91EyOrIfQ_IYGsnoj3';
 const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY):null;
 let LIVE=false; // true once a real Supabase login hydrates DB — real PII is never written to localStorage
+let _saveCreds={email:'',pass:''}; let _saveT=null;
 function mapEmp(r){return{id:r.id,code:r.code,name:r.name,desig:r.desig,dept:r.dept,level:r.level,location:r.location,doj:r.doj,managerId:r.manager_id,managerName:r.manager_name,phone:r.phone,email:r.email||r.login_email,personalEmail:r.personal_email,status:r.status,onboarded:!!r.onboarded,track:r.track,ladderTitle:r.ladder_title,weekOff:r.week_off,ctc:r.ctc,monthlyGross:r.monthly_gross,mustChange:r.must_change,role:r.role};}
 function hydrateFromSession(p){
   const base=seed(); const d=p.data||{};
@@ -311,6 +312,8 @@ function hydrateFromSession(p){
   };
   LIVE=true;
 }
+function unmapEmp(e){return{id:e.id,code:e.code||null,name:e.name||null,desig:e.desig||null,dept:e.dept||null,level:e.level||null,location:e.location||null,doj:e.doj||null,manager_id:e.managerId||null,manager_name:e.managerName||null,phone:e.phone||null,email:e.email||null,personal_email:e.personalEmail||null,status:e.status||null,onboarded:!!e.onboarded,onboarding_submitted:!!e.onboardingSubmitted,confirmed_on:e.confirmedOn||null,track:e.track||null,ladder_title:e.ladderTitle||null,week_off:e.weekOff||null,ctc:(e.ctc==null||e.ctc==='')?null:e.ctc,monthly_gross:(e.monthlyGross==null||e.monthlyGross==='')?null:e.monthlyGross};}
+function liveSave(){ if(!sb||!LIVE)return; clearTimeout(_saveT); _saveT=setTimeout(function(){ try{ var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_email:_saveCreds.email,p_pass:_saveCreds.pass,p_employees:rows}); }catch(e){} }, 700); }
 
 /* ---------- seed ---------- */
 function seed(){
@@ -410,7 +413,7 @@ function seed(){
 /* ---------- store ---------- */
 let DB;
 function load(){try{DB=JSON.parse(localStorage.getItem(KEY));}catch(e){DB=null;} if(!DB){DB=seed();save();}}
-function save(){if(LIVE)return;localStorage.setItem(KEY,JSON.stringify(DB));}
+function save(){if(LIVE){liveSave();return;}localStorage.setItem(KEY,JSON.stringify(DB));}
 function resetDemo(){localStorage.removeItem(KEY);load();toast('Demo data reset');renderPortals();logout();}
 
 /* ---------- helpers ---------- */
@@ -450,9 +453,17 @@ async function doLogin(){
     try{
       const {data,error}=await sb.rpc('hrms_session',{p_email:email,p_pass:pass});
       if(!error&&data&&data.ok){
+        const me=data.me||{};
+        _saveCreds={email:email,pass:pass};
+        if(me.must_change){
+          const np=prompt('First sign-in for '+(me.name||'you')+' — set a new password (at least 6 characters):');
+          if(!np||np.length<6){ if(btn){btn.disabled=false;btn.textContent='Sign in';} $('loginErr').textContent='Password must be at least 6 characters. Sign in again to set it.';$('loginErr').classList.remove('hidden'); return; }
+          const r2=await sb.rpc('hrms_set_password',{p_email:email,p_old:pass,p_new:np});
+          if(r2.error||!r2.data||!r2.data.ok){ if(btn){btn.disabled=false;btn.textContent='Sign in';} $('loginErr').textContent='Could not set the new password — please try again.';$('loginErr').classList.remove('hidden'); return; }
+          _saveCreds.pass=np;
+        }
         hydrateFromSession(data);
         const hr=(data.role==='super-admin'||data.role==='hr'||data.role==='gm');
-        const me=data.me||{};
         $('loginErr').classList.add('hidden');
         if(btn){btn.disabled=false;btn.textContent='Sign in';}
         startSession({viewset:hr?'hr':'employee',label:hr?('HR Admin · '+(me.name||'')):(me.name||'Employee'),employeeId:me.id});
@@ -480,7 +491,7 @@ function startSession(p){
   $('meAv').textContent=initials(ident);$('meName').textContent=ident;$('meRole').textContent=p.label;
   buildNav();
 }
-function logout(){SES=null;if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
+function logout(){SES=null;_saveCreds={email:'',pass:''};if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
 
 /* ---------- nav ---------- */
 const NAVS={
