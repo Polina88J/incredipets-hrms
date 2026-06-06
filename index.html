@@ -6,6 +6,7 @@
 <title>IncrediPets HRMS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --rose:#FF007F;--amaranth:#B00050;--logo:#8A003E;--aqua:#A4F4C6;--pale:#EBD4F5;--green:#2E9D52;
@@ -248,10 +249,10 @@
         <div id="loginErr" class="err hidden"></div>
         <div class="field" style="margin-bottom:12px"><label>Work email</label><input id="li_email" type="email" placeholder="you@incredipets.in" autocomplete="username"></div>
         <div class="field" style="margin-bottom:16px"><label>Password</label><input id="li_pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-        <button class="btn btn-primary btn-block" onclick="doLogin()">Sign in</button>
+        <button id="signinBtn" class="btn btn-primary btn-block" onclick="doLogin()">Sign in</button>
       </div>
     </div>
-    <div class="foot">Prototype · data is saved in this browser only · no real employee data.<br>Real email/password login comes later · <a onclick="resetDemo()">Reset demo data</a></div>
+    <div class="foot">Real employees &amp; logins are live — sign in with your work email + the temporary password from your login list.<br>The portal buttons above are demo data only · <a onclick="resetDemo()">Reset demo data</a></div>
   </div>
 </div>
 
@@ -290,6 +291,26 @@ const fmt=n=>'₹ '+Number(Math.round(n)).toLocaleString('en-IN');
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const initials=n=>(n||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+
+/* ---------- Supabase (go-live backend) ---------- */
+const SB_URL='https://dxhravqtmmxeubdwxblo.supabase.co';
+const SB_KEY='sb_publishable_m2rIXmKjXjV0b91EyOrIfQ_IYGsnoj3';
+const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY):null;
+let LIVE=false; // true once a real Supabase login hydrates DB — real PII is never written to localStorage
+function mapEmp(r){return{id:r.id,code:r.code,name:r.name,desig:r.desig,dept:r.dept,level:r.level,location:r.location,doj:r.doj,managerId:r.manager_id,managerName:r.manager_name,phone:r.phone,email:r.email||r.login_email,personalEmail:r.personal_email,status:r.status,onboarded:!!r.onboarded,track:r.track,ladderTitle:r.ladder_title,weekOff:r.week_off,ctc:r.ctc,monthlyGross:r.monthly_gross,mustChange:r.must_change,role:r.role};}
+function hydrateFromSession(p){
+  const base=seed(); const d=p.data||{};
+  DB={...base,
+    employees:(d.employees||[]).map(mapEmp),
+    positions:(d.positions||[]).map(r=>({id:r.id,title:r.title,dept:r.dept,level:r.level,location:r.location,openings:r.openings,hiringManager:r.hiring_manager,bandMin:r.band_min,bandMax:r.band_max,status:r.status,jd:r.jd,openedOn:r.opened_on})),
+    offers:(d.offers||[]).map(r=>({id:r.id,employeeId:r.employee_id,positionId:r.position_id,ctc:r.ctc,status:r.status,releasedBy:r.released_by,approvedBy:r.approved_by,createdAt:r.created_at})),
+    candidates:(d.candidates||[]).map(r=>({id:r.id,positionId:r.position_id,name:r.name,phone:r.phone,email:r.email,stage:r.stage,appliedOn:r.applied_on,hiredOn:r.hired_on})),
+    assets:(d.assets||[]).map(r=>({id:r.id,employeeId:r.employee_id,type:r.asset_type,identifier:r.identifier,allocatedOn:r.allocated_on,returnedOn:r.returned_on})),
+    warnings:(d.warnings||[]).map(r=>({id:r.id,employeeId:r.employee_id,type:r.warn_type,reason:r.reason,date:r.warn_date,issuedBy:r.issued_by})),
+    documents:[],payslips:[],leave:{},kpis:{},achievements:{},attendance:{},leaveRequests:[],advances:[],notifications:[],audit:[],users:[]
+  };
+  LIVE=true;
+}
 
 /* ---------- seed ---------- */
 function seed(){
@@ -389,7 +410,7 @@ function seed(){
 /* ---------- store ---------- */
 let DB;
 function load(){try{DB=JSON.parse(localStorage.getItem(KEY));}catch(e){DB=null;} if(!DB){DB=seed();save();}}
-function save(){localStorage.setItem(KEY,JSON.stringify(DB));}
+function save(){if(LIVE)return;localStorage.setItem(KEY,JSON.stringify(DB));}
 function resetDemo(){localStorage.removeItem(KEY);load();toast('Demo data reset');renderPortals();logout();}
 
 /* ---------- helpers ---------- */
@@ -421,8 +442,26 @@ const PORTALS=[
   {key:'ta',      label:'TA — Talent Acquisition', viewset:'recruiter', employeeId:null, desc:'Positions · candidates · offers'}
 ];
 
-function doLogin(){
+async function doLogin(){
   const email=$('li_email').value.trim().toLowerCase(),pass=$('li_pass').value;
+  // 1) real go-live login against Supabase (credential-checked RPC; tables stay behind RLS)
+  if(sb){
+    const btn=$('signinBtn'); if(btn){btn.disabled=true;btn.textContent='Signing in…';}
+    try{
+      const {data,error}=await sb.rpc('hrms_session',{p_email:email,p_pass:pass});
+      if(!error&&data&&data.ok){
+        hydrateFromSession(data);
+        const hr=(data.role==='super-admin'||data.role==='hr'||data.role==='gm');
+        const me=data.me||{};
+        $('loginErr').classList.add('hidden');
+        if(btn){btn.disabled=false;btn.textContent='Sign in';}
+        startSession({viewset:hr?'hr':'employee',label:hr?('HR Admin · '+(me.name||'')):(me.name||'Employee'),employeeId:me.id});
+        return;
+      }
+    }catch(e){/* network/offline → fall through to demo */}
+    if(btn){btn.disabled=false;btn.textContent='Sign in';}
+  }
+  // 2) demo fallback (prototype portals / offline)
   const u=DB.users.find(x=>x.email===email&&x.pass===pass);
   if(!u){$('loginErr').textContent='Wrong email or password — or just tap a portal above.';$('loginErr').classList.remove('hidden');return;}
   $('loginErr').classList.add('hidden');
@@ -441,7 +480,7 @@ function startSession(p){
   $('meAv').textContent=initials(ident);$('meName').textContent=ident;$('meRole').textContent=p.label;
   buildNav();
 }
-function logout(){SES=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
+function logout(){SES=null;if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
 
 /* ---------- nav ---------- */
 const NAVS={
