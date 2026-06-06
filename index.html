@@ -310,8 +310,17 @@ function hydrateFromSession(p){
     warnings:(d.warnings||[]).map(r=>({id:r.id,employeeId:r.employee_id,type:r.warn_type,reason:r.reason,date:r.warn_date,issuedBy:r.issued_by})),
     documents:[],payslips:[],leave:{},kpis:{},achievements:{},attendance:{},leaveRequests:[],advances:[],notifications:[],audit:[],users:[]
   };
+  var _dt=base.docTypes||[]; var _docs=[];
+  (DB.employees||[]).forEach(function(e){ _dt.forEach(function(t,i){ _docs.push({id:'D-'+e.id+'-'+i,employeeId:e.id,type:t,status:'requested',fileName:null,uploadedAt:null,fileId:null}); }); });
+  var _dfm={}; (d.docfiles||[]).forEach(function(f){ _dfm[f.employee_id+'||'+(f.doc_type||'')]=f; });
+  _docs.forEach(function(r){ var f=_dfm[r.employeeId+'||'+r.type]; if(f){ r.status=f.status||'uploaded'; r.fileName=f.file_name; r.fileId=f.id; } });
+  (d.docfiles||[]).forEach(function(f){ if(_dt.indexOf(f.doc_type)<0){ _docs.push({id:'D-'+f.id,employeeId:f.employee_id,type:f.doc_type||'Document',status:f.status||'uploaded',fileName:f.file_name,fileId:f.id}); } });
+  DB.documents=_docs;
   LIVE=true;
 }
+function _fileToB64(file){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){var s=String(r.result);res(s.slice(s.indexOf(',')+1));};r.onerror=rej;r.readAsDataURL(file);});}
+async function liveDocUpload(employeeId,docType,file){ var b64=await _fileToB64(file); return await sb.rpc('hrms_doc_upload',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employee_id:employeeId,p_doc_type:docType,p_file_name:file.name,p_mime:file.type||'application/octet-stream',p_data_b64:b64}); }
+async function viewDoc(fileId){ if(!sb||!fileId)return; try{ var resp=await sb.rpc('hrms_doc_get',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_id:fileId}); var d=resp.data; if(resp.error||!d||!d.ok){toast('Could not open document');return;} var bin=atob(d.data_b64||''); var arr=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i); var url=URL.createObjectURL(new Blob([arr],{type:d.mime||'application/octet-stream'})); window.open(url,'_blank'); }catch(e){toast('Could not open document');} }
 function unmapEmp(e){return{id:e.id,code:e.code||null,name:e.name||null,desig:e.desig||null,dept:e.dept||null,level:e.level||null,location:e.location||null,doj:e.doj||null,manager_id:e.managerId||null,manager_name:e.managerName||null,phone:e.phone||null,email:e.email||null,personal_email:e.personalEmail||null,status:e.status||null,onboarded:!!e.onboarded,onboarding_submitted:!!e.onboardingSubmitted,confirmed_on:e.confirmedOn||null,track:e.track||null,ladder_title:e.ladderTitle||null,week_off:e.weekOff||null,ctc:(e.ctc==null||e.ctc==='')?null:e.ctc,monthly_gross:(e.monthlyGross==null||e.monthlyGross==='')?null:e.monthlyGross};}
 function liveSave(){ if(!sb||!LIVE)return; clearTimeout(_saveT); _saveT=setTimeout(function(){ try{ var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:rows}); }catch(e){} }, 700); }
 
@@ -661,7 +670,7 @@ function vOnboard(){
        <div class="bl"><span>HR verification &amp; confirmation</span><span class="pill requested">Pending</span></div>
        <p class="small muted" style="margin-top:10px">You can still upload any pending documents below — it helps HR confirm you faster.</p></div>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Document uploads</h2></div>
-       ${docs.map(d=>`<div class="doc"><div class="dt"><b class="small">${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Not uploaded':((d.fileName||'')+' · '+(d.status==='verified'?'verified by HR':'uploaded'))}</div></div>${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')">Upload</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}</div>`).join('')}</div>`;
+       ${docs.map(d=>`<div class="doc"><div class="dt"><b class="small">${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Not uploaded':((d.fileName||'')+' · '+(d.status==='verified'?'verified by HR':'uploaded'))}</div></div>${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')">Upload</button>`:`${d.fileId?`<button class="btn btn-ghost btn-sm" onclick="viewDoc('${d.fileId}')">View</button> `:''}<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}</div>`).join('')}</div>`;
     return;
   }
   const pre={empId:emp.code,fullName:emp.name,contact:emp.phone||'',personalMail:'',officialMail:emp.email||'',doj:emp.doj||'',department:emp.dept||'',designation:emp.desig||'',
@@ -681,14 +690,16 @@ function vOnboard(){
      ${docs.map(d=>`<div class="doc">
         <div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div>
         <div class="dt"><b>${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Not uploaded yet':(d.status==='verified'?'Verified by HR · '+esc(d.fileName):'Uploaded '+dfmt(d.uploadedAt)+' · '+esc(d.fileName))}</div></div>
-        ${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}
+        ${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 21h14"/></svg>Upload</button>`:`${d.fileId?`<button class="btn btn-ghost btn-sm" onclick="viewDoc('${d.fileId}')">View</button> `:''}<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}
       </div>`).join('')}
    </div>`;
 }
 function uploadDoc(id){
   const d=DB.documents.find(x=>x.id===id);if(!d)return;
   const inp=document.createElement('input');inp.type='file';
-  inp.onchange=()=>{d.status='uploaded';d.fileName=(inp.files[0]&&inp.files[0].name)||'document.pdf';d.uploadedAt=new Date().toISOString().slice(0,10);save();toast('Uploaded: '+d.type);buildNav();go('onboard',document.querySelector('[data-pg=onboard]'));};
+  inp.onchange=async ()=>{const file=inp.files[0];if(!file)return;
+    if(LIVE&&sb){ if(file.size>2600000){toast('File too large (max ~2.5 MB)');return;} const resp=await liveDocUpload(d.employeeId,d.type,file); const r=resp.data; if(resp.error||!r||!r.ok){toast('Upload failed');return;} d.status='uploaded';d.fileName=file.name;d.fileId=r.id;toast('Uploaded: '+d.type);buildNav();go('onboard',document.querySelector('[data-pg=onboard]'));return; }
+    d.status='uploaded';d.fileName=file.name||'document.pdf';d.uploadedAt=new Date().toISOString().slice(0,10);save();toast('Uploaded: '+d.type);buildNav();go('onboard',document.querySelector('[data-pg=onboard]'));};
   inp.click();
 }
 function submitOnboarding(){
@@ -1113,7 +1124,7 @@ function renderEmp360(id){
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Document uploads</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="hrAddDoc('${id}')">+ Add document</button></div>
      ${docs.length?docs.map(d=>`<div class="doc"><div class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div>
         <div class="dt"><b>${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Awaiting upload':((d.fileName||'')+' · '+dfmt(d.uploadedAt))}</div></div>
-        ${d.status==='uploaded'?`<button class="btn btn-green btn-sm" onclick="verifyDoc('${d.id}','${id}')">Verify</button> <button class="btn btn-ghost btn-sm" onclick="hrUploadDoc('${d.id}','${id}')">Replace</button>`:(d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="hrUploadDoc('${d.id}','${id}')">Upload</button>`:`<span class="pill ${d.status}">Verified</span> <button class="btn btn-ghost btn-sm" onclick="hrUploadDoc('${d.id}','${id}')">Replace</button>`)}
+        ${d.fileId?`<button class="btn btn-ghost btn-sm" onclick="viewDoc('${d.fileId}')">View</button> `:''}${d.status==='uploaded'?`<button class="btn btn-green btn-sm" onclick="verifyDoc('${d.id}','${id}')">Verify</button> <button class="btn btn-ghost btn-sm" onclick="hrUploadDoc('${d.id}','${id}')">Replace</button>`:(d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="hrUploadDoc('${d.id}','${id}')">Upload</button>`:`<span class="pill ${d.status}">Verified</span> <button class="btn btn-ghost btn-sm" onclick="hrUploadDoc('${d.id}','${id}')">Replace</button>`)}
       </div>`).join(''):'<div class="empty">No documents requested.</div>'}
    </div>
    <div class="card card-pad">
@@ -1126,7 +1137,7 @@ function renderEmp360(id){
    ${assetCardHTML(e,id)}${warningCardHTML(e,id)}${probationCardHTML(e,id)}${offboardCardHTML(e,id)}`;
   $('topTitle').textContent=e.name;
 }
-function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){d.status='verified';save();toast('Document verified');}renderEmp360(eid);}
+function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){if(LIVE&&sb&&d.fileId){sb.rpc('hrms_doc_verify',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_id:d.fileId});}d.status='verified';if(!LIVE)save();toast('Document verified');}renderEmp360(eid);}
 const EXIT_TASKS=[['handover','Knowledge transfer / handover'],['assets','Company assets returned'],['exitInterview','Exit interview completed'],['access','System access revoked'],['fnf','Full & final settlement'],['relieving','Relieving & experience letter issued']];
 function offboardCardHTML(e,id){
   if(e.status==='active'){
@@ -1403,7 +1414,7 @@ function vMyDocs(){
      ${slips.length?slips.map(p=>`<div class="doc"><div class="dt"><b class="small">${esc(p.month)}</b></div><button class="btn btn-ghost btn-sm" onclick="printPayslip('${emp.id}','${p.month}')">PDF</button></div>`).join(''):'<div class="empty">No payslips yet.</div>'}
    </div>
    <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>My uploaded documents</h2></div>
-     ${docs.length?docs.map(d=>`<div class="doc"><div class="dt"><b class="small">${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Not uploaded':((d.fileName||'')+' · '+(d.status==='verified'?'verified':'uploaded'))}</div></div>${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')">Upload</button>`:`<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}</div>`).join(''):'<div class="empty">No documents.</div>'}
+     ${docs.length?docs.map(d=>`<div class="doc"><div class="dt"><b class="small">${esc(d.type)}</b><div class="dm">${d.status==='requested'?'Not uploaded':((d.fileName||'')+' · '+(d.status==='verified'?'verified':'uploaded'))}</div></div>${d.status==='requested'?`<button class="btn btn-ghost btn-sm" onclick="uploadDoc('${d.id}')">Upload</button>`:`${d.fileId?`<button class="btn btn-ghost btn-sm" onclick="viewDoc('${d.fileId}')">View</button> `:''}<span class="pill ${d.status}">${d.status==='verified'?'Verified':'Uploaded'}</span>`}</div>`).join(''):'<div class="empty">No documents.</div>'}
    </div>`;
 }
 function editMyDetails(){
@@ -1711,7 +1722,7 @@ function createEmployee(){
   alert('Login created for '+name+'\n\nLogin (email): '+email+'\nTemporary password: '+pass+'\n\nShare these with the employee. They will be asked to change the password on first login.');
   openEmp(id);
 }
-function hrUploadDoc(did,id){const d=DB.documents.find(x=>x.id===did);if(!d)return;const inp=document.createElement('input');inp.type='file';inp.onchange=()=>{d.status='uploaded';d.fileName=(inp.files[0]&&inp.files[0].name)||'document.pdf';d.uploadedAt=new Date().toISOString().slice(0,10);save();audit('HR uploaded '+d.type+' for '+((empById(id)||{}).name||''));toast('Uploaded '+d.type);renderEmp360(id);};inp.click();}
+function hrUploadDoc(did,id){const d=DB.documents.find(x=>x.id===did);if(!d)return;const inp=document.createElement('input');inp.type='file';inp.onchange=async ()=>{const file=inp.files[0];if(!file)return; if(LIVE&&sb){ if(file.size>2600000){toast('File too large (max ~2.5 MB)');return;} const resp=await liveDocUpload(id,d.type,file); const r=resp.data; if(resp.error||!r||!r.ok){toast('Upload failed');return;} d.status='uploaded';d.fileName=file.name;d.fileId=r.id;audit('HR uploaded '+d.type+' for '+((empById(id)||{}).name||''));toast('Uploaded '+d.type);renderEmp360(id);return; } d.status='uploaded';d.fileName=file.name||'document.pdf';d.uploadedAt=new Date().toISOString().slice(0,10);save();audit('HR uploaded '+d.type+' for '+((empById(id)||{}).name||''));toast('Uploaded '+d.type);renderEmp360(id);};inp.click();}
 function hrAddDoc(id){const t=prompt('Document name (e.g. Signed offer letter, Address proof, Police verification)');if(!t)return;DB.documents.push({id:'D'+id+'_x'+Date.now(),employeeId:id,type:t.trim(),status:'requested',fileName:null,uploadedAt:null});save();audit('Added document slot "'+t.trim()+'" for '+((empById(id)||{}).name||''));toast('Document added — now upload it');renderEmp360(id);}
 
 /* ---------- boot ---------- */
