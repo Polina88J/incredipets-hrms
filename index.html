@@ -244,15 +244,15 @@
       <div class="demo-grid" id="demoGrid"></div>
     </div>
     <div class="emailbox">
-      <a class="toggle" id="emailToggle" onclick="toggleEmail()">Sign in with work email instead</a>
-      <div id="emailFields" class="hidden" style="margin-top:14px;text-align:left">
+      <div class="toggle" id="emailToggle" style="cursor:default">Sign in with your employee code</div>
+      <div id="emailFields" style="margin-top:14px;text-align:left">
         <div id="loginErr" class="err hidden"></div>
-        <div class="field" style="margin-bottom:12px"><label>Work email</label><input id="li_email" type="email" placeholder="you@incredipets.in" autocomplete="username"></div>
+        <div class="field" style="margin-bottom:12px"><label>Employee code</label><input id="li_email" type="text" placeholder="e.g. IN-014" autocomplete="username" onkeydown="if(event.key==='Enter')$('li_pass').focus()"></div>
         <div class="field" style="margin-bottom:16px"><label>Password</label><input id="li_pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
         <button id="signinBtn" class="btn btn-primary btn-block" onclick="doLogin()">Sign in</button>
       </div>
     </div>
-    <div class="foot">Real employees &amp; logins are live — sign in with your work email + the temporary password from your login list.<br>The portal buttons above are demo data only · <a onclick="resetDemo()">Reset demo data</a></div>
+    <div class="foot">Sign in with your <b>employee code</b> + password (from your HR login list).<br>The portal buttons above are demo data only · <a onclick="resetDemo()">Reset demo data</a></div>
   </div>
 </div>
 
@@ -297,7 +297,7 @@ const SB_URL='https://dxhravqtmmxeubdwxblo.supabase.co';
 const SB_KEY='sb_publishable_m2rIXmKjXjV0b91EyOrIfQ_IYGsnoj3';
 const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY):null;
 let LIVE=false; // true once a real Supabase login hydrates DB — real PII is never written to localStorage
-let _saveCreds={email:'',pass:''}; let _saveT=null;
+let _saveCreds={code:'',pass:''}; let _saveT=null;
 function mapEmp(r){return{id:r.id,code:r.code,name:r.name,desig:r.desig,dept:r.dept,level:r.level,location:r.location,doj:r.doj,managerId:r.manager_id,managerName:r.manager_name,phone:r.phone,email:r.email||r.login_email,personalEmail:r.personal_email,status:r.status,onboarded:!!r.onboarded,track:r.track,ladderTitle:r.ladder_title,weekOff:r.week_off,ctc:r.ctc,monthlyGross:r.monthly_gross,mustChange:r.must_change,role:r.role};}
 function hydrateFromSession(p){
   const base=seed(); const d=p.data||{};
@@ -313,7 +313,7 @@ function hydrateFromSession(p){
   LIVE=true;
 }
 function unmapEmp(e){return{id:e.id,code:e.code||null,name:e.name||null,desig:e.desig||null,dept:e.dept||null,level:e.level||null,location:e.location||null,doj:e.doj||null,manager_id:e.managerId||null,manager_name:e.managerName||null,phone:e.phone||null,email:e.email||null,personal_email:e.personalEmail||null,status:e.status||null,onboarded:!!e.onboarded,onboarding_submitted:!!e.onboardingSubmitted,confirmed_on:e.confirmedOn||null,track:e.track||null,ladder_title:e.ladderTitle||null,week_off:e.weekOff||null,ctc:(e.ctc==null||e.ctc==='')?null:e.ctc,monthly_gross:(e.monthlyGross==null||e.monthlyGross==='')?null:e.monthlyGross};}
-function liveSave(){ if(!sb||!LIVE)return; clearTimeout(_saveT); _saveT=setTimeout(function(){ try{ var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_email:_saveCreds.email,p_pass:_saveCreds.pass,p_employees:rows}); }catch(e){} }, 700); }
+function liveSave(){ if(!sb||!LIVE)return; clearTimeout(_saveT); _saveT=setTimeout(function(){ try{ var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:rows}); }catch(e){} }, 700); }
 
 /* ---------- seed ---------- */
 function seed(){
@@ -446,35 +446,38 @@ const PORTALS=[
 ];
 
 async function doLogin(){
-  const email=$('li_email').value.trim().toLowerCase(),pass=$('li_pass').value;
-  // 1) real go-live login against Supabase (credential-checked RPC; tables stay behind RLS)
+  const code=$('li_email').value.trim(),pass=$('li_pass').value;
+  // 1) real go-live login against Supabase (login = employee code; tables stay behind RLS)
   if(sb){
     const btn=$('signinBtn'); if(btn){btn.disabled=true;btn.textContent='Signing in…';}
     try{
-      const {data,error}=await sb.rpc('hrms_session',{p_email:email,p_pass:pass});
+      const {data,error}=await sb.rpc('hrms_session',{p_code:code,p_pass:pass});
       if(!error&&data&&data.ok){
         const me=data.me||{};
-        _saveCreds={email:email,pass:pass};
+        _saveCreds={code:code,pass:pass};
         if(me.must_change){
           const np=prompt('First sign-in for '+(me.name||'you')+' — set a new password (at least 6 characters):');
           if(!np||np.length<6){ if(btn){btn.disabled=false;btn.textContent='Sign in';} $('loginErr').textContent='Password must be at least 6 characters. Sign in again to set it.';$('loginErr').classList.remove('hidden'); return; }
-          const r2=await sb.rpc('hrms_set_password',{p_email:email,p_old:pass,p_new:np});
+          const r2=await sb.rpc('hrms_set_password',{p_code:code,p_old:pass,p_new:np});
           if(r2.error||!r2.data||!r2.data.ok){ if(btn){btn.disabled=false;btn.textContent='Sign in';} $('loginErr').textContent='Could not set the new password — please try again.';$('loginErr').classList.remove('hidden'); return; }
           _saveCreds.pass=np;
         }
         hydrateFromSession(data);
-        const hr=(data.role==='super-admin'||data.role==='hr'||data.role==='gm');
+        const role=data.role, isHr=(role==='super-admin'||role==='hr'||role==='gm'), isRec=(role==='recruiter');
+        const vs=isHr?'hr':(isRec?'recruiter':'employee');
+        const label=isHr?('HR Admin · '+(me.name||'')):(isRec?('Recruitment · '+(me.name||'')):(me.name||'Employee'));
         $('loginErr').classList.add('hidden');
         if(btn){btn.disabled=false;btn.textContent='Sign in';}
-        startSession({viewset:hr?'hr':'employee',label:hr?('HR Admin · '+(me.name||'')):(me.name||'Employee'),employeeId:me.id});
+        startSession({viewset:vs,label:label,employeeId:me.id});
         return;
       }
     }catch(e){/* network/offline → fall through to demo */}
     if(btn){btn.disabled=false;btn.textContent='Sign in';}
   }
-  // 2) demo fallback (prototype portals / offline)
+  // 2) demo fallback (prototype portals / offline) — demo users key by email
+  const email=code.toLowerCase();
   const u=DB.users.find(x=>x.email===email&&x.pass===pass);
-  if(!u){$('loginErr').textContent='Wrong email or password — or just tap a portal above.';$('loginErr').classList.remove('hidden');return;}
+  if(!u){$('loginErr').textContent='Wrong employee code or password — or tap a portal above.';$('loginErr').classList.remove('hidden');return;}
   $('loginErr').classList.add('hidden');
   const labelMap={employee:'Employee',hr:'HR Admin',recruiter:'TA — Talent Acquisition'};
   startSession({viewset:u.role,label:labelMap[u.role]||'Employee',employeeId:u.employeeId});
@@ -491,7 +494,7 @@ function startSession(p){
   $('meAv').textContent=initials(ident);$('meName').textContent=ident;$('meRole').textContent=p.label;
   buildNav();
 }
-function logout(){SES=null;_saveCreds={email:'',pass:''};if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
+function logout(){SES=null;_saveCreds={code:'',pass:''};if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
 
 /* ---------- nav ---------- */
 const NAVS={
