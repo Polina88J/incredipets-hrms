@@ -531,9 +531,11 @@ function startSession(p){
   $('roleTag').textContent=p.label;
   $('topAvatar').textContent=initials(ident);
   $('meAv').textContent=initials(ident);$('meName').textContent=ident;$('meRole').textContent=p.label;
+  // identify by employee code (internal id — never a name/email/pay) + role property, so usage can be analysed per role/user
+  try{ if(window.posthog){ var who=p.employeeId||(p.realRole||p.viewset); posthog.identify(who,{role:(p.realRole||p.viewset)}); track('session_start',{role:(p.realRole||p.viewset), via_alias:!!(p.realRole&&p.realRole!=='employee')}); } }catch(e){}
   buildNav();
 }
-function logout(){ if(LIVE&&sb&&_saveT&&_saveCreds.code){ try{ clearTimeout(_saveT); _saveT=null; var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:rows}).then(function(){},function(){}); }catch(e){} } SES=null;_saveCreds={code:'',pass:''};if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
+function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posthog.reset(); }catch(e){} if(LIVE&&sb&&_saveT&&_saveCreds.code){ try{ clearTimeout(_saveT); _saveT=null; var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:rows}).then(function(){},function(){}); }catch(e){} } SES=null;_saveCreds={code:'',pass:''};if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
 
 /* ---------- nav ---------- */
 const NAVS={
@@ -603,13 +605,41 @@ function buildNav(){
 const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
+/* ===== Analytics — privacy-safe interaction tracking (PostHog) =====
+   Captures WHAT users do (pages, clicks, actions, by role) — never salary or PII.
+   _phSan() strips any ₹ amount or 3+ digit number out of every string before it is sent. */
+let _curPage='login';
+function _phSan(s){ if(s==null) return s; s=String(s); if(s.length>90) s=s.slice(0,90);
+  return s.replace(/₹\s*[\d.,]+/g,'₹#').replace(/\b\d[\d,]{2,}(?:\.\d+)?\b/g,'#').replace(/\s+/g,' ').trim(); }
+function track(ev, props){
+  try{ if(!(window.posthog&&posthog.capture)) return;
+    var p={}; if(props) for(var k in props){ var v=props[k]; p[k]=(typeof v==='string')?_phSan(v):v; }
+    if(typeof SES!=='undefined'&&SES){ if(!p.role)p.role=SES.realRole||SES.role; if(p.preview==null)p.preview=!!SES.preview; }
+    if(!p.page)p.page=_curPage;
+    posthog.capture(ev,p);
+  }catch(e){}
+}
+// One delegated listener captures every meaningful click app-wide — label only, values sanitized.
+document.addEventListener('click', function(e){
+  try{
+    var el=e.target&&e.target.closest&&e.target.closest('button, a, .nav-item, .btn, [data-track], [onclick]');
+    if(!el) return;
+    var raw=el.getAttribute('data-track')||el.textContent||el.getAttribute('aria-label')||'';
+    var label=_phSan(raw);
+    if(!label) return;
+    var kind = el.classList.contains('nav-item')?'nav':(el.tagName==='A'?'link':'button');
+    track('ui_click', {label:label, kind:kind});
+  }catch(_e){}
+}, true);
 function go(page,el){
   closeSidebar();
+  _curPage=page;
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
   const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,roster:vRoster,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
     dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
+  track('page_view',{page:page});
 }
 
 /* ============================================================
@@ -751,7 +781,7 @@ async function downloadMyPayslip(month){
   const p=rows[0];
   const aoa=[['IncrediPets — Salary Slip',''],['Month',p.month],['Employee',p.name],['Code',p.employee_id],['',''],['Earnings',''],['Basic',p.basic],['HRA',p.hra],['Special allowance',p.special],['Gross',p.gross],['',''],['Deductions',''],['Provident Fund',p.pf_employee],['ESI',p.esi_employee],['Professional Tax',p.pt],['TDS',p.tds],['Salary advance',p.salary_advances],['Total deductions',p.total_deduction],['',''],['Net in hand',p.net_in_hand]];
   const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Payslip');
-  XLSX.writeFile(wb,'Payslip-'+String(p.month||'').replace(/\s+/g,'-')+'.xlsx'); toast('Your payslip downloaded');
+  XLSX.writeFile(wb,'Payslip-'+String(p.month||'').replace(/\s+/g,'-')+'.xlsx'); track('payslip_download',{month:p.month}); toast('Your payslip downloaded');
 }
 async function vPay(){
   const emp=empById(SES.employeeId);
@@ -1774,8 +1804,8 @@ let _payMonth=null, _payAll=null;
 async function loadPayrollRows(month){ if(!(LIVE&&sb))return null; try{ const r=await sb.rpc('hrms_payroll',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:month}); if(r.error||!r.data||!r.data.ok)return []; return r.data.payroll||[]; }catch(e){ return []; } }
 function _monthIdx(s){return ['january','february','march','april','may','june','july','august','september','october','november','december'].indexOf(String(s||'').toLowerCase());}
 function parseMonthLabel(m){const parts=String(m||'').trim().split(/\s+/);if(parts.length<2)return null;const mi=_monthIdx(parts[0]);const y=parseInt(parts[1],10);if(mi<0||!y)return null;const end=new Date(Date.UTC(y,mi+1,0));const pad=n=>String(n).padStart(2,'0');return {start:y+'-'+pad(mi+1)+'-01', end:y+'-'+pad(mi+1)+'-'+pad(end.getUTCDate())};}
-async function markPaid(month){if(!confirm('Mark '+month+' as paid? Employees will then be able to download their payslip for '+month+'.'))return;const r=await sb.rpc('hrms_mark_paid',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:month,p_paid:true});if(r.error||!r.data||!r.data.ok){toast('Could not mark paid');return;}_payAll=null;_payAllCache=null;toast(month+' marked paid — payslips released');vPayroll();}
-async function runPayrollMonth(){const m=prompt('Run payroll for which month? (e.g. June 2026)','June 2026');if(!m)return;const p=parseMonthLabel(m);if(!p){toast('Use a format like: June 2026');return;}toast('Computing '+m+' …');try{const r=await sb.rpc('hrms_run_payroll',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:m,p_base:'May 2026',p_start:p.start,p_end:p.end});if(r.error||!r.data||!r.data.ok){toast('Could not run payroll');return;}_payMonth=m;_payAll=null;_payAllCache=null;toast(m+' ready — '+r.data.rows+' staff'+(r.data.new_joiners?(', '+r.data.new_joiners+' new'):''));vPayroll();}catch(e){toast('Could not run payroll');}}
+async function markPaid(month){if(!confirm('Mark '+month+' as paid? Employees will then be able to download their payslip for '+month+'.'))return;const r=await sb.rpc('hrms_mark_paid',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:month,p_paid:true});if(r.error||!r.data||!r.data.ok){toast('Could not mark paid');return;}_payAll=null;_payAllCache=null;track('payroll_marked_paid',{month:month});toast(month+' marked paid — payslips released');vPayroll();}
+async function runPayrollMonth(){const m=prompt('Run payroll for which month? (e.g. June 2026)','June 2026');if(!m)return;const p=parseMonthLabel(m);if(!p){toast('Use a format like: June 2026');return;}toast('Computing '+m+' …');try{const r=await sb.rpc('hrms_run_payroll',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:m,p_base:'May 2026',p_start:p.start,p_end:p.end});if(r.error||!r.data||!r.data.ok){toast('Could not run payroll');return;}_payMonth=m;_payAll=null;_payAllCache=null;track('payroll_run',{month:m,rows:r.data.rows});toast(m+' ready — '+r.data.rows+' staff'+(r.data.new_joiners?(', '+r.data.new_joiners+' new'):''));vPayroll();}catch(e){toast('Could not run payroll');}}
 async function downloadSalarySheet(month){
   const rows=await loadPayrollRows(month); if(!rows||!rows.length){ toast('No payroll found for '+month); return; }
   const header=['Employee Code','Name','Designation','Department','Monthly CTC','Gross','Basic','HRA','Special','Working Days','PF (employee)','ESI (employee)','Prof. Tax','TDS','Salary Advances','Other Deductions','Total Deduction','Reimbursement','Bonus','Net in Hand','Employer PF','ESI Employer','Gratuity','Bank Name','Account No','IFSC'];
