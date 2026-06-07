@@ -1654,7 +1654,11 @@ function payrollRows(){
     return {e,c,pf,esi,lopDays,lop,advRec,net};
   }).filter(Boolean);
 }
+let _payMonth=null, _payAll=null;
 async function loadPayrollRows(month){ if(!(LIVE&&sb))return null; try{ const r=await sb.rpc('hrms_payroll',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:month}); if(r.error||!r.data||!r.data.ok)return []; return r.data.payroll||[]; }catch(e){ return []; } }
+function _monthIdx(s){return ['january','february','march','april','may','june','july','august','september','october','november','december'].indexOf(String(s||'').toLowerCase());}
+function parseMonthLabel(m){const parts=String(m||'').trim().split(/\s+/);if(parts.length<2)return null;const mi=_monthIdx(parts[0]);const y=parseInt(parts[1],10);if(mi<0||!y)return null;const end=new Date(Date.UTC(y,mi+1,0));const pad=n=>String(n).padStart(2,'0');return {start:y+'-'+pad(mi+1)+'-01', end:y+'-'+pad(mi+1)+'-'+pad(end.getUTCDate())};}
+async function runPayrollMonth(){const m=prompt('Run payroll for which month? (e.g. June 2026)','June 2026');if(!m)return;const p=parseMonthLabel(m);if(!p){toast('Use a format like: June 2026');return;}toast('Computing '+m+' …');try{const r=await sb.rpc('hrms_run_payroll',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:m,p_base:'May 2026',p_start:p.start,p_end:p.end});if(r.error||!r.data||!r.data.ok){toast('Could not run payroll');return;}_payMonth=m;_payAll=null;toast(m+' ready — '+r.data.rows+' staff'+(r.data.new_joiners?(', '+r.data.new_joiners+' new'):''));vPayroll();}catch(e){toast('Could not run payroll');}}
 async function downloadSalarySheet(month){
   const rows=await loadPayrollRows(month); if(!rows||!rows.length){ toast('No payroll found for '+month); return; }
   const header=['Employee Code','Name','Designation','Department','Monthly CTC','Gross','Basic','HRA','Special','Working Days','PF (employee)','ESI (employee)','Prof. Tax','TDS','Salary Advances','Other Deductions','Total Deduction','Reimbursement','Bonus','Net in Hand','Employer PF','ESI Employer','Gratuity','Bank Name','Account No','IFSC'];
@@ -1672,14 +1676,18 @@ async function vPayroll(){
      ${rows.map(r=>`<tr><td><b>${esc(r.e.name)}</b></td><td class="num">${fmt(r.c.m)}</td><td class="num">${fmt(r.pf)}</td><td class="num">${r.esi?fmt(r.esi):'—'}</td><td class="num"><b>${fmt(r.net)}</b></td></tr>`).join('')}</table></div>`;
     return;
   }
-  $('view').innerHTML=`<div><h1 class="page">Payroll</h1><p class="page-sub">Loading the salary sheet…</p></div>`;
-  const month='May 2026';
-  const rows=(await loadPayrollRows(month))||[];
+  $('view').innerHTML=`<div><h1 class="page">Payroll</h1><p class="page-sub">Loading…</p></div>`;
+  _payAll=(await loadPayrollRows(null))||[];
+  let months=Array.from(new Set(_payAll.map(p=>p.month))).sort();
+  if(!_payMonth||months.indexOf(_payMonth)<0) _payMonth=months[months.length-1]||'May 2026';
+  const rows=_payAll.filter(p=>p.month===_payMonth);
   const totNet=rows.reduce((s,p)=>s+(+p.net_in_hand||0),0), totGross=rows.reduce((s,p)=>s+(+p.gross||0),0), totAdv=rows.reduce((s,p)=>s+(+p.salary_advances||0),0);
-  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Payroll — ${esc(month)}</h1><p class="page-sub">Final figures from the Payroll Master — payable. Approved advances are already deducted.</p></div><button class="btn btn-primary btn-sm" onclick="downloadSalarySheet('${month}')">Download salary sheet (Excel)</button></div>
-   <div class="stats"><div class="stat"><div class="k">On payroll</div><div class="v num">${rows.length}</div></div><div class="stat"><div class="k">Gross</div><div class="v num">${fmt(totGross)}</div></div><div class="stat"><div class="k">Advances recovered</div><div class="v num">${fmt(totAdv)}</div></div><div class="stat"><div class="k">Net payable</div><div class="v num">${fmt(totNet)}</div></div></div>
+  const mbtns=months.map(m=>`<button class="btn ${m===_payMonth?'btn-primary':'btn-ghost'} btn-sm" onclick="_payMonth='${m}';vPayroll()">${esc(m)}</button>`).join(' ');
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Payroll</h1><p class="page-sub">Each month carries everyone's standard salary; only approved advances and mid-month joiners/leavers change.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="runPayrollMonth()">Run a month…</button><button class="btn btn-primary btn-sm" onclick="downloadSalarySheet('${_payMonth}')">Download ${esc(_payMonth)} (Excel)</button></div></div>
+   <div style="margin:2px 0 12px;display:flex;gap:6px;flex-wrap:wrap">${mbtns}</div>
+   <div class="stats"><div class="stat"><div class="k">On payroll · ${esc(_payMonth)}</div><div class="v num">${rows.length}</div></div><div class="stat"><div class="k">Gross</div><div class="v num">${fmt(totGross)}</div></div><div class="stat"><div class="k">Advances recovered</div><div class="v num">${fmt(totAdv)}</div></div><div class="stat"><div class="k">Net payable</div><div class="v num">${fmt(totNet)}</div></div></div>
    <div class="card"><table class="list"><tr><th>Employee</th><th>Gross</th><th>PF</th><th>ESI</th><th>Advances</th><th>Net in hand</th></tr>
-   ${rows.map(p=>`<tr><td><b>${esc(p.name)}</b><div class="small muted">${esc(p.employee_id)}</div></td><td class="num">${fmt(p.gross||0)}</td><td class="num">${p.pf_employee?fmt(p.pf_employee):'—'}</td><td class="num">${p.esi_employee?fmt(p.esi_employee):'—'}</td><td class="num">${p.salary_advances?fmt(p.salary_advances):'—'}</td><td class="num"><b>${fmt(p.net_in_hand||0)}</b></td></tr>`).join('')||'<tr><td colspan=6 class="empty">No payroll loaded.</td></tr>'}
+   ${rows.map(p=>`<tr><td><b>${esc(p.name)}</b><div class="small muted">${esc(p.employee_id)}${p.source==='computed-new'?' · new joiner (verify)':''}</div></td><td class="num">${fmt(p.gross||0)}</td><td class="num">${p.pf_employee?fmt(p.pf_employee):'—'}</td><td class="num">${p.esi_employee?fmt(p.esi_employee):'—'}</td><td class="num">${p.salary_advances?fmt(p.salary_advances):'—'}</td><td class="num"><b>${fmt(p.net_in_hand||0)}</b></td></tr>`).join('')||'<tr><td colspan=6 class="empty">No payroll for '+esc(_payMonth)+' — use "Run a month".</td></tr>'}
    </table></div>`;
 }
 function exportSalarySheet(){const rows=payrollRows().map(r=>[r.e.name,r.e.code,r.e.desig,r.e.dept,Math.round(r.c.m),Math.round(r.c.basic),Math.round(r.c.hra),Math.round(r.c.spl),r.pf,r.esi,r.lop,r.advRec,r.net]);exportCSV('salary-sheet.csv',['Name','Code','Designation','Dept','Gross','Basic','HRA','Special','PF','ESI','LOP deduction','Advance recovery','Net pay'],rows);}
