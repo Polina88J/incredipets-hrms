@@ -244,15 +244,15 @@
       <div class="demo-grid" id="demoGrid"></div>
     </div>
     <div class="emailbox">
-      <div class="toggle" id="emailToggle" style="cursor:default">Sign in with your employee code</div>
+      <div class="toggle" id="emailToggle" style="cursor:default">Sign in</div>
       <div id="emailFields" style="margin-top:14px;text-align:left">
         <div id="loginErr" class="err hidden"></div>
-        <div class="field" style="margin-bottom:12px"><label>Employee code</label><input id="li_email" type="text" placeholder="e.g. IN-014" autocomplete="username" onkeydown="if(event.key==='Enter')$('li_pass').focus()"></div>
+        <div class="field" style="margin-bottom:12px"><label>Login ID</label><input id="li_email" type="text" placeholder="Your login ID" autocomplete="username" onkeydown="if(event.key==='Enter')$('li_pass').focus()"></div>
         <div class="field" style="margin-bottom:16px"><label>Password</label><input id="li_pass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
         <button id="signinBtn" class="btn btn-primary btn-block" onclick="doLogin()">Sign in</button>
       </div>
     </div>
-    <div class="foot">Sign in with your <b>employee code</b> and password (from your HR login list).<br>First time? You'll be asked to set your own password.</div>
+    <div class="foot">Enter your <b>login ID</b> and password.<br>First time? You'll be asked to set your own password.</div>
   </div>
 </div>
 
