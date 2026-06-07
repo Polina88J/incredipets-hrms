@@ -503,7 +503,7 @@ function startSession(p){
   $('meAv').textContent=initials(ident);$('meName').textContent=ident;$('meRole').textContent=p.label;
   buildNav();
 }
-function logout(){SES=null;_saveCreds={code:'',pass:''};if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
+function logout(){ if(LIVE&&sb&&_saveT&&_saveCreds.code){ try{ clearTimeout(_saveT); _saveT=null; var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:rows}); }catch(e){} } SES=null;_saveCreds={code:'',pass:''};if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
 
 /* ---------- nav ---------- */
 const NAVS={
