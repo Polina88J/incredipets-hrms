@@ -743,13 +743,10 @@ async function vPay(){
   if(LIVE&&sb){
     const all=(await loadPayrollRows(null))||[]; const rows=all.filter(p=>p.employee_id===emp.id); const months=Array.from(new Set(rows.map(p=>p.month))).sort(); const p=rows.filter(x=>x.month===months[months.length-1])[0]||null; const paidMonths=Array.from(new Set(rows.filter(function(r){return r.paid;}).map(function(r){return r.month;})));
     const adv=(DB.advances||[]).filter(a=>a.employeeId===emp.id); const advTaken=adv.filter(a=>a.status==='approved').reduce((s,a)=>s+(+a.amount||0),0);
-    const _cp=compForEmp(emp);
+    const _bd=rows.filter(x=>x.month==='May 2026')[0]||p; // sheet-verified May is canonical; else latest available
     $('view').innerHTML=`<div><h1 class="page">My Pay</h1><p class="page-sub">Your compensation — visible only to you.</p></div>
-     ${_cp?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Your compensation</h2></div>
-       ${compBreakupHTML(_cp)}
-       <p class="small muted" style="margin-top:8px">This is your standard monthly salary structure. The month-by-month take-home below reflects actual paid runs (with any advances or pro-rata).</p></div>`:''}
-     ${p?`<div class="stats"><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(p.gross||0)}</div></div><div class="stat"><div class="k">Basic</div><div class="v num" style="font-size:18px">${fmt(p.basic||0)}</div></div><div class="stat"><div class="k">HRA</div><div class="v num" style="font-size:18px">${fmt(p.hra||0)}</div></div><div class="stat"><div class="k">Take-home · ${esc(p.month)}</div><div class="v num">${fmt(p.net_in_hand||0)}</div></div></div>
-     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Salary breakdown · ${esc(p.month)}</h2></div><div class="breakup"><div class="bl"><span>Basic</span><span class="num">${fmt(p.basic||0)}</span></div><div class="bl"><span>HRA</span><span class="num">${fmt(p.hra||0)}</span></div><div class="bl"><span>Special allowance</span><span class="num">${fmt(p.special||0)}</span></div><div class="bl tot"><span>Gross</span><span class="num">${fmt(p.gross||0)}</span></div><div class="bl"><span>Provident Fund</span><span class="num">- ${fmt(p.pf_employee||0)}</span></div><div class="bl"><span>ESI</span><span class="num">- ${fmt(p.esi_employee||0)}</span></div><div class="bl"><span>Professional tax</span><span class="num">- ${fmt(p.pt||0)}</span></div><div class="bl"><span>TDS</span><span class="num">- ${fmt(p.tds||0)}</span></div>${p.salary_advances?`<div class="bl"><span>Advance recovery</span><span class="num">- ${fmt(p.salary_advances)}</span></div>`:''}<div class="bl tot"><span>Net in hand (take-home)</span><span class="num">${fmt(p.net_in_hand||0)}</span></div></div></div>`:'<div class="card card-pad"><div class="empty">Your salary details will appear here once payroll is run for the month.</div></div>'}
+     ${_bd?`<div class="stats"><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(_bd.gross||0)}</div></div><div class="stat"><div class="k">Basic</div><div class="v num" style="font-size:18px">${fmt(_bd.basic||0)}</div></div><div class="stat"><div class="k">HRA</div><div class="v num" style="font-size:18px">${fmt(_bd.hra||0)}</div></div><div class="stat"><div class="k">In-hand · ${esc(_bd.month)}</div><div class="v num">${_bd.net_in_hand==null?'—':fmt(_bd.net_in_hand)}</div></div></div>
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Salary breakdown · ${esc(_bd.month)}</h2></div>${payBreakupHTML(_bd,_bd.month)}</div>`:'<div class="card card-pad"><div class="empty">Your salary details will appear here once payroll is processed.</div></div>'}
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>Salary slips</h2></div>${paidMonths.length?paidMonths.slice().reverse().map(mo=>`<div class="doc"><div class="dt"><b class="small">${esc(mo)}</b><div class="dm">Net pay after deductions</div></div><button class="btn btn-ghost btn-sm" onclick="downloadMyPayslip('${mo}')">Download</button></div>`).join(''):'<div class="empty">Your payslip will appear here once that month has been marked paid.</div>'}</div>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.advances}</svg></div><h2>Salary advances</h2></div><p class="small muted" style="margin:0 0 8px">Advances are recorded by HR; any you've taken are shown here and deducted from your pay.</p>${advTaken?`<p class="small muted" style="margin:0 0 8px">Total advances taken: <b>${fmt(advTaken)}</b></p>`:''}${adv.map(a=>`<div class="doc"><div class="dt"><b class="small">${fmt(a.amount)}</b><div class="dm">${esc(a.reason||'')} · ${dfmt(a.date)}</div></div><span class="pill ${a.status}">${esc(a.status)}</span></div>`).join('')||'<div class="empty">No advances on record.</div>'}</div>`;
     return;
@@ -1158,6 +1155,37 @@ function compBreakupHTML(cp){ if(!cp) return '<div class="empty">No compensation
     `<div class="bl tot"><span>In-hand salary / month (take-home)</span><span class="num">${fmt(netMonthly(c))}</span></div>`+
   `</div>`;
 }
+// LIVE compensation breakdown — shows the ACTUAL figures from the salary sheet (payroll table) VERBATIM.
+// Nothing is recomputed (net follows no single formula in the sheet). Only the in-hand line is highlighted.
+let _payAllCache=null;
+async function ensurePayAll(){ if(_payAllCache) return _payAllCache; _payAllCache=(await loadPayrollRows(null))||[]; return _payAllCache; }
+function _money(v){ return (v==null||v==='')?null:(+v); }
+function payBreakupHTML(p, monthLabel){
+  if(!p) return '<div class="empty">No salary breakdown on record yet — it appears once payroll has been processed.</div>';
+  var net=_money(p.net_in_hand);
+  var wd = p.working_days;
+  var earnings = `<div class="bl"><span>Basic</span><span class="num">${fmt(_money(p.basic)||0)}</span></div>`+
+    `<div class="bl"><span>HRA</span><span class="num">${fmt(_money(p.hra)||0)}</span></div>`+
+    `<div class="bl"><span>Special allowance</span><span class="num">${fmt(_money(p.special)||0)}</span></div>`+
+    `<div class="bl"><span>Monthly gross</span><span class="num">${fmt(_money(p.gross)||0)}</span></div>`+
+    ((wd!=null&&wd!=='')?`<div class="bl"><span class="small muted">Working days paid</span><span class="num">${esc(String(wd))}</span></div>`:'');
+  // If net-in-hand is missing, the row is incomplete in the source — show earnings only and flag the take-home,
+  // never a guessed figure or a possibly mis-aligned deduction line.
+  if(net==null){
+    return `<div class="breakup">`+earnings+
+      `<div class="bl tot"><span>In-hand salary / month (take-home)</span><span class="num" style="font-size:13px">being verified with payroll</span></div></div>`+
+      `<p class="small muted" style="margin-top:8px">This month's take-home is being verified against the salary sheet — it will appear once confirmed.</p>`;
+  }
+  return `<div class="breakup">`+earnings+
+    `<div class="bl"><span class="small muted">Deductions</span><span></span></div>`+
+    `<div class="bl"><span>Provident Fund</span><span class="num">- ${fmt(_money(p.pf_employee)||0)}</span></div>`+
+    (_money(p.esi_employee)?`<div class="bl"><span>ESI</span><span class="num">- ${fmt(_money(p.esi_employee))}</span></div>`:'')+
+    (_money(p.pt)?`<div class="bl"><span>Professional Tax</span><span class="num">- ${fmt(_money(p.pt))}</span></div>`:'')+
+    (_money(p.tds)?`<div class="bl"><span>TDS</span><span class="num">- ${fmt(_money(p.tds))}</span></div>`:'')+
+    (_money(p.salary_advances)?`<div class="bl"><span>Advance recovery</span><span class="num">- ${fmt(_money(p.salary_advances))}</span></div>`:'')+
+    `<div class="bl tot"><span>In-hand salary / month (take-home)</span><span class="num">${fmt(net)}</span></div>`+
+  `</div>`+(monthLabel?`<p class="small muted" style="margin-top:8px">Figures taken directly from the ${esc(monthLabel)} salary sheet — not estimated.</p>`:'');
+}
 function vDirectory(){
   const showComp=(SES&&(SES.realRole==='super-admin'||SES.realRole==='hr'||SES.realRole==='gm'));
   const rows=DB.employees.map(e=>{const cp=showComp&&canSeeComp(e)?compForEmp(e):null;return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b></td><td>${esc(e.code)}</td><td>${esc(e.desig)}</td><td>${esc(e.dept)}</td><td>${esc(e.level)}</td>${showComp?`<td class="num">${cp?fmt(cp.ctc):'—'}</td>`:''}<td><span class="pill ${e.status}">${esc(e.status)}</span></td></tr>`;}).join('');
@@ -1168,9 +1196,10 @@ function vDirectory(){
 function openEmp(id){_emp360=id;go('directory');setTimeout(()=>renderEmp360(id),10);}
 let _emp360=null;
 function maskPII(k,v){v=String(v);if(k==='aadhaar')return v.length>4?'XXXX XXXX '+v.slice(-4):v;if(k==='account')return v.length>4?'••••'+v.slice(-4):v;return v;}
-function renderEmp360(id){
+async function renderEmp360(id){
   const e=empById(id);if(!e)return;const off=offerForEmp(id),t=tenure(e.doj),docs=docsForEmp(id);
   const mgr=e.managerId?empById(e.managerId):null;
+  let _payRow=null; if(LIVE&&sb&&canSeeComp(e)){ try{ const _all=await ensurePayAll(); const _mine=_all.filter(x=>x.employee_id===id); _payRow=_mine.filter(x=>x.month==='May 2026')[0]||_mine[0]||null; }catch(_e){} }
   $('view').innerHTML=`
    <div style="display:flex;align-items:center;gap:14px"><button class="btn btn-ghost btn-sm" onclick="vDirectory()">← Directory</button></div>
    <div class="card card-pad"><div style="display:flex;align-items:center;gap:16px"><div class="avatar lg">${initials(e.name)}</div>
@@ -1186,7 +1215,7 @@ function renderEmp360(id){
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Compensation</h2></div>
-     ${(function(){var cp=canSeeComp(e)?compForEmp(e):null;return compBreakupHTML(cp);})()}
+     ${canSeeComp(e)?(LIVE?payBreakupHTML(_payRow,_payRow?_payRow.month:null):compBreakupHTML(compForEmp(e))):'<div class="empty">Compensation is visible to management only.</div>'}
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Onboarding form</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="hrEditOnboarding('${id}')">${e.onboardingData?'Edit':'Fill for employee'}</button>${e.onboardingData?`<span class="pill verified" style="margin-left:8px">Submitted ${dfmt(e.onboardingData.submittedAt)}</span>`:''}</div>
@@ -1730,8 +1759,8 @@ let _payMonth=null, _payAll=null;
 async function loadPayrollRows(month){ if(!(LIVE&&sb))return null; try{ const r=await sb.rpc('hrms_payroll',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:month}); if(r.error||!r.data||!r.data.ok)return []; return r.data.payroll||[]; }catch(e){ return []; } }
 function _monthIdx(s){return ['january','february','march','april','may','june','july','august','september','october','november','december'].indexOf(String(s||'').toLowerCase());}
 function parseMonthLabel(m){const parts=String(m||'').trim().split(/\s+/);if(parts.length<2)return null;const mi=_monthIdx(parts[0]);const y=parseInt(parts[1],10);if(mi<0||!y)return null;const end=new Date(Date.UTC(y,mi+1,0));const pad=n=>String(n).padStart(2,'0');return {start:y+'-'+pad(mi+1)+'-01', end:y+'-'+pad(mi+1)+'-'+pad(end.getUTCDate())};}
-async function markPaid(month){if(!confirm('Mark '+month+' as paid? Employees will then be able to download their payslip for '+month+'.'))return;const r=await sb.rpc('hrms_mark_paid',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:month,p_paid:true});if(r.error||!r.data||!r.data.ok){toast('Could not mark paid');return;}_payAll=null;toast(month+' marked paid — payslips released');vPayroll();}
-async function runPayrollMonth(){const m=prompt('Run payroll for which month? (e.g. June 2026)','June 2026');if(!m)return;const p=parseMonthLabel(m);if(!p){toast('Use a format like: June 2026');return;}toast('Computing '+m+' …');try{const r=await sb.rpc('hrms_run_payroll',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:m,p_base:'May 2026',p_start:p.start,p_end:p.end});if(r.error||!r.data||!r.data.ok){toast('Could not run payroll');return;}_payMonth=m;_payAll=null;toast(m+' ready — '+r.data.rows+' staff'+(r.data.new_joiners?(', '+r.data.new_joiners+' new'):''));vPayroll();}catch(e){toast('Could not run payroll');}}
+async function markPaid(month){if(!confirm('Mark '+month+' as paid? Employees will then be able to download their payslip for '+month+'.'))return;const r=await sb.rpc('hrms_mark_paid',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:month,p_paid:true});if(r.error||!r.data||!r.data.ok){toast('Could not mark paid');return;}_payAll=null;_payAllCache=null;toast(month+' marked paid — payslips released');vPayroll();}
+async function runPayrollMonth(){const m=prompt('Run payroll for which month? (e.g. June 2026)','June 2026');if(!m)return;const p=parseMonthLabel(m);if(!p){toast('Use a format like: June 2026');return;}toast('Computing '+m+' …');try{const r=await sb.rpc('hrms_run_payroll',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:m,p_base:'May 2026',p_start:p.start,p_end:p.end});if(r.error||!r.data||!r.data.ok){toast('Could not run payroll');return;}_payMonth=m;_payAll=null;_payAllCache=null;toast(m+' ready — '+r.data.rows+' staff'+(r.data.new_joiners?(', '+r.data.new_joiners+' new'):''));vPayroll();}catch(e){toast('Could not run payroll');}}
 async function downloadSalarySheet(month){
   const rows=await loadPayrollRows(month); if(!rows||!rows.length){ toast('No payroll found for '+month); return; }
   const header=['Employee Code','Name','Designation','Department','Monthly CTC','Gross','Basic','HRA','Special','Working Days','PF (employee)','ESI (employee)','Prof. Tax','TDS','Salary Advances','Other Deductions','Total Deduction','Reimbursement','Bonus','Net in Hand','Employer PF','ESI Employer','Gratuity','Bank Name','Account No','IFSC'];
