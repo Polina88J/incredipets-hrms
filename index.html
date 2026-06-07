@@ -1263,7 +1263,7 @@ async function renderEmp360(id){
   const mgr=e.managerId?empById(e.managerId):null;
   let _payRow=null; if(LIVE&&sb&&canSeeComp(e)){ try{ const _all=await ensurePayAll(); const _mine=_all.filter(x=>x.employee_id===id); _payRow=_mine.filter(x=>x.month==='June 2026')[0]||_mine.filter(x=>x.month==='May 2026')[0]||_mine[0]||null; }catch(_e){} }
   $('view').innerHTML=`
-   <div style="display:flex;align-items:center;gap:14px"><button class="btn btn-ghost btn-sm" onclick="vDirectory()">← Directory</button></div>
+   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="vDirectory()">← Directory</button>${DB.employees.some(x=>x.managerId===id&&x.status!=='exited')?`<button class="btn btn-ghost btn-sm" onclick="downloadTeamTree('${id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download team tree</button>`:''}</div>
    <div class="card card-pad"><div style="display:flex;align-items:center;gap:16px"><div class="avatar lg">${initials(e.name)}</div>
      <div><h1 class="page" style="font-size:21px">${esc(e.name)}</h1><p class="page-sub">${esc(e.desig)} · ${esc(e.dept)} · ${esc(e.code)} · <span class="pill ${e.status}">${esc(e.status)}</span></p></div></div>
    </div>
@@ -1507,12 +1507,45 @@ function downloadOrgPNG(){
     const a=document.createElement('a'); a.download='IncrediPets-Org-Chart.png'; a.href=canvas.toDataURL('image/png'); a.click(); track('org_chart_download'); toast('Org chart image downloaded');
   }).catch(function(){ toast('Could not render the image'); });
 }
+/* ===== per-team subtree → downloadable PNG (a clean small tree for one team) ===== */
+function _orgNodeHTML(e, childrenOf){
+  var reports=childrenOf(e.id); var lr=levelRank(e.level);
+  return `<li><div class="orgcard lv${lr||1}"><div class="avatar sm">${initials(e.name)}</div><div class="oc-t"><b>${esc(e.name)}</b><div class="oc-d">${esc(e.desig||'')}</div></div>${e.level?`<span class="oc-lv">${esc(e.level)}</span>`:''}</div>${reports.length?`<ul>${reports.map(function(r){return _orgNodeHTML(r,childrenOf);}).join('')}</ul>`:''}</li>`;
+}
+function buildTeamTreeHTML(rootId,title){
+  var live=DB.employees.filter(e=>e.status!=='exited'); var liveSet=new Set(live.map(e=>e.id));
+  var bySen=function(a,b){var d=levelRank(b.level)-levelRank(a.level);return d!==0?d:String(a.name||'').localeCompare(String(b.name||''));};
+  var childrenOf=function(id){return live.filter(x=>x.managerId===id).sort(bySen);};
+  var root=live.find(e=>e.id===rootId); if(!root) return null;
+  var count=1; (function walk(id){childrenOf(id).forEach(function(c){count++;walk(c.id);});})(rootId);
+  var dateStr=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  var legend=[['L6','#B00050'],['L5','#8e44ad'],['L4','#2980b9'],['L3','#16a085'],['L2','#e67e22'],['L1','#95a5a6']].map(x=>`<span><i style="background:${x[1]}"></i>${x[0]}</span>`).join('');
+  return `<div class="org-head"><div class="oh-logo"><b>Incredi</b>Pets</div><div class="oh-sub">${esc(title||(root.name+"’s team"))} · ${count} people · ${dateStr}</div><div class="org-legend">${legend}</div></div><div class="tree"><ul>${_orgNodeHTML(root,childrenOf)}</ul></div>`;
+}
+function downloadTeamTree(rootId,title){
+  if(typeof html2canvas!=='function'){ toast('Image tool still loading — try again in a moment'); return; }
+  var root=DB.employees.find(e=>e.id===rootId);
+  var hasReports=DB.employees.some(e=>e.managerId===rootId&&e.status!=='exited');
+  if(!root){ toast('Not available'); return; }
+  if(!hasReports){ toast(root.name.split(' ')[0]+' has no team reporting to them'); return; }
+  var html=buildTeamTreeHTML(rootId,title); if(!html){ toast('No team to render'); return; }
+  var holder=document.createElement('div'); holder.className='org-canvas';
+  holder.style.cssText='position:absolute;left:-100000px;top:0;display:inline-block;overflow:visible;background:#ffffff';
+  holder.innerHTML=html; document.body.appendChild(holder);
+  toast('Rendering team tree…');
+  var w=holder.scrollWidth, h=holder.scrollHeight; var sc=Math.min(2,30000/Math.max(w,1)); if(!isFinite(sc)||sc<=0)sc=1;
+  html2canvas(holder,{backgroundColor:'#ffffff',scale:sc,width:w,height:h,windowWidth:w,windowHeight:h,
+    onclone:function(doc){ doc.querySelectorAll('.avatar').forEach(function(a){a.style.background='#B00050';a.style.backgroundImage='none';}); }
+  }).then(function(canvas){
+    var a=document.createElement('a'); a.download='IncrediPets-Team-'+(root.name||'team').replace(/[^A-Za-z0-9]+/g,'-')+'.png'; a.href=canvas.toDataURL('image/png'); a.click(); track('team_tree_download'); toast('Team tree downloaded');
+  }).catch(function(){ toast('Could not render the image'); }).finally(function(){ holder.remove(); });
+}
 /* ============================================================
    MANAGER VIEWS (no compensation — that stays with HR)
    ============================================================ */
 function vMTeam(){
   const reports=DB.employees.filter(e=>e.managerId===SES.employeeId);
-  $('view').innerHTML=`<div><h1 class="page">My Team</h1><p class="page-sub">Your direct reports. Manage their goals &amp; performance; recommend confirmation or promotion to HR.</p></div>
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">My Team</h1><p class="page-sub">Your direct reports. Manage their goals &amp; performance; recommend confirmation or promotion to HR.</p></div>${reports.length?`<button class="btn btn-ghost btn-sm" onclick="downloadTeamTree('${SES.employeeId}','My team')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download team tree</button>`:''}</div>
    ${attnStrip(reports.filter(e=>onProbation(e)).map(e=>e.name+' is on probation — review their objectives').concat(reports.filter(e=>e.status==='offboarding').map(e=>e.name+' is serving notice (last day '+dfmt((e.offboarding||{}).lastDay)+')')))}
    ${reports.length?reports.map(e=>{const p=probationInfo(e);return `<div class="card card-pad" style="cursor:pointer" onclick="renderMReport('${e.id}')">
      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
