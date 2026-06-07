@@ -594,7 +594,7 @@ function vHome(){
   const docsLeft=docsForEmp(emp.id).filter(d=>d.status!=='verified').length;
   $('view').innerHTML=`
    <div><h1 class="page">Welcome back, ${esc(emp.name.split(' ')[0])} 👋</h1><p class="page-sub">${esc(emp.desig)} · ${esc(emp.dept)} · ${esc(emp.code)}</p></div>
-   ${attnStrip([(!emp.onboarded&&!emp.onboardingSubmitted)?'Complete your onboarding form':null,(emp.onboardingSubmitted&&!emp.onboarded)?'Onboarding submitted — awaiting HR verification':null,(emp.status==='active'&&!emp.confirmedOn)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
+   ${attnStrip([(!emp.onboarded&&!emp.onboardingSubmitted)?'Complete your onboarding form':null,(emp.onboardingSubmitted&&!emp.onboarded)?'Onboarding submitted — awaiting HR verification':null,onProbation(emp)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
    <div class="stats">
      <div class="stat"><div class="k">Time at IncrediPets</div><div class="v">${t.y}<small>y</small> ${t.mo}<small>m</small> ${t.d}<small>d</small></div><div class="sub">Joined ${dfmt(emp.doj)}</div></div>
      <div class="stat"><div class="k">Current level</div><div class="v">${esc(emp.level)}</div><div class="sub">${esc(emp.desig)}</div></div>
@@ -605,7 +605,7 @@ function vHome(){
      <p class="small muted" style="margin-bottom:12px">Please complete your onboarding form so your HR team can finish your joining.</p>
      <button class="btn btn-primary btn-sm" onclick="go('onboard',document.querySelector('[data-pg=onboard]'))">Open onboarding form</button>
    </div>`:''}
-   ${(emp.onboarded&&emp.status==='active'&&!emp.confirmedOn)?(function(){const p=probationInfo(emp),pct=Math.min(100,Math.round(t.totalMonths/p.months*100));return `<div class="card card-pad">
+   ${(emp.onboarded&&onProbation(emp))?(function(){const p=probationInfo(emp),pct=Math.min(100,Math.round(t.totalMonths/p.months*100));return `<div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.probation}</svg></div><h2>You're on probation</h2><span class="pill ${p.overdue?'offboarding':'onboarding'}" style="margin-left:auto">Confirmation due ${dfmt(p.due)}</span></div>
      <p class="small muted" style="margin-bottom:10px">You're in a ${p.months}-month probation period. Complete the objectives below and your manager will confirm you.</p>
      <div class="bar ${pct>=100?'green':''}"><i style="width:${pct}%"></i></div>
@@ -630,7 +630,7 @@ function vHome(){
    </div>
    ${(emp.tempPassword&&!emp.passwordSet)?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)"><div class="sec-h"><div class="si">!</div><h2>Set your password</h2></div><p class="small muted" style="margin-bottom:10px">You're using a temporary password — please set your own.</p><button class="btn btn-primary btn-sm" onclick="setNewPassword()">Set new password</button></div>`:''}
    ${(emp.onboarded&&emp.status!=='exited')?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.settings}</svg></div><h2>Self-service</h2></div>
-     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button>${leaveEligible(emp)?`<button class="btn btn-ghost btn-sm" onclick="applyLeave()">Apply for leave</button>`:''}<button class="btn btn-ghost btn-sm" onclick="applyAdvance()">Request advance</button></div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button>${leaveEligible(emp)?`<button class="btn btn-ghost btn-sm" onclick="applyLeave()">Apply for leave</button>`:''}</div>
    </div>`:''}`;
 }
 
@@ -718,13 +718,13 @@ function submitOnboarding(){
 async function vPay(){
   const emp=empById(SES.employeeId);
   if(LIVE&&sb){
-    const rows=(await loadPayrollRows(null))||[]; const months=Array.from(new Set(rows.map(p=>p.month))).sort(); const p=rows.filter(x=>x.month===months[months.length-1])[0]||null;
+    const all=(await loadPayrollRows(null))||[]; const rows=all.filter(p=>p.employee_id===emp.id); const months=Array.from(new Set(rows.map(p=>p.month))).sort(); const p=rows.filter(x=>x.month===months[months.length-1])[0]||null;
     const adv=(DB.advances||[]).filter(a=>a.employeeId===emp.id); const advTaken=adv.filter(a=>a.status==='approved').reduce((s,a)=>s+(+a.amount||0),0);
     $('view').innerHTML=`<div><h1 class="page">My Pay</h1><p class="page-sub">Your compensation — visible only to you.</p></div>
      ${p?`<div class="stats"><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(p.gross||0)}</div></div><div class="stat"><div class="k">Basic</div><div class="v num" style="font-size:18px">${fmt(p.basic||0)}</div></div><div class="stat"><div class="k">HRA</div><div class="v num" style="font-size:18px">${fmt(p.hra||0)}</div></div><div class="stat"><div class="k">Take-home · ${esc(p.month)}</div><div class="v num">${fmt(p.net_in_hand||0)}</div></div></div>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Salary breakdown · ${esc(p.month)}</h2></div><div class="breakup"><div class="bl"><span>Basic</span><span class="num">${fmt(p.basic||0)}</span></div><div class="bl"><span>HRA</span><span class="num">${fmt(p.hra||0)}</span></div><div class="bl"><span>Special allowance</span><span class="num">${fmt(p.special||0)}</span></div><div class="bl tot"><span>Gross</span><span class="num">${fmt(p.gross||0)}</span></div><div class="bl"><span>Provident Fund</span><span class="num">- ${fmt(p.pf_employee||0)}</span></div><div class="bl"><span>ESI</span><span class="num">- ${fmt(p.esi_employee||0)}</span></div><div class="bl"><span>Professional tax</span><span class="num">- ${fmt(p.pt||0)}</span></div><div class="bl"><span>TDS</span><span class="num">- ${fmt(p.tds||0)}</span></div>${p.salary_advances?`<div class="bl"><span>Advance recovery</span><span class="num">- ${fmt(p.salary_advances)}</span></div>`:''}<div class="bl tot"><span>Net in hand (take-home)</span><span class="num">${fmt(p.net_in_hand||0)}</span></div></div></div>`:'<div class="card card-pad"><div class="empty">Your salary details will appear here once payroll is run for the month.</div></div>'}
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>Salary slips</h2></div>${months.length?months.slice().reverse().map(mo=>`<div class="doc"><div class="dt"><b class="small">${esc(mo)}</b><div class="dm">Net pay after deductions</div></div><button class="btn btn-ghost btn-sm" onclick="downloadSalarySheet('${mo}')">Download</button></div>`).join(''):'<div class="empty">No salary slips yet.</div>'}</div>
-     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.advances}</svg></div><h2>Salary advances</h2><button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="applyAdvance()">Apply for advance</button></div>${advTaken?`<p class="small muted" style="margin:0 0 8px">Total advances taken (approved): <b>${fmt(advTaken)}</b></p>`:''}${adv.map(a=>`<div class="doc"><div class="dt"><b class="small">${fmt(a.amount)}</b><div class="dm">${esc(a.reason||'')} · requested ${dfmt(a.date)}</div></div><span class="pill ${a.status}">${esc(a.status)}</span></div>`).join('')||'<div class="empty">No advance requests yet — tap "Apply for advance".</div>'}</div>`;
+     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.advances}</svg></div><h2>Salary advances</h2></div><p class="small muted" style="margin:0 0 8px">Advances are recorded by HR; any you've taken are shown here and deducted from your pay.</p>${advTaken?`<p class="small muted" style="margin:0 0 8px">Total advances taken: <b>${fmt(advTaken)}</b></p>`:''}${adv.map(a=>`<div class="doc"><div class="dt"><b class="small">${fmt(a.amount)}</b><div class="dm">${esc(a.reason||'')} · ${dfmt(a.date)}</div></div><span class="pill ${a.status}">${esc(a.status)}</span></div>`).join('')||'<div class="empty">No advances on record.</div>'}</div>`;
     return;
   }
   const off=offerForEmp(emp.id),c=off?calc(off.ctc):null;
@@ -849,9 +849,12 @@ const LADDERS={
 };
 function vLadder(){
   const emp=empById(SES.employeeId),t=tenure(emp.doj);
-  const track=emp.track||'Field Sales',ladder=LADDERS[track];
-  if(track==='Founder'||!ladder){
-    $('view').innerHTML=`<div><h1 class="page">Career Ladder</h1></div><div class="card card-pad muted small">You sit above the level ladder — growth here is company scale, not title.</div>`;return;}
+  const top=(emp.level==='L6')||/ceo|cto|coo|cfo|cmo|chief|founder|co-?founder|managing director/i.test(emp.desig||'');
+  const track=emp.track,ladder=track?LADDERS[track]:null;
+  if(top){
+    $('view').innerHTML=`<div><h1 class="page">Career Ladder</h1></div><div class="card card-pad muted small">You're at the top of the organisation — growth here is about company scale, not a change in title.</div>`;return;}
+  if(!ladder){
+    $('view').innerHTML=`<div><h1 class="page">Career Ladder</h1></div><div class="card card-pad muted small">Your growth path is mapped to your track with HR — speak to your manager about your next step.</div>`;return;}
   let idx=ladder.findIndex(r=>r[0]===(emp.ladderTitle||emp.desig));
   if(idx<0)idx=ladder.findIndex(r=>r[1].replace(/[-+]/g,'')===emp.level);
   if(idx<0)idx=0;
@@ -899,7 +902,7 @@ function vTeam(){
      ${(pendLeave.length||pendAdv.length)?(pendLeave.map(r=>`<div class="doc"><div class="dt"><b class="small">${esc((empById(r.employeeId)||{}).name||r.employeeName||'')}</b><div class="dm">Leave · ${esc(r.type)} · ${dfmt(r.from)} → ${dfmt(r.to)} · ${r.days} day(s) · ${esc(r.reason||'')}</div></div><div style="display:flex;gap:6px"><button class="btn btn-green btn-sm" onclick="decideLeave('${r.id}','approved')">Approve</button><button class="btn btn-ghost btn-sm" onclick="decideLeave('${r.id}','rejected')">Decline</button></div></div>`).join('')+pendAdv.map(a=>`<div class="doc"><div class="dt"><b class="small">${esc((empById(a.employeeId)||{}).name||a.employeeName||'')}</b><div class="dm">Advance · ${fmt(a.amount)} · ${esc(a.reason||'')}</div></div><div style="display:flex;gap:6px"><button class="btn btn-green btn-sm" onclick="decideAdvance('${a.id}','approved')">Approve</button><button class="btn btn-ghost btn-sm" onclick="decideAdvance('${a.id}','rejected')">Decline</button></div></div>`).join('')):'<div class="small muted">No pending requests from your team.</div>'}
    </div>`:''}
    ${reports.length?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.mteam}</svg></div><h2>My direct reports</h2></div>
-     ${reports.map(r=>{const p=probationInfo(r);return `<div class="doc" style="cursor:pointer" onclick="renderMReport('${r.id}')"><div class="avatar sm">${initials(r.name)}</div><div class="dt"><b class="small">${esc(r.name)}</b><div class="dm">${esc(r.desig)} · ${esc(r.level)}</div></div>${(r.status==='active'&&!r.confirmedOn)?`<span class="pill ${p.overdue?'offboarding':'onboarding'}">On probation</span>`:`<span class="pill ${r.status}">${esc(r.status)}</span>`}</div>`;}).join('')}
+     ${reports.map(r=>{const p=probationInfo(r);return `<div class="doc" style="cursor:pointer" onclick="renderMReport('${r.id}')"><div class="avatar sm">${initials(r.name)}</div><div class="dt"><b class="small">${esc(r.name)}</b><div class="dm">${esc(r.desig)} · ${esc(r.level)}</div></div>${onProbation(r)?`<span class="pill onboarding">On probation</span>`:`<span class="pill ${r.status}">${esc(r.status)}</span>`}</div>`;}).join('')}
    </div>`:'<div class="card card-pad muted small">You are not managing anyone yet — this page will let you manage your team when you do.</div>'}`;
 }
 
@@ -1258,7 +1261,8 @@ function previewEmp(id){const e=empById(id);if(!e)return;window._adminSES=SES;SE
 function exitPreview(){if(window._adminSES){SES=window._adminSES;window._adminSES=null;}const b=document.getElementById('previewBanner');if(b)b.remove();buildNav();go('directory');}
 function showPreviewBanner(name){let b=document.getElementById('previewBanner');if(!b){b=document.createElement('div');b.id='previewBanner';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#5b2a91;color:#fff;padding:9px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.2)';document.body.appendChild(b);}b.innerHTML='Previewing '+esc(name)+' — this is exactly what they see &nbsp; <button onclick="exitPreview()" style="background:#fff;color:#5b2a91;border:0;border-radius:6px;padding:4px 12px;font-weight:700;cursor:pointer">Exit preview</button>';}
 function setManager(id,mgrId){const e=empById(id);if(!e)return;e.managerId=mgrId||null;const m=mgrId?empById(mgrId):null;e.managerName=m?m.name:null;save();toast('Reporting manager updated'+(m?(' → '+m.name):''));renderEmp360(id);}
-function probationInfo(e){const months=e.probationMonths||3,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const confirmed=!!e.confirmedOn,overdue=!confirmed&&new Date()>due;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
+function probationInfo(e){const months=e.probationMonths||3,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const t=tenure(e.doj);const pastWindow=((t.totalMonths||0)>=months)&&!t.future;const confirmed=!!e.confirmedOn||pastWindow;const overdue=false;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
+function onProbation(e){ if(!e||e.status!=='active'||e.confirmedOn)return false; const t=tenure(e.doj); if(t.future)return false; return (t.totalMonths||0) < (e.probationMonths||3); }
 function probationCardHTML(e,id){
   if(e.status!=='active')return '';
   const p=probationInfo(e);
@@ -1277,7 +1281,7 @@ function toggleProbationGoal(id,i){const e=empById(id);if(!e.probationGoals||!e.
 function confirmEmployee(id){const e=empById(id);e.confirmedOn=new Date().toISOString().slice(0,10);save();toast(e.name+' confirmed');renderEmp360(id);}
 function extendProbation(id){const e=empById(id);e.probationMonths=(e.probationMonths||3)+3;save();toast('Probation extended by 3 months');renderEmp360(id);}
 function vProbation(){
-  const list=DB.employees.filter(e=>e.status==='active'&&!e.confirmedOn);
+  const list=DB.employees.filter(e=>onProbation(e));
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Probation</h1><p class="page-sub">Employees on probation and when their confirmation review falls due.</p></div><button class="btn btn-ghost btn-sm" onclick="exportProbation()">Export CSV</button></div>
    ${list.length?`<div class="card"><table class="list"><tr><th>Employee</th><th>Joined</th><th>Review due</th><th>Status</th></tr>${list.map(e=>{const p=probationInfo(e);return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b><div class="small muted">${esc(e.code)} · ${esc(e.desig)}</div></td><td>${dfmt(e.doj)}</td><td>${dfmt(p.due)}</td><td>${p.overdue?'<span class="pill offboarding">Review overdue</span>':'<span class="pill onboarding">On probation</span>'}</td></tr>`;}).join('')}</table></div>`:'<div class="card"><div class="empty">No one is on probation.</div></div>'}`;
 }
@@ -1304,7 +1308,7 @@ function vDashboard(){
   const onboarding=emps.filter(e=>e.status==='onboarding'||e.status==='offered').length;
   const openPos=DB.positions.filter(p=>p.status==='Open').length;
   const pending=DB.offers.filter(o=>o.status==='pending_approval').length;
-  const overdueP=emps.filter(e=>{const p=probationInfo(e);return e.status==='active'&&!e.confirmedOn&&p.overdue;}).length;
+  const overdueP=emps.filter(e=>{const p=probationInfo(e);return onProbation(e)&&p.overdue;}).length;
   const docsToReview=DB.documents.filter(d=>d.status==='uploaded').length;
   const recs=emps.filter(e=>e.recommendation).length;
   const depts={},levels={};
@@ -1335,11 +1339,11 @@ function vOrg(){
 function vMTeam(){
   const reports=DB.employees.filter(e=>e.managerId===SES.employeeId);
   $('view').innerHTML=`<div><h1 class="page">My Team</h1><p class="page-sub">Your direct reports. Manage their goals &amp; performance; recommend confirmation or promotion to HR.</p></div>
-   ${attnStrip(reports.filter(e=>e.status==='active'&&!e.confirmedOn).map(e=>e.name+' is on probation — review their objectives').concat(reports.filter(e=>e.status==='offboarding').map(e=>e.name+' is serving notice (last day '+dfmt((e.offboarding||{}).lastDay)+')')))}
+   ${attnStrip(reports.filter(e=>onProbation(e)).map(e=>e.name+' is on probation — review their objectives').concat(reports.filter(e=>e.status==='offboarding').map(e=>e.name+' is serving notice (last day '+dfmt((e.offboarding||{}).lastDay)+')')))}
    ${reports.length?reports.map(e=>{const p=probationInfo(e);return `<div class="card card-pad" style="cursor:pointer" onclick="renderMReport('${e.id}')">
      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
        <div style="display:flex;align-items:center;gap:11px"><div class="avatar sm">${initials(e.name)}</div><div><b style="font-size:14.5px">${esc(e.name)}</b><div class="small muted">${esc(e.desig)} · ${esc(e.level)} · ${esc(e.code)}</div></div></div>
-       ${(e.status==='active'&&!e.confirmedOn)?`<span class="pill ${p.overdue?'offboarding':'onboarding'}">On probation</span>`:`<span class="pill ${e.status}">${esc(e.status)}</span>`}
+       ${(onProbation(e))?`<span class="pill ${p.overdue?'offboarding':'onboarding'}">On probation</span>`:`<span class="pill ${e.status}">${esc(e.status)}</span>`}
      </div></div>`;}).join(''):'<div class="card"><div class="empty">No direct reports.</div></div>'}`;
 }
 function renderMReport(id){
@@ -1353,7 +1357,7 @@ function renderMReport(id){
      <div class="info-cell"><div class="k">Date of joining</div><div class="v">${dfmt(e.doj)}</div></div>
      <div class="info-cell"><div class="k">Level</div><div class="v">${esc(e.level)}</div></div>
    </div>
-   ${(e.status==='active'&&!e.confirmedOn)?`<div class="card card-pad">
+   ${(onProbation(e))?`<div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.probation}</svg></div><h2>Probation</h2><span class="pill ${p.overdue?'offboarding':'onboarding'}" style="margin-left:auto">Due ${dfmt(p.due)}</span></div>
      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b class="small">Objectives (the employee sees these)</b><button class="btn btn-ghost btn-sm" onclick="mAddGoal('${id}')">+ Add</button></div>
      ${(e.probationGoals||[]).map((g,i)=>`<div class="req"><span class="ck ${g.done?'ok':'no'}" style="cursor:pointer" onclick="mToggleGoal('${id}',${i})">${g.done?'✓':'•'}</span>${esc(g.text)}</div>`).join('')||'<div class="small muted">No objectives yet.</div>'}
@@ -1408,7 +1412,7 @@ function vHrDocs(){
 /* ---------- toast ---------- */
 function exportCSV(filename,headers,rows){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const csv=[headers.map(q).join(',')].concat(rows.map(r=>r.map(q).join(','))).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=filename;document.body.appendChild(a);a.click();a.remove();toast('Exported '+filename);}
 function exportDirectory(){exportCSV('directory.csv',['Name','Code','Designation','Dept','Level','Status'],DB.employees.map(e=>[e.name,e.code,e.desig,e.dept,e.level,e.status]));}
-function exportProbation(){const list=DB.employees.filter(e=>e.status==='active'&&!e.confirmedOn);exportCSV('probation.csv',['Name','Code','Designation','Joined','Review due'],list.map(e=>{const p=probationInfo(e);return [e.name,e.code,e.desig,e.doj,p.due];}));}
+function exportProbation(){const list=DB.employees.filter(e=>onProbation(e));exportCSV('probation.csv',['Name','Code','Designation','Joined','Review due'],list.map(e=>{const p=probationInfo(e);return [e.name,e.code,e.desig,e.doj,p.due];}));}
 function exportOffboarding(){const list=DB.employees.filter(e=>e.status==='offboarding');exportCSV('resignations.csv',['Name','Code','Reason','Last day'],list.map(e=>[e.name,e.code,(e.offboarding&&e.offboarding.reason)||'',(e.offboarding&&e.offboarding.lastDay)||'']));}
 function exportOffers(){const rows=DB.offers.map(o=>{const e=empById(o.employeeId);return e?[e.name,e.code,e.desig,e.dept,e.doj,o.status]:null;}).filter(Boolean);exportCSV('offers.csv',['Candidate','Code','Designation','Dept','Joining','Status'],rows);}
 function exportPositions(){exportCSV('positions.csv',['Role','Dept','Level','Openings','Hiring manager','Band min','Band max','Status'],DB.positions.map(p=>[p.title,p.dept,p.level,p.openings,p.hiringManager,p.bandMin,p.bandMax,p.status]));}
@@ -1475,17 +1479,17 @@ function vReports(){
   const emps=DB.employees;
   const active=emps.filter(e=>e.status==='active').length;
   const offersInProgress=DB.offers.filter(o=>['pending_approval','accepted','released'].indexOf(o.status)>-1).length;
-  const probDue=emps.filter(e=>e.status==='active'&&!e.confirmedOn).length;
+  const probDue=emps.filter(e=>onProbation(e)).length;
   const onNotice=emps.filter(e=>e.status==='offboarding').length;
   const exited=emps.filter(e=>e.status==='exited');
   const declined=emps.filter(e=>e.status==='declined').length;
   const bk={w:0,m:0,q:0};
   exited.forEach(e=>{if(e.offboarding&&e.offboarding.lastDay&&e.doj){const days=Math.round((new Date(e.offboarding.lastDay)-new Date(e.doj))/86400000);if(days<=7)bk.w++;else if(days<=30)bk.m++;else if(days<=90)bk.q++;}});
   let pf=0,esi=0;emps.forEach(e=>{const o=offerForEmp(e.id);if(o){pf++;if(o.ctc/12<=21000)esi++;}});
-  const overdueConf=emps.filter(e=>{const p=probationInfo(e);return e.status==='active'&&!e.confirmedOn&&p.overdue;}).length;
+  const overdueConf=emps.filter(e=>{const p=probationInfo(e);return onProbation(e)&&p.overdue;}).length;
   const depts={},levels={};emps.forEach(e=>{depts[e.dept]=(depts[e.dept]||0)+1;levels[e.level]=(levels[e.level]||0)+1;});
   const exitReasons={};let rejoinYes=0;exited.forEach(e=>{const r=(e.exitInterview&&e.exitInterview.primaryReason)||(e.offboarding&&e.offboarding.reason)||'Unspecified';exitReasons[r]=(exitReasons[r]||0)+1;if(e.exitInterview&&e.exitInterview.rejoin==='Yes')rejoinYes++;});
-  const reviewSoon=emps.filter(e=>{const p=probationInfo(e);if(!(e.status==='active'&&!e.confirmedOn))return false;const d=Math.ceil((new Date(p.due)-new Date())/86400000);return d>=0&&d<=30;});
+  const reviewSoon=emps.filter(e=>{const p=probationInfo(e);if(!(onProbation(e)))return false;const d=Math.ceil((new Date(p.due)-new Date())/86400000);return d>=0&&d<=30;});
   const noticeEnding=emps.filter(e=>{if(e.status!=='offboarding'||!e.offboarding||!e.offboarding.lastDay)return false;const d=Math.ceil((new Date(e.offboarding.lastDay)-new Date())/86400000);return d>=0&&d<=7;});
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Reports</h1><p class="page-sub">Headcount, pipeline, drop-offs and compliance at a glance.</p></div><button class="btn btn-ghost btn-sm" onclick="exportDirectory()">Export directory CSV</button></div>
    <div class="stats">
@@ -1600,9 +1604,10 @@ function decideLeave(id,st){const r=(DB.leaveRequests||[]).find(x=>x.id===id);if
 async function applyAdvance(){const emp=empById(SES.employeeId);const amt=+prompt('Advance amount (₹)','10000');if(!amt)return;const reason=prompt('Reason','')||'';DB.advances=DB.advances||[];const date=new Date().toISOString().slice(0,10);const entry={id:'AD'+Date.now(),employeeId:emp.id,amount:amt,reason:reason,date:date,status:'pending',employeeName:emp.name};DB.advances.unshift(entry);if(LIVE&&sb){const rr=await sb.rpc('hrms_request',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_kind:'advance',p_payload:{amount:amt,reason:reason,date:date}});if(rr.error||!rr.data||!rr.data.ok){toast('Could not submit — please try again');return;}if(rr.data.id)entry.id=rr.data.id;}else{save();}notify(emp.id,'Advance request of '+fmt(amt)+' submitted — pending approval with your manager.');toast('Advance requested');go('pay',document.querySelector('[data-pg=pay]'));}
 function vAdvances(){
   const adv=DB.advances||[];
-  $('view').innerHTML=`<div><h1 class="page">Salary Advances</h1><p class="page-sub">Advance requests — approve / reject (HRBP + super-admin).</p></div>
-   ${adv.length?adv.map(a=>{const e=empById(a.employeeId);return `<div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px"><div><b class="small">${esc(e?e.name:'')}</b> <span class="pill ${a.status}">${esc(a.status)}</span><div class="small muted">${fmt(a.amount)} · ${esc(a.reason||'')} · ${dfmt(a.date)}</div></div>${a.status==='pending'&&(SES.realRole==='super-admin'||SES.realRole==='gm')?`<div style="display:flex;gap:8px"><button class="btn btn-green btn-sm" onclick="decideAdvance('${a.id}','approved')">Approve</button><button class="btn btn-ghost btn-sm" onclick="decideAdvance('${a.id}','rejected')">Reject</button></div>`:''}</div></div>`;}).join(''):'<div class="card"><div class="empty">No advance requests.</div></div>'}`;
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Salary Advances</h1><p class="page-sub">Record salary advances here — each one is deducted from that employee's payroll.</p></div><button class="btn btn-primary btn-sm" onclick="recordAdvance()">Record an advance</button></div>
+   ${adv.length?adv.map(a=>{const e=empById(a.employeeId);return `<div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px"><div><b class="small">${esc(e?e.name:a.employeeName||a.employeeId)}</b> <span class="pill ${a.status}">${esc(a.status)}</span><div class="small muted">${fmt(a.amount)} · ${esc(a.reason||'')} · ${dfmt(a.date)}</div></div></div></div>`;}).join(''):'<div class="card"><div class="empty">No advances recorded yet — tap "Record an advance".</div></div>'}`;
 }
+async function recordAdvance(){const code=prompt('Employee code or number (e.g. IN-203 or 203)');if(!code)return;const amt=+prompt('Advance amount (₹)','10000');if(!amt){toast('Enter a valid amount');return;}const date=prompt('Date (YYYY-MM-DD)',new Date().toISOString().slice(0,10))||new Date().toISOString().slice(0,10);const reason=prompt('Reason / note','')||'';if(!(LIVE&&sb)){toast('Available on the live app');return;}const r=await sb.rpc('hrms_add_advance',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_emp:code.trim(),p_amount:amt,p_reason:reason,p_date:date});if(r.error||!r.data||!r.data.ok){toast((r.data&&r.data.err==='employee_not_found')?'Employee not found — check the code':'Could not record advance');return;}const e=empById(r.data.employee)||{};DB.advances=DB.advances||[];DB.advances.unshift({id:r.data.id,employeeId:r.data.employee,amount:amt,reason:reason,date:date,status:'approved',employeeName:e.name});toast('Advance recorded for '+(e.name||r.data.employee));vAdvances();}
 function decideAdvance(id,st){const a=(DB.advances||[]).find(x=>x.id===id);if(!a)return;a.status=st;a.decidedBy=(SES&&SES.label);if(LIVE&&sb){sb.rpc('hrms_decide',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_kind:'advance',p_id:id,p_status:st}).then(function(){},function(){});}else{save();}notify(a.employeeId,'Your salary advance of '+fmt(a.amount)+' was '+st+(st==='approved'?' — it will be recovered from your salary.':'.'));audit('Advance '+st+' for '+((empById(a.employeeId)||{}).name||a.employeeName||''));toast('Advance '+st);if(SES.role==='employee'){vTeam();}else{vAdvances();}}
 function vAudit(){
   const a=DB.audit||[];
