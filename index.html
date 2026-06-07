@@ -1471,11 +1471,14 @@ function vOrg(){
   const live=DB.employees.filter(e=>e.status!=='exited');
   const liveSet=new Set(live.map(e=>e.id));
   const bySeniority=(a,b)=>{const d=levelRank(b.level)-levelRank(a.level);return d!==0?d:String(a.name||'').localeCompare(String(b.name||''));};
-  const node=e=>{const reports=live.filter(x=>x.managerId===e.id).sort(bySeniority);
+  // single apex = Jiten (CEO, IN-001); any other person without an active manager (e.g. the co-founder CTO) hangs directly under him → ONE big tree
+  const apex=live.find(e=>e.id==='IN-001')||live.filter(e=>!e.managerId||!liveSet.has(e.managerId)).sort(bySeniority)[0];
+  const apexId=apex?apex.id:null;
+  const effMgr=e=>{ if(!apexId||e.id===apexId) return null; return (e.managerId&&liveSet.has(e.managerId))?e.managerId:apexId; };
+  const node=e=>{const reports=live.filter(x=>effMgr(x)===e.id).sort(bySeniority);
     const lr=levelRank(e.level);
     return `<li><div class="orgcard lv${lr||1}" onclick="openEmp('${e.id}')"><div class="avatar sm">${initials(e.name)}</div><div class="oc-t"><b>${esc(e.name)}</b><div class="oc-d">${esc(e.desig||'')}</div></div>${e.level?`<span class="oc-lv">${esc(e.level)}</span>`:''}</div>${reports.length?`<ul>${reports.map(node).join('')}</ul>`:''}</li>`;};
-  // roots = no manager, OR manager is not an active employee (so nobody is ever dropped from the tree)
-  const roots=live.filter(e=>!e.managerId||!liveSet.has(e.managerId)).sort(bySeniority);
+  const roots=apex?[apex]:[];
   const legend=[['L6','#B00050'],['L5','#8e44ad'],['L4','#2980b9'],['L3','#16a085'],['L2','#e67e22'],['L1','#95a5a6']].map(x=>`<span><i style="background:${x[1]}"></i>${x[0]}</span>`).join('');
   const dateStr=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px">
