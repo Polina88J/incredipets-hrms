@@ -23,6 +23,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
   :root{
     --rose:#FF007F;--amaranth:#B00050;--logo:#8A003E;--aqua:#A4F4C6;--pale:#EBD4F5;--green:#2E9D52;
@@ -225,23 +226,39 @@
   .empty{color:#b9b3c0;font-size:13px;text-align:center;padding:26px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;gap:10px;align-items:center;z-index:100;max-width:90vw}
 
-  /* org chart — top-down tree with connectors */
-  .tree{min-width:max-content;padding:8px 4px 16px}
-  .tree ul{position:relative;padding-top:22px;display:flex;justify-content:center;margin:0;list-style:none}
-  .tree li{list-style:none;position:relative;padding:22px 9px 0;text-align:center;display:flex;flex-direction:column;align-items:center}
-  .tree li::before,.tree li::after{content:'';position:absolute;top:0;right:50%;border-top:2px solid var(--rule);width:50%;height:22px}
-  .tree li::after{right:auto;left:50%;border-left:2px solid var(--rule)}
+  /* org chart — visual top-down genealogical tree with connectors */
+  .org-canvas{background:radial-gradient(circle at 50% 0,#fbf4f8 0,#ffffff 60%);border:1px solid var(--rule);border-radius:16px;padding:26px 18px 30px;overflow:auto}
+  .org-head{text-align:center;margin-bottom:20px}
+  .org-head .oh-logo{font-weight:800;font-size:20px;letter-spacing:.2px}
+  .org-head .oh-logo b{color:var(--amaranth)}
+  .org-head .oh-sub{font-size:12px;color:var(--muted);margin-top:2px}
+  .org-legend{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:12px;font-size:11px;color:var(--muted)}
+  .org-legend span{display:inline-flex;align-items:center;gap:5px}
+  .org-legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .tree{min-width:max-content;padding:8px 4px 16px;margin:0 auto}
+  .tree ul{position:relative;padding-top:26px;display:flex;justify-content:center;margin:0;list-style:none}
+  .tree li{list-style:none;position:relative;padding:26px 11px 0;text-align:center;display:flex;flex-direction:column;align-items:center}
+  .tree li::before,.tree li::after{content:'';position:absolute;top:0;right:50%;border-top:2px solid #d9c2cf;width:50%;height:26px}
+  .tree li::after{right:auto;left:50%;border-left:2px solid #d9c2cf}
   .tree li:only-child::after,.tree li:only-child::before{display:none}
   .tree li:only-child{padding-top:0}
   .tree li:first-child::before,.tree li:last-child::after{border:0 none}
-  .tree li:last-child::before{border-right:2px solid var(--rule)}
-  .tree ul ul::before{content:'';position:absolute;top:0;left:50%;border-left:2px solid var(--rule);width:0;height:22px}
+  .tree li:last-child::before{border-right:2px solid #d9c2cf}
+  .tree ul ul::before{content:'';position:absolute;top:0;left:50%;border-left:2px solid #d9c2cf;width:0;height:26px}
   .tree>ul{padding-top:0}
   .tree>ul::before{display:none}
-  .orgcard{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--rule);border-radius:11px;padding:8px 12px;cursor:pointer;background:#fff;transition:all .15s;text-align:left;white-space:nowrap}
-  .orgcard:hover{border-color:var(--rose);background:#fff5fa;box-shadow:0 2px 8px rgba(0,0,0,.06)}
-  .orgcard.lvl6{border-color:var(--rose);background:#fff5fa}
-  .orgcard.lvl5{border-color:#cdb4e8}
+  .orgcard{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--rule);border-top:4px solid var(--rule);border-radius:12px;padding:9px 13px;cursor:pointer;background:#fff;transition:all .15s;text-align:left;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+  .orgcard:hover{box-shadow:0 4px 14px rgba(0,0,0,.12);transform:translateY(-1px)}
+  .orgcard .oc-t b{font-size:13px;display:block;line-height:1.2}
+  .orgcard .oc-t .oc-d{font-size:11px;color:var(--muted);line-height:1.25;margin-top:1px}
+  .orgcard .oc-lv{margin-left:6px;font-size:10px;font-weight:800;color:#fff;background:#9aa0a6;border-radius:6px;padding:2px 6px}
+  .orgcard.lv6{border-top-color:#B00050} .orgcard.lv6 .oc-lv{background:#B00050}
+  .orgcard.lv5{border-top-color:#8e44ad} .orgcard.lv5 .oc-lv{background:#8e44ad}
+  .orgcard.lv4{border-top-color:#2980b9} .orgcard.lv4 .oc-lv{background:#2980b9}
+  .orgcard.lv3{border-top-color:#16a085} .orgcard.lv3 .oc-lv{background:#16a085}
+  .orgcard.lv2{border-top-color:#e67e22} .orgcard.lv2 .oc-lv{background:#e67e22}
+  .orgcard.lv1{border-top-color:#95a5a6} .orgcard.lv1 .oc-lv{background:#95a5a6}
+  .orgcard.vacant{border:1.5px dashed #c9b3bf;background:repeating-linear-gradient(45deg,#fafafa,#fafafa 6px,#f3f3f3 6px,#f3f3f3 12px);cursor:default}
   @media (max-width:820px){
     .app{grid-template-columns:1fr}
     .side{position:fixed;top:0;left:0;height:100dvh;width:260px;z-index:60;transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 0 40px rgba(0,0,0,.18)}
@@ -1452,13 +1469,32 @@ function vDashboard(){
 }
 function vOrg(){
   const live=DB.employees.filter(e=>e.status!=='exited');
+  const liveSet=new Set(live.map(e=>e.id));
   const bySeniority=(a,b)=>{const d=levelRank(b.level)-levelRank(a.level);return d!==0?d:String(a.name||'').localeCompare(String(b.name||''));};
   const node=e=>{const reports=live.filter(x=>x.managerId===e.id).sort(bySeniority);
     const lr=levelRank(e.level);
-    return `<li><div class="orgcard ${lr===6?'lvl6':lr===5?'lvl5':''}" onclick="openEmp('${e.id}')"><div class="avatar sm">${initials(e.name)}</div><div><b class="small">${esc(e.name)}</b><div class="small muted">${esc(e.desig)}${e.level?' · '+esc(e.level):''}</div></div></div>${reports.length?`<ul>${reports.map(node).join('')}</ul>`:''}</li>`;};
-  const roots=live.filter(e=>!e.managerId).sort(bySeniority);
-  $('view').innerHTML=`<div><h1 class="page">Org Chart</h1><p class="page-sub">Reporting structure, top to bottom — sorted by seniority. Click anyone to open their record.</p></div>
-   <div class="card card-pad" style="overflow:auto"><div class="tree">${roots.length?`<ul>${roots.map(node).join('')}</ul>`:'<div class="empty">No reporting structure yet.</div>'}</div></div>`;
+    return `<li><div class="orgcard lv${lr||1}" onclick="openEmp('${e.id}')"><div class="avatar sm">${initials(e.name)}</div><div class="oc-t"><b>${esc(e.name)}</b><div class="oc-d">${esc(e.desig||'')}</div></div>${e.level?`<span class="oc-lv">${esc(e.level)}</span>`:''}</div>${reports.length?`<ul>${reports.map(node).join('')}</ul>`:''}</li>`;};
+  // roots = no manager, OR manager is not an active employee (so nobody is ever dropped from the tree)
+  const roots=live.filter(e=>!e.managerId||!liveSet.has(e.managerId)).sort(bySeniority);
+  const legend=[['L6','#B00050'],['L5','#8e44ad'],['L4','#2980b9'],['L3','#16a085'],['L2','#e67e22'],['L1','#95a5a6']].map(x=>`<span><i style="background:${x[1]}"></i>${x[0]}</span>`).join('');
+  const dateStr=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px">
+     <div><h1 class="page">Org Chart</h1><p class="page-sub">The full company tree, top to bottom. Click anyone to open their record.</p></div>
+     <button class="btn btn-primary btn-sm" onclick="downloadOrgPNG()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download as image</button></div>
+   <div class="card" style="padding:0;overflow:hidden">
+     <div id="orgCanvas" class="org-canvas">
+       <div class="org-head"><div class="oh-logo"><b>Incredi</b>Pets</div><div class="oh-sub">Organisation Chart · ${live.length} people · ${dateStr}</div><div class="org-legend">${legend}</div></div>
+       <div class="tree">${roots.length?`<ul>${roots.map(node).join('')}</ul>`:'<div class="empty">No reporting structure yet.</div>'}</div>
+     </div>
+   </div>`;
+}
+function downloadOrgPNG(){
+  const el=document.getElementById('orgCanvas'); if(!el) return;
+  if(typeof html2canvas!=='function'){ toast('Image tool still loading — try again in a moment'); return; }
+  toast('Rendering org chart image…');
+  html2canvas(el,{backgroundColor:'#ffffff',scale:2,width:el.scrollWidth,height:el.scrollHeight,windowWidth:el.scrollWidth,windowHeight:el.scrollHeight}).then(function(canvas){
+    const a=document.createElement('a'); a.download='IncrediPets-Org-Chart.png'; a.href=canvas.toDataURL('image/png'); a.click(); track('org_chart_download'); toast('Org chart image downloaded');
+  }).catch(function(){ toast('Could not render the image'); });
 }
 /* ============================================================
    MANAGER VIEWS (no compensation — that stays with HR)
