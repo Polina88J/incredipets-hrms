@@ -1495,7 +1495,15 @@ function downloadOrgPNG(){
   const el=document.getElementById('orgCanvas'); if(!el) return;
   if(typeof html2canvas!=='function'){ toast('Image tool still loading — try again in a moment'); return; }
   toast('Rendering org chart image…');
-  html2canvas(el,{backgroundColor:'#ffffff',scale:2,width:el.scrollWidth,height:el.scrollHeight,windowWidth:el.scrollWidth,windowHeight:el.scrollHeight}).then(function(canvas){
+  let sc=Math.min(2, 30000/Math.max(el.scrollWidth,1)); if(!isFinite(sc)||sc<=0) sc=1;
+  html2canvas(el,{backgroundColor:'#ffffff',scale:sc,width:el.scrollWidth,height:el.scrollHeight,windowWidth:el.scrollWidth,windowHeight:el.scrollHeight,
+    onclone:function(doc){
+      // html2canvas can't parse some gradients — flatten them to solids just for the capture
+      doc.documentElement.style.background='#ffffff'; doc.body.style.background='#ffffff';
+      doc.querySelectorAll('.avatar').forEach(function(a){ a.style.background='#B00050'; a.style.backgroundImage='none'; });
+      var oc=doc.getElementById('orgCanvas'); if(oc){ oc.style.background='#ffffff'; oc.style.backgroundImage='none'; }
+    }
+  }).then(function(canvas){
     const a=document.createElement('a'); a.download='IncrediPets-Org-Chart.png'; a.href=canvas.toDataURL('image/png'); a.click(); track('org_chart_download'); toast('Org chart image downloaded');
   }).catch(function(){ toast('Could not render the image'); });
 }
