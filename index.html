@@ -477,7 +477,7 @@ async function doLogin(){
         const label=isHr?('HR Admin · '+(me.name||'')):(isRec?('Recruitment · '+(me.name||'')):(me.name||'Employee'));
         $('loginErr').classList.add('hidden');
         if(btn){btn.disabled=false;btn.textContent='Sign in';}
-        startSession({viewset:vs,label:label,employeeId:me.id});
+        startSession({viewset:vs,label:label,employeeId:me.id,realRole:role});
         return;
       }
     }catch(e){/* network/offline → fall through to demo */}
@@ -494,7 +494,7 @@ async function doLogin(){
 function enterPortal(key){const p=PORTALS.find(x=>x.key===key);if(p)startSession(p);}
 function toggleEmail(){const f=$('emailFields'),t=$('emailToggle');f.classList.toggle('hidden');t.textContent=f.classList.contains('hidden')?'Sign in with work email instead':'Hide email sign-in';}
 function startSession(p){
-  SES={role:p.viewset,label:p.label,employeeId:p.employeeId};
+  SES={role:p.viewset,label:p.label,employeeId:p.employeeId,realRole:p.realRole||null};
   const emp=p.employeeId?empById(p.employeeId):null;
   const ident=((p.viewset==='employee'||p.viewset==='manager')&&emp)?emp.name:p.label;
   $('login').classList.add('hidden');$('app').classList.remove('hidden');
@@ -1133,7 +1133,7 @@ function renderEmp360(id){
      <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 8px"><b class="small">Achievements</b><button class="btn btn-ghost btn-sm" onclick="hrAddAch('${id}')">+ Log achievement</button></div>
      ${(DB.achievements[id]||[]).map(a=>`<div class="doc" style="padding:8px 4px"><div class="di" style="width:30px;height:30px;background:var(--aqua);color:#0c5a2e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="8" r="6"/><path d="M9 14l-2 7 5-3 5 3-2-7"/></svg></div><div class="dt"><b class="small">${esc(a.title)}</b><div class="dm">${dfmt(a.date)}</div></div></div>`).join('')||'<div class="empty" style="padding:12px">None logged yet.</div>'}
    </div>
-   ${assetCardHTML(e,id)}${warningCardHTML(e,id)}${probationCardHTML(e,id)}${offboardCardHTML(e,id)}`;
+   ${assetCardHTML(e,id)}${warningCardHTML(e,id)}${probationCardHTML(e,id)}${offboardCardHTML(e,id)}${gmTeamCardHTML(e,id)}`;
   $('topTitle').textContent=e.name;
 }
 function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){if(LIVE&&sb&&d.fileId){sb.rpc('hrms_doc_verify',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_id:d.fileId});}d.status='verified';if(!LIVE)save();toast('Document verified');}renderEmp360(eid);}
@@ -1225,6 +1225,15 @@ function vSettings(){
 }
 function settingsAddDoc(){const t=prompt('New onboarding document');if(!t)return;DB.docTypes.push(t.trim());save();toast('Document added');vSettings();}
 function settingsRemoveDoc(i){DB.docTypes.splice(i,1);save();toast('Document removed');vSettings();}
+function gmTeamCardHTML(e,id){
+  if(SES.realRole!=='super-admin'&&SES.realRole!=='gm')return '';
+  const opts=DB.employees.filter(x=>x.id!==id).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(x=>`<option value="${x.id}" ${x.id===e.managerId?'selected':''}>${esc(x.name)} — ${esc(x.desig||'')}</option>`).join('');
+  return `<div class="card card-pad" style="border-color:#cdb4f0"><div class="sec-h"><div class="si" style="background:#efe6fc;color:#5b2a91">GM</div><h2>Reporting &amp; team — GM controls</h2></div>
+    <p class="small muted" style="margin-bottom:10px">Set who ${esc(e.name)} reports to. Changing this moves them into that manager's team. (Promotions: use the Develop &amp; Manage section.)</p>
+    <div class="field"><label>Reporting manager</label><select onchange="setManager('${id}',this.value)"><option value="">— none (top of chain) —</option>${opts}</select></div>
+  </div>`;
+}
+function setManager(id,mgrId){const e=empById(id);if(!e)return;e.managerId=mgrId||null;const m=mgrId?empById(mgrId):null;e.managerName=m?m.name:null;save();toast('Reporting manager updated'+(m?(' → '+m.name):''));renderEmp360(id);}
 function probationInfo(e){const months=e.probationMonths||3,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const confirmed=!!e.confirmedOn,overdue=!confirmed&&new Date()>due;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
 function probationCardHTML(e,id){
   if(e.status!=='active')return '';
