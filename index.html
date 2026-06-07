@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --rose:#FF007F;--amaranth:#B00050;--logo:#8A003E;--aqua:#A4F4C6;--pale:#EBD4F5;--green:#2E9D52;
@@ -1653,14 +1654,33 @@ function payrollRows(){
     return {e,c,pf,esi,lopDays,lop,advRec,net};
   }).filter(Boolean);
 }
-function vPayroll(){
-  const rows=payrollRows(),tot=rows.reduce((s,r)=>s+r.net,0),totGross=rows.reduce((s,r)=>s+r.c.m,0),m=new Date().toLocaleDateString('en-IN',{month:'long',year:'numeric'});
-  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Payroll — ${esc(m)}</h1><p class="page-sub">Salary sheet computed from CTC, attendance LOP, PF/ESI and approved advances. Replaces the manual Excel.</p></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="generatePayslips()">Generate all payslips</button><button class="btn btn-primary btn-sm" onclick="exportSalarySheet()">Export salary sheet</button></div></div>
-   <div class="stats"><div class="stat"><div class="k">On payroll</div><div class="v num">${rows.length}</div></div><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(totGross)}</div></div><div class="stat"><div class="k">Net payable</div><div class="v num">${fmt(tot)}</div></div></div>
-   <div class="card"><table class="list"><tr><th>Employee</th><th>Gross</th><th>PF</th><th>ESI</th><th>LOP</th><th>Adv. rec.</th><th>Net pay</th></tr>
-   ${rows.map(r=>`<tr class="click" onclick="openEmp('${r.e.id}')"><td><b>${esc(r.e.name)}</b><div class="small muted">${esc(r.e.code)} · ${esc(r.e.desig)}</div></td><td class="num">${fmt(r.c.m)}</td><td class="num">${fmt(r.pf)}</td><td class="num">${r.esi?fmt(r.esi):'—'}</td><td class="num">${r.lopDays?fmt(r.lop)+' ('+r.lopDays+'d)':'—'}</td><td class="num">${r.advRec?fmt(r.advRec):'—'}</td><td class="num"><b>${fmt(r.net)}</b></td></tr>`).join('')||'<tr><td colspan=7 class="empty">No one on payroll.</td></tr>'}
-   </table></div>
-   <div class="card card-pad"><b class="small">Statutory compliance register · ${esc(m)}</b><div class="info-grid" style="margin-top:10px"><div class="info-cell"><div class="k">Total PF (employee 12%)</div><div class="v num">${fmt(rows.reduce((s,r)=>s+r.pf,0))}</div></div><div class="info-cell"><div class="k">Total ESI (employee 0.75%)</div><div class="v num">${fmt(rows.reduce((s,r)=>s+r.esi,0))}</div></div><div class="info-cell"><div class="k">Advances recovered</div><div class="v num">${fmt(rows.reduce((s,r)=>s+r.advRec,0))}</div></div></div><p class="small muted" style="margin-top:8px">Figures are computed from prototype demo data. Real payroll loads only at go-live behind authentication.</p></div>`;
+async function loadPayrollRows(month){ if(!(LIVE&&sb))return null; try{ const r=await sb.rpc('hrms_payroll',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_month:month}); if(r.error||!r.data||!r.data.ok)return []; return r.data.payroll||[]; }catch(e){ return []; } }
+async function downloadSalarySheet(month){
+  const rows=await loadPayrollRows(month); if(!rows||!rows.length){ toast('No payroll found for '+month); return; }
+  const header=['Employee Code','Name','Designation','Department','Monthly CTC','Gross','Basic','HRA','Special','Working Days','PF (employee)','ESI (employee)','Prof. Tax','TDS','Salary Advances','Other Deductions','Total Deduction','Reimbursement','Bonus','Net in Hand','Employer PF','ESI Employer','Gratuity','Bank Name','Account No','IFSC'];
+  const aoa=[header];
+  rows.forEach(function(p){ const e=empById(p.employee_id)||{}; aoa.push([p.employee_id,p.name,e.desig||'',e.dept||'',p.monthly_ctc,p.gross,p.basic,p.hra,p.special,p.working_days,p.pf_employee,p.esi_employee,p.pt,p.tds,p.salary_advances,p.other_deductions,p.total_deduction,p.reimbursement,p.bonus,p.net_in_hand,p.employer_pf,p.esi_employer,p.gratuity,p.bank_name,p.bank_account,p.ifsc]); });
+  const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,(month||'Salary').replace(/[^A-Za-z0-9 ]/g,'').slice(0,28));
+  XLSX.writeFile(wb,'IncrediPets-salary-sheet-'+(month||'').replace(/\s+/g,'-')+'.xlsx');
+  toast('Salary sheet downloaded — '+month);
+}
+async function vPayroll(){
+  if(!(LIVE&&sb)){
+    const rows=payrollRows(),tot=rows.reduce((s,r)=>s+r.net,0),totGross=rows.reduce((s,r)=>s+r.c.m,0),m=new Date().toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+    $('view').innerHTML=`<div><h1 class="page">Payroll — ${esc(m)}</h1><p class="page-sub">(Demo) computed sheet.</p></div>
+     <div class="card"><table class="list"><tr><th>Employee</th><th>Gross</th><th>PF</th><th>ESI</th><th>Net pay</th></tr>
+     ${rows.map(r=>`<tr><td><b>${esc(r.e.name)}</b></td><td class="num">${fmt(r.c.m)}</td><td class="num">${fmt(r.pf)}</td><td class="num">${r.esi?fmt(r.esi):'—'}</td><td class="num"><b>${fmt(r.net)}</b></td></tr>`).join('')}</table></div>`;
+    return;
+  }
+  $('view').innerHTML=`<div><h1 class="page">Payroll</h1><p class="page-sub">Loading the salary sheet…</p></div>`;
+  const month='May 2026';
+  const rows=(await loadPayrollRows(month))||[];
+  const totNet=rows.reduce((s,p)=>s+(+p.net_in_hand||0),0), totGross=rows.reduce((s,p)=>s+(+p.gross||0),0), totAdv=rows.reduce((s,p)=>s+(+p.salary_advances||0),0);
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Payroll — ${esc(month)}</h1><p class="page-sub">Final figures from the Payroll Master — payable. Approved advances are already deducted.</p></div><button class="btn btn-primary btn-sm" onclick="downloadSalarySheet('${month}')">Download salary sheet (Excel)</button></div>
+   <div class="stats"><div class="stat"><div class="k">On payroll</div><div class="v num">${rows.length}</div></div><div class="stat"><div class="k">Gross</div><div class="v num">${fmt(totGross)}</div></div><div class="stat"><div class="k">Advances recovered</div><div class="v num">${fmt(totAdv)}</div></div><div class="stat"><div class="k">Net payable</div><div class="v num">${fmt(totNet)}</div></div></div>
+   <div class="card"><table class="list"><tr><th>Employee</th><th>Gross</th><th>PF</th><th>ESI</th><th>Advances</th><th>Net in hand</th></tr>
+   ${rows.map(p=>`<tr><td><b>${esc(p.name)}</b><div class="small muted">${esc(p.employee_id)}</div></td><td class="num">${fmt(p.gross||0)}</td><td class="num">${p.pf_employee?fmt(p.pf_employee):'—'}</td><td class="num">${p.esi_employee?fmt(p.esi_employee):'—'}</td><td class="num">${p.salary_advances?fmt(p.salary_advances):'—'}</td><td class="num"><b>${fmt(p.net_in_hand||0)}</b></td></tr>`).join('')||'<tr><td colspan=6 class="empty">No payroll loaded.</td></tr>'}
+   </table></div>`;
 }
 function exportSalarySheet(){const rows=payrollRows().map(r=>[r.e.name,r.e.code,r.e.desig,r.e.dept,Math.round(r.c.m),Math.round(r.c.basic),Math.round(r.c.hra),Math.round(r.c.spl),r.pf,r.esi,r.lop,r.advRec,r.net]);exportCSV('salary-sheet.csv',['Name','Code','Designation','Dept','Gross','Basic','HRA','Special','PF','ESI','LOP deduction','Advance recovery','Net pay'],rows);}
 function generatePayslips(){const m=new Date().toLocaleDateString('en-IN',{month:'long',year:'numeric'});let n=0;payrollRows().forEach(r=>{if(!DB.payslips.find(p=>p.employeeId===r.e.id&&p.month===m)){DB.payslips.push({id:'PS'+Date.now()+r.e.id,employeeId:r.e.id,month:m});n++;}});save();audit('Generated '+n+' payslips for '+m);toast('Generated '+n+' payslips for '+m);vPayroll();}
