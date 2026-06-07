@@ -1239,8 +1239,12 @@ function gmTeamCardHTML(e,id){
   return `<div class="card card-pad" style="border-color:#cdb4f0"><div class="sec-h"><div class="si" style="background:#efe6fc;color:#5b2a91">GM</div><h2>Reporting &amp; team — GM controls</h2></div>
     <p class="small muted" style="margin-bottom:10px">Set who ${esc(e.name)} reports to. Changing this moves them into that manager's team. (Promotions: use the Develop &amp; Manage section.)</p>
     <div class="field"><label>Reporting manager</label><select onchange="setManager('${id}',this.value)"><option value="">— none (top of chain) —</option>${opts}</select></div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:6px" onclick="previewEmp('${id}')">Preview ${esc(e.name)}'s employee page</button>
   </div>`;
 }
+function previewEmp(id){const e=empById(id);if(!e)return;window._adminSES=SES;SES={role:'employee',label:'Preview · '+e.name,employeeId:id,realRole:(window._adminSES&&window._adminSES.realRole)||null,preview:true};showPreviewBanner(e.name);buildNav();go('home');}
+function exitPreview(){if(window._adminSES){SES=window._adminSES;window._adminSES=null;}const b=document.getElementById('previewBanner');if(b)b.remove();buildNav();go('directory');}
+function showPreviewBanner(name){let b=document.getElementById('previewBanner');if(!b){b=document.createElement('div');b.id='previewBanner';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#5b2a91;color:#fff;padding:9px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.2)';document.body.appendChild(b);}b.innerHTML='Previewing '+esc(name)+' — this is exactly what they see &nbsp; <button onclick="exitPreview()" style="background:#fff;color:#5b2a91;border:0;border-radius:6px;padding:4px 12px;font-weight:700;cursor:pointer">Exit preview</button>';}
 function setManager(id,mgrId){const e=empById(id);if(!e)return;e.managerId=mgrId||null;const m=mgrId?empById(mgrId):null;e.managerName=m?m.name:null;save();toast('Reporting manager updated'+(m?(' → '+m.name):''));renderEmp360(id);}
 function probationInfo(e){const months=e.probationMonths||3,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const confirmed=!!e.confirmedOn,overdue=!confirmed&&new Date()>due;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
 function probationCardHTML(e,id){
