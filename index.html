@@ -210,11 +210,23 @@
   .empty{color:#b9b3c0;font-size:13px;text-align:center;padding:26px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:13px 20px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:var(--shadow-lg);display:flex;gap:10px;align-items:center;z-index:100;max-width:90vw}
 
-  /* org chart */
-  .orgtree{display:flex;flex-direction:column;gap:10px;min-width:max-content}
-  .orgcard{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--rule);border-radius:11px;padding:8px 12px;cursor:pointer;background:#fff;transition:all .15s}
-  .orgcard:hover{border-color:var(--rose);background:#fff5fa}
-  .orgchildren{margin-left:22px;border-left:2px solid var(--rule);padding-left:16px;margin-top:8px;display:flex;flex-direction:column;gap:8px}
+  /* org chart — top-down tree with connectors */
+  .tree{min-width:max-content;padding:8px 4px 16px}
+  .tree ul{position:relative;padding-top:22px;display:flex;justify-content:center;margin:0;list-style:none}
+  .tree li{list-style:none;position:relative;padding:22px 9px 0;text-align:center;display:flex;flex-direction:column;align-items:center}
+  .tree li::before,.tree li::after{content:'';position:absolute;top:0;right:50%;border-top:2px solid var(--rule);width:50%;height:22px}
+  .tree li::after{right:auto;left:50%;border-left:2px solid var(--rule)}
+  .tree li:only-child::after,.tree li:only-child::before{display:none}
+  .tree li:only-child{padding-top:0}
+  .tree li:first-child::before,.tree li:last-child::after{border:0 none}
+  .tree li:last-child::before{border-right:2px solid var(--rule)}
+  .tree ul ul::before{content:'';position:absolute;top:0;left:50%;border-left:2px solid var(--rule);width:0;height:22px}
+  .tree>ul{padding-top:0}
+  .tree>ul::before{display:none}
+  .orgcard{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--rule);border-radius:11px;padding:8px 12px;cursor:pointer;background:#fff;transition:all .15s;text-align:left;white-space:nowrap}
+  .orgcard:hover{border-color:var(--rose);background:#fff5fa;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+  .orgcard.lvl6{border-color:var(--rose);background:#fff5fa}
+  .orgcard.lvl5{border-color:#cdb4e8}
   @media (max-width:820px){
     .app{grid-template-columns:1fr}
     .side{position:fixed;top:0;left:0;height:100dvh;width:260px;z-index:60;transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 0 40px rgba(0,0,0,.18)}
@@ -555,13 +567,13 @@ const ICONS={
 function navBadge(page){
   if(SES.role==='hr'&&page==='approvals'){const n=DB.offers.filter(o=>o.status==='pending_approval').length;return n||0;}
   if(SES.role==='hr'&&page==='hronboard'){const n=DB.employees.filter(e=>e.status==='offered'||e.status==='onboarding').length;return n||0;}
-  if(SES.role==='employee'&&page==='onboard'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded){const left=docsForEmp(emp.id).filter(d=>d.status==='requested').length;return left||0;}}
+  if(SES.role==='employee'&&page==='onboard'){const emp=empById(SES.employeeId);if(emp&&needsOnboarding(emp)){const left=docsForEmp(emp.id).filter(d=>d.status==='requested').length;return left||0;}}
   return 0;
 }
 function buildNav(){
   let items=NAVS[SES.role].slice();
-  // hide onboarding tab once fully onboarded
-  if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&emp.onboarded)items=items.filter(i=>i[0]!=='onboard');}
+  // onboarding tab only for genuine new joiners still in the flow; everyone already in the org is onboarded
+  if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!needsOnboarding(emp))items=items.filter(i=>i[0]!=='onboard');}
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&isRosterRole(emp))items=items.filter(i=>i[0]!=='holidays');} // roster roles follow a week-off, not the fixed holiday calendar
   if(SES.role==='hr'&&SES.label!=='General Manager')items=items.filter(i=>i[0]!=='settings'); // Settings = super-admin (GM) only
   $('nav').innerHTML='<div class="nav-label">'+ROLEMETA[SES.role].title+'</div>'+items.map((it,i)=>{
@@ -570,7 +582,7 @@ function buildNav(){
   }).join('');
   // landing page: new joiner → onboarding
   let landing=items[0][0];
-  if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&!emp.onboarded&&!emp.onboardingSubmitted)landing='onboard';}
+  if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&needsOnboarding(emp)&&!emp.onboardingSubmitted)landing='onboard';}
   go(landing);
 }
 const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
@@ -594,18 +606,18 @@ function vHome(){
   const docsLeft=docsForEmp(emp.id).filter(d=>d.status!=='verified').length;
   $('view').innerHTML=`
    <div><h1 class="page">Welcome back, ${esc(emp.name.split(' ')[0])} 👋</h1><p class="page-sub">${esc(emp.desig)} · ${esc(emp.dept)} · ${esc(emp.code)}</p></div>
-   ${attnStrip([(!emp.onboarded&&!emp.onboardingSubmitted)?'Complete your onboarding form':null,(emp.onboardingSubmitted&&!emp.onboarded)?'Onboarding submitted — awaiting HR verification':null,onProbation(emp)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
+   ${attnStrip([(needsOnboarding(emp)&&!emp.onboardingSubmitted)?'Complete your onboarding form':null,(needsOnboarding(emp)&&emp.onboardingSubmitted)?'Onboarding submitted — awaiting HR verification':null,onProbation(emp)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
    <div class="stats">
      <div class="stat"><div class="k">Time at IncrediPets</div><div class="v">${t.y}<small>y</small> ${t.mo}<small>m</small> ${t.d}<small>d</small></div><div class="sub">Joined ${dfmt(emp.doj)}</div></div>
      <div class="stat"><div class="k">Current level</div><div class="v">${esc(emp.level)}</div><div class="sub">${esc(emp.desig)}</div></div>
      <div class="stat"><div class="k">Reporting to</div><div class="v" style="font-size:16px">${mgr?esc(mgr.name):'—'}</div><div class="sub">${mgr?esc(mgr.desig):''}</div></div>
    </div>
-   ${!emp.onboarded?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)">
+   ${needsOnboarding(emp)?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)">
      <div class="sec-h"><div class="si">!</div><h2>Finish your onboarding</h2></div>
      <p class="small muted" style="margin-bottom:12px">Please complete your onboarding form so your HR team can finish your joining.</p>
      <button class="btn btn-primary btn-sm" onclick="go('onboard',document.querySelector('[data-pg=onboard]'))">Open onboarding form</button>
    </div>`:''}
-   ${(emp.onboarded&&onProbation(emp))?(function(){const p=probationInfo(emp),pct=Math.min(100,Math.round(t.totalMonths/p.months*100));return `<div class="card card-pad">
+   ${(!needsOnboarding(emp)&&onProbation(emp))?(function(){const p=probationInfo(emp),pct=Math.min(100,Math.round(t.totalMonths/p.months*100));return `<div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.probation}</svg></div><h2>You're on probation</h2><span class="pill ${p.overdue?'offboarding':'onboarding'}" style="margin-left:auto">Confirmation due ${dfmt(p.due)}</span></div>
      <p class="small muted" style="margin-bottom:10px">You're in a ${p.months}-month probation period. Complete the objectives below and your manager will confirm you.</p>
      <div class="bar ${pct>=100?'green':''}"><i style="width:${pct}%"></i></div>
@@ -624,12 +636,12 @@ function vHome(){
        <div class="info-cell"><div class="k">Department</div><div class="v">${esc(emp.dept)}</div></div>
        <div class="info-cell"><div class="k">Location</div><div class="v">${esc(emp.location)}</div></div>
        <div class="info-cell"><div class="k">Work email</div><div class="v" style="font-size:13px">${esc(emp.email)}</div></div>
-       <div class="info-cell"><div class="k">Annual CTC</div><div class="v num">${off?fmt(off.ctc):'—'}</div></div>
+       ${(function(){var cp=compForEmp(emp);return `<div class="info-cell"><div class="k">Annual CTC</div><div class="v num">${cp?fmt(cp.ctc):'—'}</div></div>`;})()}
        <div class="info-cell"><div class="k">Status</div><div class="v"><span class="pill ${emp.status}">${esc(emp.status)}</span></div></div>
      </div>
    </div>
    ${(emp.tempPassword&&!emp.passwordSet)?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)"><div class="sec-h"><div class="si">!</div><h2>Set your password</h2></div><p class="small muted" style="margin-bottom:10px">You're using a temporary password — please set your own.</p><button class="btn btn-primary btn-sm" onclick="setNewPassword()">Set new password</button></div>`:''}
-   ${(emp.onboarded&&emp.status!=='exited')?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.settings}</svg></div><h2>Self-service</h2></div>
+   ${(!needsOnboarding(emp)&&emp.status!=='exited')?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.settings}</svg></div><h2>Self-service</h2></div>
      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button>${leaveEligible(emp)?`<button class="btn btn-ghost btn-sm" onclick="applyLeave()">Apply for leave</button>`:''}</div>
    </div>`:''}`;
 }
@@ -731,14 +743,19 @@ async function vPay(){
   if(LIVE&&sb){
     const all=(await loadPayrollRows(null))||[]; const rows=all.filter(p=>p.employee_id===emp.id); const months=Array.from(new Set(rows.map(p=>p.month))).sort(); const p=rows.filter(x=>x.month===months[months.length-1])[0]||null; const paidMonths=Array.from(new Set(rows.filter(function(r){return r.paid;}).map(function(r){return r.month;})));
     const adv=(DB.advances||[]).filter(a=>a.employeeId===emp.id); const advTaken=adv.filter(a=>a.status==='approved').reduce((s,a)=>s+(+a.amount||0),0);
+    const _cp=compForEmp(emp);
     $('view').innerHTML=`<div><h1 class="page">My Pay</h1><p class="page-sub">Your compensation — visible only to you.</p></div>
+     ${_cp?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Your compensation (annual CTC)</h2></div>
+       <div class="stats"><div class="stat"><div class="k">Annual CTC</div><div class="v num">${fmt(_cp.ctc)}</div></div><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(_cp.c.m)}</div></div><div class="stat"><div class="k">Basic (62%)</div><div class="v num" style="font-size:18px">${fmt(_cp.c.basic)}</div></div><div class="stat"><div class="k">HRA (31%)</div><div class="v num" style="font-size:18px">${fmt(_cp.c.hra)}</div></div></div>
+       <div class="breakup"><div class="bl"><span>Basic (62%)</span><span class="num">${fmt(_cp.c.basic)}</span></div><div class="bl"><span>HRA (31%)</span><span class="num">${fmt(_cp.c.hra)}</span></div><div class="bl tot"><span>Special allowance (7%)</span><span class="num">${fmt(_cp.c.spl)}</span></div></div>
+       <p class="small muted" style="margin-top:8px">This is your standard monthly salary structure. The month-by-month take-home below reflects actual paid runs (with any advances or pro-rata).</p></div>`:''}
      ${p?`<div class="stats"><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(p.gross||0)}</div></div><div class="stat"><div class="k">Basic</div><div class="v num" style="font-size:18px">${fmt(p.basic||0)}</div></div><div class="stat"><div class="k">HRA</div><div class="v num" style="font-size:18px">${fmt(p.hra||0)}</div></div><div class="stat"><div class="k">Take-home · ${esc(p.month)}</div><div class="v num">${fmt(p.net_in_hand||0)}</div></div></div>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Salary breakdown · ${esc(p.month)}</h2></div><div class="breakup"><div class="bl"><span>Basic</span><span class="num">${fmt(p.basic||0)}</span></div><div class="bl"><span>HRA</span><span class="num">${fmt(p.hra||0)}</span></div><div class="bl"><span>Special allowance</span><span class="num">${fmt(p.special||0)}</span></div><div class="bl tot"><span>Gross</span><span class="num">${fmt(p.gross||0)}</span></div><div class="bl"><span>Provident Fund</span><span class="num">- ${fmt(p.pf_employee||0)}</span></div><div class="bl"><span>ESI</span><span class="num">- ${fmt(p.esi_employee||0)}</span></div><div class="bl"><span>Professional tax</span><span class="num">- ${fmt(p.pt||0)}</span></div><div class="bl"><span>TDS</span><span class="num">- ${fmt(p.tds||0)}</span></div>${p.salary_advances?`<div class="bl"><span>Advance recovery</span><span class="num">- ${fmt(p.salary_advances)}</span></div>`:''}<div class="bl tot"><span>Net in hand (take-home)</span><span class="num">${fmt(p.net_in_hand||0)}</span></div></div></div>`:'<div class="card card-pad"><div class="empty">Your salary details will appear here once payroll is run for the month.</div></div>'}
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>Salary slips</h2></div>${paidMonths.length?paidMonths.slice().reverse().map(mo=>`<div class="doc"><div class="dt"><b class="small">${esc(mo)}</b><div class="dm">Net pay after deductions</div></div><button class="btn btn-ghost btn-sm" onclick="downloadMyPayslip('${mo}')">Download</button></div>`).join(''):'<div class="empty">Your payslip will appear here once that month has been marked paid.</div>'}</div>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.advances}</svg></div><h2>Salary advances</h2></div><p class="small muted" style="margin:0 0 8px">Advances are recorded by HR; any you've taken are shown here and deducted from your pay.</p>${advTaken?`<p class="small muted" style="margin:0 0 8px">Total advances taken: <b>${fmt(advTaken)}</b></p>`:''}${adv.map(a=>`<div class="doc"><div class="dt"><b class="small">${fmt(a.amount)}</b><div class="dm">${esc(a.reason||'')} · ${dfmt(a.date)}</div></div><span class="pill ${a.status}">${esc(a.status)}</span></div>`).join('')||'<div class="empty">No advances on record.</div>'}</div>`;
     return;
   }
-  const off=offerForEmp(emp.id),c=off?calc(off.ctc):null;
+  const _cp2=compForEmp(emp),off=_cp2?{ctc:_cp2.ctc}:null,c=_cp2?_cp2.c:null;
   const pfNote=emp.migrated?`<div class="lock-row" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> PF note: provident-fund status can't be changed here. If you're already enrolled, opting out isn't permitted by law; if you aren't, new PF enrolment isn't offered to existing employees — please contact HR.</div>`:'';
   $('view').innerHTML=`
    <div><h1 class="page">My Pay</h1><p class="page-sub">Your compensation, broken down — visible only to you.</p></div>
@@ -1120,11 +1137,22 @@ function vBoard(){
     return `<div class="card card-pad" style="flex:1;min-width:180px"><div style="font-weight:700;font-size:13px;margin-bottom:10px">${s[1]} <span class="pill ${s[0]}">${list.length}</span></div>${list.map(e=>`<div style="border:1px solid var(--rule);border-radius:9px;padding:10px;margin-bottom:8px;cursor:pointer" onclick="openEmp('${e.id}')"><b style="font-size:13px">${esc(e.name)}</b><div class="small muted">${esc(e.desig)} · ${esc(e.code)}</div></div>`).join('')||'<div class="empty" style="padding:12px">—</div>'}</div>`;}).join('');
   $('view').innerHTML=`<div><h1 class="page">Lifecycle board</h1><p class="page-sub">Where each person is in the journey. Click anyone to open their full record.</p></div><div class="row">${cols}</div>`;
 }
+/* ===== shared helpers: onboarding gating + compensation visibility ===== */
+function levelRank(l){var m={L6:6,L5:5,L4:4,L3:3,L2:2,L1:1};return m[String(l||'').toUpperCase()]||0;}
+// A person is in the onboarding flow ONLY if they are a genuine new joiner (status offered/onboarding)
+// who hasn't finished it. Everyone already in the org is onboarded — missing documents do NOT mean "not onboarded".
+function needsOnboarding(e){return !!e && (e.status==='onboarding'||e.status==='offered') && !e.onboarded;}
+// Compensation for a person, from their offer if any, else their standing CTC on the employee record.
+function compForEmp(e){ if(!e) return null; var o=offerForEmp(e.id); var ctc=(o&&o.ctc)||e.ctc||(e.monthlyGross?Math.round(e.monthlyGross*12):0); if(!ctc) return null; return {ctc:ctc, c:calc(ctc)}; }
+// Who may see a given person's compensation: only management (HR / GM / super-admin) may see everyone;
+// every other person may see ONLY their own. In GM "preview" we mirror the employee — own pay only.
+function canSeeComp(e){ if(!e||!SES) return false; if(SES.preview) return e.id===SES.employeeId; var r=SES.realRole||SES.role||''; if(r==='super-admin'||r==='hr'||r==='gm') return true; return e.id===SES.employeeId; }
 function vDirectory(){
-  const rows=DB.employees.map(e=>`<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b></td><td>${esc(e.code)}</td><td>${esc(e.desig)}</td><td>${esc(e.dept)}</td><td>${esc(e.level)}</td><td><span class="pill ${e.status}">${esc(e.status)}</span></td></tr>`).join('');
+  const showComp=(SES&&(SES.realRole==='super-admin'||SES.realRole==='hr'||SES.realRole==='gm'));
+  const rows=DB.employees.map(e=>{const cp=showComp&&canSeeComp(e)?compForEmp(e):null;return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b></td><td>${esc(e.code)}</td><td>${esc(e.desig)}</td><td>${esc(e.dept)}</td><td>${esc(e.level)}</td>${showComp?`<td class="num">${cp?fmt(cp.ctc):'—'}</td>`:''}<td><span class="pill ${e.status}">${esc(e.status)}</span></td></tr>`;}).join('');
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Directory</h1><p class="page-sub">Everyone in the system. Click a row for the full 360 record.</p></div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="vAddEmployee()">+ Add employee</button><button class="btn btn-ghost btn-sm" onclick="exportDirectory()">Export CSV</button></div></div>
    <div class="card card-pad" style="padding:14px 16px"><input id="dirSearch" oninput="filterDirectory()" placeholder="Search name, code, designation, department…" style="width:100%;font:inherit;font-size:14px;padding:10px 12px;border:1.5px solid var(--rule);border-radius:10px;outline:none"></div>
-   <div class="card"><table class="list"><tr><th>Name</th><th>Code</th><th>Designation</th><th>Dept</th><th>Level</th><th>Status</th></tr>${rows}</table></div>`;
+   <div class="card"><table class="list"><tr><th>Name</th><th>Code</th><th>Designation</th><th>Dept</th><th>Level</th>${showComp?'<th>Annual CTC</th>':''}<th>Status</th></tr>${rows}</table></div>`;
 }
 function openEmp(id){_emp360=id;go('directory');setTimeout(()=>renderEmp360(id),10);}
 let _emp360=null;
@@ -1147,7 +1175,7 @@ function renderEmp360(id){
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Compensation</h2></div>
-     ${off?`<div class="breakup"><div class="bl"><span>Annual CTC</span><span class="num">${fmt(off.ctc)}</span></div><div class="bl tot"><span>Monthly gross</span><span class="num">${fmt(calc(off.ctc).m)}</span></div></div>`:'<div class="empty">No offer on record.</div>'}
+     ${(function(){var cp=canSeeComp(e)?compForEmp(e):null;return cp?`<div class="breakup"><div class="bl"><span>Annual CTC</span><span class="num">${fmt(cp.ctc)}</span></div><div class="bl"><span>Monthly gross</span><span class="num">${fmt(cp.c.m)}</span></div><div class="bl"><span>Basic (62%)</span><span class="num">${fmt(cp.c.basic)}</span></div><div class="bl"><span>HRA (31%)</span><span class="num">${fmt(cp.c.hra)}</span></div><div class="bl tot"><span>Special allowance (7%)</span><span class="num">${fmt(cp.c.spl)}</span></div></div>`:'<div class="empty">No compensation on record.</div>';})()}
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Onboarding form</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="hrEditOnboarding('${id}')">${e.onboardingData?'Edit':'Fill for employee'}</button>${e.onboardingData?`<span class="pill verified" style="margin-left:8px">Submitted ${dfmt(e.onboardingData.submittedAt)}</span>`:''}</div>
@@ -1338,11 +1366,14 @@ function vDashboard(){
    </div>`;
 }
 function vOrg(){
-  const node=e=>{const reports=DB.employees.filter(x=>x.managerId===e.id);
-    return `<div class="orgnode"><div class="orgcard" onclick="openEmp('${e.id}')"><div class="avatar sm">${initials(e.name)}</div><div><b class="small">${esc(e.name)}</b><div class="small muted">${esc(e.desig)}${e.level?' · '+esc(e.level):''}</div></div></div>${reports.length?`<div class="orgchildren">${reports.map(node).join('')}</div>`:''}</div>`;};
-  const roots=DB.employees.filter(e=>!e.managerId);
-  $('view').innerHTML=`<div><h1 class="page">Org Chart</h1><p class="page-sub">Reporting structure. Click anyone to open their record.</p></div>
-   <div class="card card-pad" style="overflow:auto"><div class="orgtree">${roots.map(node).join('')||'<div class="empty">No reporting structure yet.</div>'}</div></div>`;
+  const live=DB.employees.filter(e=>e.status!=='exited');
+  const bySeniority=(a,b)=>{const d=levelRank(b.level)-levelRank(a.level);return d!==0?d:String(a.name||'').localeCompare(String(b.name||''));};
+  const node=e=>{const reports=live.filter(x=>x.managerId===e.id).sort(bySeniority);
+    const lr=levelRank(e.level);
+    return `<li><div class="orgcard ${lr===6?'lvl6':lr===5?'lvl5':''}" onclick="openEmp('${e.id}')"><div class="avatar sm">${initials(e.name)}</div><div><b class="small">${esc(e.name)}</b><div class="small muted">${esc(e.desig)}${e.level?' · '+esc(e.level):''}</div></div></div>${reports.length?`<ul>${reports.map(node).join('')}</ul>`:''}</li>`;};
+  const roots=live.filter(e=>!e.managerId).sort(bySeniority);
+  $('view').innerHTML=`<div><h1 class="page">Org Chart</h1><p class="page-sub">Reporting structure, top to bottom — sorted by seniority. Click anyone to open their record.</p></div>
+   <div class="card card-pad" style="overflow:auto"><div class="tree">${roots.length?`<ul>${roots.map(node).join('')}</ul>`:'<div class="empty">No reporting structure yet.</div>'}</div></div>`;
 }
 /* ============================================================
    MANAGER VIEWS (no compensation — that stays with HR)
@@ -1496,7 +1527,7 @@ function vReports(){
   const declined=emps.filter(e=>e.status==='declined').length;
   const bk={w:0,m:0,q:0};
   exited.forEach(e=>{if(e.offboarding&&e.offboarding.lastDay&&e.doj){const days=Math.round((new Date(e.offboarding.lastDay)-new Date(e.doj))/86400000);if(days<=7)bk.w++;else if(days<=30)bk.m++;else if(days<=90)bk.q++;}});
-  let pf=0,esi=0;emps.forEach(e=>{const o=offerForEmp(e.id);if(o){pf++;if(o.ctc/12<=21000)esi++;}});
+  let pf=0,esi=0,monthlyCost=0,withComp=0;emps.filter(e=>e.status==='active').forEach(e=>{const cp=compForEmp(e);if(cp){withComp++;pf++;monthlyCost+=cp.c.m;if(cp.c.m<=21000)esi++;}});
   const overdueConf=emps.filter(e=>{const p=probationInfo(e);return onProbation(e)&&p.overdue;}).length;
   const depts={},levels={};emps.forEach(e=>{depts[e.dept]=(depts[e.dept]||0)+1;levels[e.level]=(levels[e.level]||0)+1;});
   const exitReasons={};let rejoinYes=0;exited.forEach(e=>{const r=(e.exitInterview&&e.exitInterview.primaryReason)||(e.offboarding&&e.offboarding.reason)||'Unspecified';exitReasons[r]=(exitReasons[r]||0)+1;if(e.exitInterview&&e.exitInterview.rejoin==='Yes')rejoinYes++;});
@@ -1532,8 +1563,10 @@ function vReports(){
        ${noticeEnding.map(e=>`<div class="small muted" style="padding:2px 0">• ${esc(e.name)} — last day ${dfmt(e.offboarding.lastDay)}</div>`).join('')}
        ${(!reviewSoon.length&&!noticeEnding.length)?'<div class="small muted" style="margin-top:6px">Nothing due in the reminder window.</div>':''}</div>
    </div>
-   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.warnings}</svg></div><h2>Compliance</h2></div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.warnings}</svg></div><h2>Compliance &amp; payroll cost</h2></div>
      <div class="info-grid">
+       <div class="info-cell"><div class="k">Active with comp on record</div><div class="v num">${withComp} / ${active}</div></div>
+       <div class="info-cell"><div class="k">Total monthly gross (all active)</div><div class="v num">${fmt(monthlyCost)}</div></div>
        <div class="info-cell"><div class="k">PF-applicable</div><div class="v num">${pf}</div></div>
        <div class="info-cell"><div class="k">ESI-eligible (gross ≤ ₹21k)</div><div class="v num">${esi}</div></div>
        <div class="info-cell"><div class="k">Confirmations overdue</div><div class="v num">${overdueConf}</div></div>
