@@ -298,7 +298,7 @@ const SB_KEY='sb_publishable_m2rIXmKjXjV0b91EyOrIfQ_IYGsnoj3';
 const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY):null;
 let LIVE=false; // true once a real Supabase login hydrates DB — real PII is never written to localStorage
 let _saveCreds={code:'',pass:''}; let _saveT=null;
-function mapEmp(r){return{id:r.id,code:r.code,name:r.name,desig:r.desig,dept:r.dept,level:r.level,location:r.location,doj:r.doj,managerId:r.manager_id,managerName:r.manager_name,phone:r.phone,email:r.email||r.login_email,personalEmail:r.personal_email,status:r.status,onboarded:!!r.onboarded,track:r.track,ladderTitle:r.ladder_title,weekOff:r.week_off,ctc:r.ctc,monthlyGross:r.monthly_gross,mustChange:r.must_change,role:r.role};}
+function mapEmp(r){return{id:r.id,code:r.code,name:r.name,desig:r.desig,dept:r.dept,level:r.level,location:r.location,doj:r.doj,managerId:r.manager_id,managerName:r.manager_name,phone:r.phone,email:r.email||r.login_email,personalEmail:r.personal_email,status:r.status,onboarded:!!r.onboarded,onboardingSubmitted:!!r.onboarding_submitted,confirmedOn:r.confirmed_on,track:r.track,ladderTitle:r.ladder_title,weekOff:r.week_off,ctc:r.ctc,monthlyGross:r.monthly_gross,onboardingData:r.onboarding_data||undefined,offboarding:r.exit_data||null,mustChange:r.must_change,role:r.role};}
 function hydrateFromSession(p){
   const base=seed(); const d=p.data||{};
   DB={...base,
@@ -321,7 +321,7 @@ function hydrateFromSession(p){
 function _fileToB64(file){return new Promise(function(res,rej){var r=new FileReader();r.onload=function(){var s=String(r.result);res(s.slice(s.indexOf(',')+1));};r.onerror=rej;r.readAsDataURL(file);});}
 async function liveDocUpload(employeeId,docType,file){ var b64=await _fileToB64(file); return await sb.rpc('hrms_doc_upload',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employee_id:employeeId,p_doc_type:docType,p_file_name:file.name,p_mime:file.type||'application/octet-stream',p_data_b64:b64}); }
 async function viewDoc(fileId){ if(!sb||!fileId)return; try{ var resp=await sb.rpc('hrms_doc_get',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_id:fileId}); var d=resp.data; if(resp.error||!d||!d.ok){toast('Could not open document');return;} var bin=atob(d.data_b64||''); var arr=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i); var url=URL.createObjectURL(new Blob([arr],{type:d.mime||'application/octet-stream'})); window.open(url,'_blank'); }catch(e){toast('Could not open document');} }
-function unmapEmp(e){return{id:e.id,code:e.code||null,name:e.name||null,desig:e.desig||null,dept:e.dept||null,level:e.level||null,location:e.location||null,doj:e.doj||null,manager_id:e.managerId||null,manager_name:e.managerName||null,phone:e.phone||null,email:e.email||null,personal_email:e.personalEmail||null,status:e.status||null,onboarded:!!e.onboarded,onboarding_submitted:!!e.onboardingSubmitted,confirmed_on:e.confirmedOn||null,track:e.track||null,ladder_title:e.ladderTitle||null,week_off:e.weekOff||null,ctc:(e.ctc==null||e.ctc==='')?null:e.ctc,monthly_gross:(e.monthlyGross==null||e.monthlyGross==='')?null:e.monthlyGross};}
+function unmapEmp(e){return{id:e.id,code:e.code||null,name:e.name||null,desig:e.desig||null,dept:e.dept||null,level:e.level||null,location:e.location||null,doj:e.doj||null,manager_id:e.managerId||null,manager_name:e.managerName||null,phone:e.phone||null,email:e.email||null,personal_email:e.personalEmail||null,status:e.status||null,onboarded:!!e.onboarded,onboarding_submitted:!!e.onboardingSubmitted,confirmed_on:e.confirmedOn||null,track:e.track||null,ladder_title:e.ladderTitle||null,week_off:e.weekOff||null,ctc:(e.ctc==null||e.ctc==='')?null:e.ctc,monthly_gross:(e.monthlyGross==null||e.monthlyGross==='')?null:e.monthlyGross,confirmed_on:e.confirmedOn||null,onboarding_submitted:!!e.onboardingSubmitted,onboarding_data:e.onboardingData||null,exit_data:e.offboarding||null,last_working_day:(e.offboarding&&e.offboarding.lastDay)||null,exit_reason:(e.offboarding&&e.offboarding.reason)||null};}
 function liveSave(){ if(!sb||!LIVE)return; clearTimeout(_saveT); _saveT=setTimeout(function(){ try{ var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:rows}); }catch(e){} }, 700); }
 
 /* ---------- seed ---------- */
@@ -1225,7 +1225,7 @@ function vSettings(){
 }
 function settingsAddDoc(){const t=prompt('New onboarding document');if(!t)return;DB.docTypes.push(t.trim());save();toast('Document added');vSettings();}
 function settingsRemoveDoc(i){DB.docTypes.splice(i,1);save();toast('Document removed');vSettings();}
-function probationInfo(e){const months=e.probationMonths||6,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const confirmed=!!e.confirmedOn,overdue=!confirmed&&new Date()>due;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
+function probationInfo(e){const months=e.probationMonths||3,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const confirmed=!!e.confirmedOn,overdue=!confirmed&&new Date()>due;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
 function probationCardHTML(e,id){
   if(e.status!=='active')return '';
   const p=probationInfo(e);
@@ -1242,7 +1242,7 @@ function probationCardHTML(e,id){
 function addProbationGoal(id){const e=empById(id),text=prompt('Probation objective for '+e.name);if(!text)return;(e.probationGoals=e.probationGoals||[]).push({text:text.trim(),done:false});save();toast('Objective added');renderEmp360(id);}
 function toggleProbationGoal(id,i){const e=empById(id);if(!e.probationGoals||!e.probationGoals[i])return;e.probationGoals[i].done=!e.probationGoals[i].done;save();renderEmp360(id);}
 function confirmEmployee(id){const e=empById(id);e.confirmedOn=new Date().toISOString().slice(0,10);save();toast(e.name+' confirmed');renderEmp360(id);}
-function extendProbation(id){const e=empById(id);e.probationMonths=(e.probationMonths||6)+3;save();toast('Probation extended by 3 months');renderEmp360(id);}
+function extendProbation(id){const e=empById(id);e.probationMonths=(e.probationMonths||3)+3;save();toast('Probation extended by 3 months');renderEmp360(id);}
 function vProbation(){
   const list=DB.employees.filter(e=>e.status==='active'&&!e.confirmedOn);
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Probation</h1><p class="page-sub">Employees on probation and when their confirmation review falls due.</p></div><button class="btn btn-ghost btn-sm" onclick="exportProbation()">Export CSV</button></div>
