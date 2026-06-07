@@ -745,9 +745,8 @@ async function vPay(){
     const adv=(DB.advances||[]).filter(a=>a.employeeId===emp.id); const advTaken=adv.filter(a=>a.status==='approved').reduce((s,a)=>s+(+a.amount||0),0);
     const _cp=compForEmp(emp);
     $('view').innerHTML=`<div><h1 class="page">My Pay</h1><p class="page-sub">Your compensation — visible only to you.</p></div>
-     ${_cp?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Your compensation (annual CTC)</h2></div>
-       <div class="stats"><div class="stat"><div class="k">Annual CTC</div><div class="v num">${fmt(_cp.ctc)}</div></div><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(_cp.c.m)}</div></div><div class="stat"><div class="k">Basic (62%)</div><div class="v num" style="font-size:18px">${fmt(_cp.c.basic)}</div></div><div class="stat"><div class="k">HRA (31%)</div><div class="v num" style="font-size:18px">${fmt(_cp.c.hra)}</div></div></div>
-       <div class="breakup"><div class="bl"><span>Basic (62%)</span><span class="num">${fmt(_cp.c.basic)}</span></div><div class="bl"><span>HRA (31%)</span><span class="num">${fmt(_cp.c.hra)}</span></div><div class="bl tot"><span>Special allowance (7%)</span><span class="num">${fmt(_cp.c.spl)}</span></div></div>
+     ${_cp?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Your compensation</h2></div>
+       ${compBreakupHTML(_cp)}
        <p class="small muted" style="margin-top:8px">This is your standard monthly salary structure. The month-by-month take-home below reflects actual paid runs (with any advances or pro-rata).</p></div>`:''}
      ${p?`<div class="stats"><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(p.gross||0)}</div></div><div class="stat"><div class="k">Basic</div><div class="v num" style="font-size:18px">${fmt(p.basic||0)}</div></div><div class="stat"><div class="k">HRA</div><div class="v num" style="font-size:18px">${fmt(p.hra||0)}</div></div><div class="stat"><div class="k">Take-home · ${esc(p.month)}</div><div class="v num">${fmt(p.net_in_hand||0)}</div></div></div>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Salary breakdown · ${esc(p.month)}</h2></div><div class="breakup"><div class="bl"><span>Basic</span><span class="num">${fmt(p.basic||0)}</span></div><div class="bl"><span>HRA</span><span class="num">${fmt(p.hra||0)}</span></div><div class="bl"><span>Special allowance</span><span class="num">${fmt(p.special||0)}</span></div><div class="bl tot"><span>Gross</span><span class="num">${fmt(p.gross||0)}</span></div><div class="bl"><span>Provident Fund</span><span class="num">- ${fmt(p.pf_employee||0)}</span></div><div class="bl"><span>ESI</span><span class="num">- ${fmt(p.esi_employee||0)}</span></div><div class="bl"><span>Professional tax</span><span class="num">- ${fmt(p.pt||0)}</span></div><div class="bl"><span>TDS</span><span class="num">- ${fmt(p.tds||0)}</span></div>${p.salary_advances?`<div class="bl"><span>Advance recovery</span><span class="num">- ${fmt(p.salary_advances)}</span></div>`:''}<div class="bl tot"><span>Net in hand (take-home)</span><span class="num">${fmt(p.net_in_hand||0)}</span></div></div></div>`:'<div class="card card-pad"><div class="empty">Your salary details will appear here once payroll is run for the month.</div></div>'}
@@ -768,13 +767,7 @@ async function vPay(){
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Monthly salary breakdown</h2></div>
-     <div class="breakup">
-       <div class="bl"><span>Basic (62%)</span><span class="num">${fmt(c.basic)}</span></div>
-       <div class="bl"><span>HRA (31%)</span><span class="num">${fmt(c.hra)}</span></div>
-       <div class="bl"><span>Special allowance (7%)</span><span class="num">${fmt(c.spl)}</span></div>
-       <div class="bl tot"><span>Monthly gross</span><span class="num">${fmt(c.m)}</span></div>
-       <div class="bl"><span class="small muted">PF on min(Basic, ₹15,000) · ESI if gross ≤ ₹21,000 · TDS as applicable</span><span></span></div>
-     </div>${pfNote}
+     ${compBreakupHTML(_cp2)}${pfNote}
    </div>`:`
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Compensation</h2></div>
@@ -1147,6 +1140,24 @@ function compForEmp(e){ if(!e) return null; var o=offerForEmp(e.id); var ctc=(o&
 // Who may see a given person's compensation: only management (HR / GM / super-admin) may see everyone;
 // every other person may see ONLY their own. In GM "preview" we mirror the employee — own pay only.
 function canSeeComp(e){ if(!e||!SES) return false; if(SES.preview) return e.id===SES.employeeId; var r=SES.realRole||SES.role||''; if(r==='super-admin'||r==='hr'||r==='gm') return true; return e.id===SES.employeeId; }
+// Standard monthly take-home from a CTC breakdown: gross − PF − ESI (statutory; matches the payroll engine: PT/TDS not assumed in Haryana).
+function pfMonthly(c){ return c?Math.round(Math.min(c.basic,15000)*0.12):0; }
+function esiMonthly(c){ return (c&&c.m<=21000)?Math.round(c.m*0.0075):0; }
+function netMonthly(c){ if(!c) return 0; return Math.max(0, Math.round(c.m) - pfMonthly(c) - esiMonthly(c)); }
+// One shared compensation breakdown — used identically in the HR 360 view and the employee's own view.
+// Every line is normal; ONLY the in-hand (take-home) per month is highlighted (red).
+function compBreakupHTML(cp){ if(!cp) return '<div class="empty">No compensation on record.</div>'; var c=cp.c, esi=esiMonthly(c);
+  return `<div class="breakup">`+
+    `<div class="bl"><span>Annual CTC</span><span class="num">${fmt(cp.ctc)}</span></div>`+
+    `<div class="bl"><span>Monthly gross</span><span class="num">${fmt(c.m)}</span></div>`+
+    `<div class="bl"><span>Basic (62%)</span><span class="num">${fmt(c.basic)}</span></div>`+
+    `<div class="bl"><span>HRA (31%)</span><span class="num">${fmt(c.hra)}</span></div>`+
+    `<div class="bl"><span>Special allowance (7%)</span><span class="num">${fmt(c.spl)}</span></div>`+
+    `<div class="bl"><span>Provident Fund</span><span class="num">- ${fmt(pfMonthly(c))}</span></div>`+
+    (esi?`<div class="bl"><span>ESI</span><span class="num">- ${fmt(esi)}</span></div>`:'')+
+    `<div class="bl tot"><span>In-hand salary / month (take-home)</span><span class="num">${fmt(netMonthly(c))}</span></div>`+
+  `</div>`;
+}
 function vDirectory(){
   const showComp=(SES&&(SES.realRole==='super-admin'||SES.realRole==='hr'||SES.realRole==='gm'));
   const rows=DB.employees.map(e=>{const cp=showComp&&canSeeComp(e)?compForEmp(e):null;return `<tr class="click" onclick="openEmp('${e.id}')"><td><b>${esc(e.name)}</b></td><td>${esc(e.code)}</td><td>${esc(e.desig)}</td><td>${esc(e.dept)}</td><td>${esc(e.level)}</td>${showComp?`<td class="num">${cp?fmt(cp.ctc):'—'}</td>`:''}<td><span class="pill ${e.status}">${esc(e.status)}</span></td></tr>`;}).join('');
@@ -1175,7 +1186,7 @@ function renderEmp360(id){
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Compensation</h2></div>
-     ${(function(){var cp=canSeeComp(e)?compForEmp(e):null;return cp?`<div class="breakup"><div class="bl"><span>Annual CTC</span><span class="num">${fmt(cp.ctc)}</span></div><div class="bl"><span>Monthly gross</span><span class="num">${fmt(cp.c.m)}</span></div><div class="bl"><span>Basic (62%)</span><span class="num">${fmt(cp.c.basic)}</span></div><div class="bl"><span>HRA (31%)</span><span class="num">${fmt(cp.c.hra)}</span></div><div class="bl tot"><span>Special allowance (7%)</span><span class="num">${fmt(cp.c.spl)}</span></div></div>`:'<div class="empty">No compensation on record.</div>';})()}
+     ${(function(){var cp=canSeeComp(e)?compForEmp(e):null;return compBreakupHTML(cp);})()}
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Onboarding form</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="hrEditOnboarding('${id}')">${e.onboardingData?'Edit':'Fill for employee'}</button>${e.onboardingData?`<span class="pill verified" style="margin-left:8px">Submitted ${dfmt(e.onboardingData.submittedAt)}</span>`:''}</div>
