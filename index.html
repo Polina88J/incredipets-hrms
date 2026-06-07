@@ -743,7 +743,7 @@ async function vPay(){
   if(LIVE&&sb){
     const all=(await loadPayrollRows(null))||[]; const rows=all.filter(p=>p.employee_id===emp.id); const months=Array.from(new Set(rows.map(p=>p.month))).sort(); const p=rows.filter(x=>x.month===months[months.length-1])[0]||null; const paidMonths=Array.from(new Set(rows.filter(function(r){return r.paid;}).map(function(r){return r.month;})));
     const adv=(DB.advances||[]).filter(a=>a.employeeId===emp.id); const advTaken=adv.filter(a=>a.status==='approved').reduce((s,a)=>s+(+a.amount||0),0);
-    const _bd=rows.filter(x=>x.month==='May 2026')[0]||p; // sheet-verified May is canonical; else latest available
+    const _bd=rows.filter(x=>x.month==='June 2026')[0]||rows.filter(x=>x.month==='May 2026')[0]||p; // current month (June), else May — both verbatim from the salary sheet
     $('view').innerHTML=`<div><h1 class="page">My Pay</h1><p class="page-sub">Your compensation — visible only to you.</p></div>
      ${_bd?`<div class="stats"><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(_bd.gross||0)}</div></div><div class="stat"><div class="k">Basic</div><div class="v num" style="font-size:18px">${fmt(_bd.basic||0)}</div></div><div class="stat"><div class="k">HRA</div><div class="v num" style="font-size:18px">${fmt(_bd.hra||0)}</div></div><div class="stat"><div class="k">In-hand · ${esc(_bd.month)}</div><div class="v num">${_bd.net_in_hand==null?'—':fmt(_bd.net_in_hand)}</div></div></div>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Salary breakdown · ${esc(_bd.month)}</h2></div>${payBreakupHTML(_bd,_bd.month)}</div>`:'<div class="card card-pad"><div class="empty">Your salary details will appear here once payroll is processed.</div></div>'}
@@ -1199,7 +1199,7 @@ function maskPII(k,v){v=String(v);if(k==='aadhaar')return v.length>4?'XXXX XXXX 
 async function renderEmp360(id){
   const e=empById(id);if(!e)return;const off=offerForEmp(id),t=tenure(e.doj),docs=docsForEmp(id);
   const mgr=e.managerId?empById(e.managerId):null;
-  let _payRow=null; if(LIVE&&sb&&canSeeComp(e)){ try{ const _all=await ensurePayAll(); const _mine=_all.filter(x=>x.employee_id===id); _payRow=_mine.filter(x=>x.month==='May 2026')[0]||_mine[0]||null; }catch(_e){} }
+  let _payRow=null; if(LIVE&&sb&&canSeeComp(e)){ try{ const _all=await ensurePayAll(); const _mine=_all.filter(x=>x.employee_id===id); _payRow=_mine.filter(x=>x.month==='June 2026')[0]||_mine.filter(x=>x.month==='May 2026')[0]||_mine[0]||null; }catch(_e){} }
   $('view').innerHTML=`
    <div style="display:flex;align-items:center;gap:14px"><button class="btn btn-ghost btn-sm" onclick="vDirectory()">← Directory</button></div>
    <div class="card card-pad"><div style="display:flex;align-items:center;gap:16px"><div class="avatar lg">${initials(e.name)}</div>
