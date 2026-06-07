@@ -594,7 +594,6 @@ function vHome(){
    ${attnStrip([(!emp.onboarded&&!emp.onboardingSubmitted)?'Complete your onboarding form':null,(emp.onboardingSubmitted&&!emp.onboarded)?'Onboarding submitted — awaiting HR verification':null,(emp.status==='active'&&!emp.confirmedOn)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
    <div class="stats">
      <div class="stat"><div class="k">Time at IncrediPets</div><div class="v">${t.y}<small>y</small> ${t.mo}<small>m</small> ${t.d}<small>d</small></div><div class="sub">Joined ${dfmt(emp.doj)}</div></div>
-     <div class="stat"><div class="k">Total days</div><div class="v num">${t.totalDays}</div><div class="sub">${t.totalMonths} months of service</div></div>
      <div class="stat"><div class="k">Current level</div><div class="v">${esc(emp.level)}</div><div class="sub">${esc(emp.desig)}</div></div>
      <div class="stat"><div class="k">Reporting to</div><div class="v" style="font-size:16px">${mgr?esc(mgr.name):'—'}</div><div class="sub">${mgr?esc(mgr.desig):''}</div></div>
    </div>
@@ -628,7 +627,7 @@ function vHome(){
    </div>
    ${(emp.tempPassword&&!emp.passwordSet)?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)"><div class="sec-h"><div class="si">!</div><h2>Set your password</h2></div><p class="small muted" style="margin-bottom:10px">You're using a temporary password — please set your own.</p><button class="btn btn-primary btn-sm" onclick="setNewPassword()">Set new password</button></div>`:''}
    ${(emp.onboarded&&emp.status!=='exited')?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.settings}</svg></div><h2>Self-service</h2></div>
-     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button>${leaveEligible(emp)?`<button class="btn btn-ghost btn-sm" onclick="applyLeave()">Apply for leave</button>`:''}<button class="btn btn-ghost btn-sm" onclick="applyAdvance()">Request advance</button>${emp.status==='active'?`<button class="btn btn-ghost btn-sm" onclick="employeeResign()">Resign / apply for exit</button>`:''}</div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button>${leaveEligible(emp)?`<button class="btn btn-ghost btn-sm" onclick="applyLeave()">Apply for leave</button>`:''}<button class="btn btn-ghost btn-sm" onclick="applyAdvance()">Request advance</button></div>
    </div>`:''}`;
 }
 
