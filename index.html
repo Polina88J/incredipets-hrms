@@ -673,6 +673,8 @@ document.addEventListener('click', function(e){
 }, true);
 function go(page,el){
   closeSidebar();
+  // Leave & Attendance are disabled in the employee module — block them anywhere (nav, links, deep-link, cache)
+  if(SES&&SES.role==='employee'&&(page==='leave'||page==='attendme'))page='home';
   _curPage=page;
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
@@ -879,7 +881,7 @@ function vLeave(){
   const unused=L.paidTotal-L.used;
   if(!leaveEligible(emp)){
     $('view').innerHTML=`<div><h1 class="page">Leave &amp; Attendance</h1><p class="page-sub">Your attendance and working hours.</p></div>
-     <div class="card card-pad muted small">Your role (Customer Support / Sales) follows the attendance-based policy — leave application isn't enabled for it right now. See your hours under <a onclick="go('attendme',document.querySelector('[data-pg=attendme]'))" style="cursor:pointer">Attendance</a>.</div>`;
+     <div class="card card-pad muted small">Your role (Customer Support / Sales) follows the attendance-based policy — leave application isn't enabled for it right now.</div>`;
     return;
   }
   const myReqs=(DB.leaveRequests||[]).filter(r=>r.employeeId===emp.id);
@@ -1798,7 +1800,7 @@ function vHolidays(){
   const emp=SES.employeeId?empById(SES.employeeId):null;
   if(emp&&isRosterRole(emp)){
     $('view').innerHTML=`<div><h1 class="page">Holiday Calendar</h1><p class="page-sub">Your role follows a roster.</p></div>
-     <div class="card card-pad muted small">Your role (Sales / Customer Support) works to a <b>roster with a weekly off</b> rather than the fixed company holiday calendar. Your weekly off is shown under <a onclick="go('attendme',document.querySelector('[data-pg=attendme]'))" style="cursor:pointer">Attendance</a>.</div>`;
+     <div class="card card-pad muted small">Your role (Sales / Customer Support) works to a <b>roster with a weekly off</b> rather than the fixed company holiday calendar.</div>`;
     return;
   }
   $('view').innerHTML=`<div><h1 class="page">Holiday Calendar</h1><p class="page-sub">Company holidays for the year.</p></div>
