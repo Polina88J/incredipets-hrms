@@ -579,7 +579,7 @@ function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posth
 
 /* ---------- nav ---------- */
 const NAVS={
-  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['leave','Leave & Attendance'],['attendme','Attendance'],['growth','My Growth'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['holidays','Holidays'],['team','My Team']],
+  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['growth','My Growth'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['holidays','Holidays'],['team','My Team']],
   hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['pipeline','Pipeline'],['newoffer','New Candidate / Offer'],['offers','My Offers']],
   manager:[['mteam','My Team']]
@@ -727,7 +727,7 @@ function vHome(){
    </div>
    ${(emp.tempPassword&&!emp.passwordSet)?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)"><div class="sec-h"><div class="si">!</div><h2>Set your password</h2></div><p class="small muted" style="margin-bottom:10px">You're using a temporary password — please set your own.</p><button class="btn btn-primary btn-sm" onclick="setNewPassword()">Set new password</button></div>`:''}
    ${(!needsOnboarding(emp)&&emp.status!=='exited')?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.settings}</svg></div><h2>Self-service</h2></div>
-     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button>${leaveEligible(emp)?`<button class="btn btn-ghost btn-sm" onclick="applyLeave()">Apply for leave</button>`:''}</div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="editMyDetails()">Edit my details</button><button class="btn btn-ghost btn-sm" onclick="go('mydocs',document.querySelector('[data-pg=mydocs]'))">My documents</button></div>
    </div>`:''}`;
 }
 
