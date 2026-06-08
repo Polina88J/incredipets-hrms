@@ -2,30 +2,29 @@
 
 In-house HR management system — employee-lifecycle system of record for IncrediPets.
 
-**Status:** v0 clickable prototype (front-end only, no backend yet). Live: https://hrms-sable-five.vercel.app
+**Status:** Live and in use. Full app with a Supabase backend behind employee login (auth + RLS).
+**Live URL:** https://polina88j.github.io/incredipets-hrms/  *(GitHub Pages)*
 
 ## What it is
 Replaces the scattered HR Google Sheets (recruitment sheet stays for sourcing; everything from the offer onward lives here). Spans **Offer → Onboard → Develop & Manage → Retain & Reward → Offboard & Exit**.
 
-- **Employee portal** — own profile, salary slips, reporting line, leave.
-- **HR Admin** — lifecycle board + directory (Pooja/HRBP operates; Priya owns).
-- **Recruiter** — create candidate + roll out the offer letter (Module 1).
+- **Employee portal** — own profile, salary slips, reporting line, leave, documents.
+- **HR Admin** (HRGM / HRBP) — lifecycle board, directory, payroll, org chart, approvals.
+- **Recruiter** (HRTA) — create candidate + roll out the offer letter.
 
-## Current scope (prototype)
-- Module 1 (Offer): candidate entry → auto salary breakup (Basic 62% / HRA 31% / Special 7%) → branded offer letter → release.
-- Employee self-service portal + HR lifecycle board.
-- **Fake seed data only — no real PII/comp.**
+## Hosting & deploy
+- **Live on GitHub Pages**, served from `Polina88J/incredipets-hrms` (People-Ops account) — free, independent of any paid host. Deploy = push `index.html` to that repo's `main`.
+- **This repo (`jiten-git/hrms`) is the canonical source.** Changes land here via **pull request** (merge to `main`).
+- **Vercel deployment retired (2026-06-09).** The old `hrms-sable-five.vercel.app` URL is no longer used (plan downgraded); GitHub Pages replaces it with **no functional impact** — the code lives in Git, the data lives in Supabase, neither depended on Vercel.
 
-## Roadmap
-① Offer → ② Onboarding → ③ Directory + org chart → ④ Leave → ⑤ Develop & Manage → ⑥ Offboard → ⑦ Payslip sync.
+## Stack
+Static single-file front-end (`index.html`) → **Supabase** (Postgres + Auth via SECURITY-DEFINER RPCs, RLS-locked) + GitHub Pages hosting.
 
-## Build & data rules
-- **Comp** lives in exactly one RLS-locked table, visible only to the comp tier; never a public field.
-- Live compensation stays computed in the salary sheet (payroll calculator); HRMS stores only the gated payslip PDF.
-- **No real employee data on a public URL until auth + RLS are in.**
+## Login model
+- Employees sign in with their **employee number**; first login is a **one-time password** that forces them to set their own.
+- Three admin role logins (**HRGM / HRBP / HRTA**) use fixed passwords.
 
-## Stack (target)
-Static front-end now → Supabase (Postgres + Auth + Storage, RLS) + Vercel.
-
-## Deploy
-Auto-deploys to the live URL on every push to `main` (Vercel ↔ GitHub git integration, connected 2026-06-03).
+## Data & security rules
+- Real employee + payroll data, **behind login**. Auth + RLS are in place.
+- **Comp + PII are gated by role in the RPC layer** — employees see only their own pay; payslip download returns only the downloader's own row; recruiters/managers never see the company comp master.
+- Payroll figures are loaded **verbatim from the Salary Sheet (Payroll Master)** — never recomputed in the app.
