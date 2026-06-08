@@ -579,7 +579,7 @@ function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posth
 
 /* ---------- nav ---------- */
 const NAVS={
-  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['growth','My Growth'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['holidays','Holidays'],['team','My Team']],
+  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['payslips','Salary Slips'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['team','My Team']],
   hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['pipeline','Pipeline'],['newoffer','New Candidate / Offer'],['offers','My Offers']],
   manager:[['mteam','My Team']]
@@ -642,7 +642,7 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&needsOnboarding(emp)&&!emp.onboardingSubmitted)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 /* ===== Analytics — privacy-safe interaction tracking (PostHog) =====
@@ -674,11 +674,11 @@ document.addEventListener('click', function(e){
 function go(page,el){
   closeSidebar();
   // Leave & Attendance are disabled in the employee module — block them anywhere (nav, links, deep-link, cache)
-  if(SES&&SES.role==='employee'&&(page==='leave'||page==='attendme'))page='home';
+  if(SES&&SES.role==='employee'&&['leave','attendme','growth','holidays'].indexOf(page)>-1)page='home';
   _curPage=page;
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
-  const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,roster:vRoster,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
+  const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,roster:vRoster,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,payslips:vPayslips,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
     dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
   track('page_view',{page:page});
@@ -825,6 +825,15 @@ async function downloadMyPayslip(month){
   const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Payslip');
   XLSX.writeFile(wb,'Payslip-'+String(p.month||'').replace(/\s+/g,'-')+'.xlsx'); track('payslip_download',{month:p.month}); toast('Your payslip downloaded');
 }
+async function vPayslips(){
+  const emp=empById(SES.employeeId); if(!emp){$('view').innerHTML='<div class="card card-pad"><div class="empty">Not available.</div></div>';return;}
+  if(!(LIVE&&sb)){ $('view').innerHTML=`<div><h1 class="page">Salary Slips</h1><p class="page-sub">Your monthly salary slips — visible only to you.</p></div><div class="card card-pad"><div class="empty">Your salary slips will appear here once payroll is processed.</div></div>`; return; }
+  const all=(await loadPayrollRows(null))||[]; const rows=all.filter(p=>p.employee_id===emp.id);
+  const paidMonths=Array.from(new Set(rows.filter(function(r){return r.paid;}).map(function(r){return r.month;})));
+  $('view').innerHTML=`<div><h1 class="page">Salary Slips</h1><p class="page-sub">Download your monthly salary slips — visible only to you.</p></div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>Salary slips</h2></div>
+   ${paidMonths.length?paidMonths.slice().reverse().map(mo=>`<div class="doc"><div class="dt"><b class="small">${esc(mo)}</b><div class="dm">Net pay after deductions</div></div><button class="btn btn-ghost btn-sm" onclick="downloadMyPayslip('${mo}')">Download</button></div>`).join(''):'<div class="empty">Your salary slip will appear here once that month has been marked paid.</div>'}</div>`;
+}
 async function vPay(){
   const emp=empById(SES.employeeId);
   if(LIVE&&sb){
@@ -834,7 +843,7 @@ async function vPay(){
     $('view').innerHTML=`<div><h1 class="page">My Pay</h1><p class="page-sub">Your compensation — visible only to you.</p></div>
      ${_bd?`<div class="stats"><div class="stat"><div class="k">Annual CTC</div><div class="v num">${fmt(_bd.annual_ctc||0)}</div></div><div class="stat"><div class="k">Monthly gross</div><div class="v num">${fmt(_bd.gross||0)}</div></div><div class="stat"><div class="k">Basic</div><div class="v num" style="font-size:18px">${fmt(_bd.basic||0)}</div></div><div class="stat"><div class="k">HRA</div><div class="v num" style="font-size:18px">${fmt(_bd.hra||0)}</div></div><div class="stat"><div class="k">In-hand · ${esc(_bd.month)}</div><div class="v num">${_bd.net_in_hand==null?'—':fmt(_bd.net_in_hand)}</div></div></div>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Salary breakdown · ${esc(_bd.month)}</h2></div>${payBreakupHTML(_bd,_bd.month)}</div>`:'<div class="card card-pad"><div class="empty">Your salary details will appear here once payroll is processed.</div></div>'}
-     <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>Salary slips</h2></div>${paidMonths.length?paidMonths.slice().reverse().map(mo=>`<div class="doc"><div class="dt"><b class="small">${esc(mo)}</b><div class="dm">Net pay after deductions</div></div><button class="btn btn-ghost btn-sm" onclick="downloadMyPayslip('${mo}')">Download</button></div>`).join(''):'<div class="empty">Your payslip will appear here once that month has been marked paid.</div>'}</div>
+     <p class="small muted" style="margin-top:4px">Your monthly salary slips are under the <b>Salary Slips</b> section in the menu.</p>
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.advances}</svg></div><h2>Salary advances</h2></div><p class="small muted" style="margin:0 0 8px">Advances are recorded by HR; any you've taken are shown here and deducted from your pay.</p>${advTaken?`<p class="small muted" style="margin:0 0 8px">Total advances taken: <b>${fmt(advTaken)}</b></p>`:''}${adv.map(a=>`<div class="doc"><div class="dt"><b class="small">${fmt(a.amount)}</b><div class="dm">${esc(a.reason||'')} · ${dfmt(a.date)}</div></div><span class="pill ${a.status}">${esc(a.status)}</span></div>`).join('')||'<div class="empty">No advances on record.</div>'}</div>`;
     return;
   }
