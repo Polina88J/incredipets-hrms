@@ -579,7 +579,7 @@ function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posth
 
 /* ---------- nav ---------- */
 const NAVS={
-  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['payslips','Salary Slips'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['team','My Team']],
+  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['payslips','Salary Slips'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['team','Org Structure']],
   hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['pipeline','Pipeline'],['newoffer','New Candidate / Offer'],['offers','My Offers']],
   manager:[['mteam','My Team']]
@@ -642,7 +642,7 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&needsOnboarding(emp)&&!emp.onboardingSubmitted)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'My Team',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'Org Structure',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 /* ===== Analytics — privacy-safe interaction tracking (PostHog) =====
@@ -998,26 +998,21 @@ function vLadder(){
 
 function vTeam(){
   const emp=empById(SES.employeeId),mgr=emp.managerId?empById(emp.managerId):null;
-  const peers=DB.employees.filter(e=>e.managerId===emp.managerId&&e.id!==emp.id&&mgr);
-  const reports=DB.employees.filter(e=>e.managerId===emp.id);
+  const _sen=(a,b)=>{const d=levelRank(b.level)-levelRank(a.level);return d!==0?d:String(a.name||'').localeCompare(String(b.name||''));};
+  const peers=DB.employees.filter(e=>e.managerId===emp.managerId&&e.id!==emp.id&&e.status!=='exited'&&mgr);
+  const reports=DB.employees.filter(e=>e.managerId===emp.id&&e.status!=='exited').sort(_sen);
+  const _ocard=(e,o)=>{o=o||{};const lr=levelRank(e.level);const st=[];if(o.click)st.push('cursor:pointer');if(o.you)st.push('outline:2px solid var(--amaranth);outline-offset:1px');const pill=(o.click&&onProbation(e))?'<span class="vcount" style="background:#fef3d6;color:#a8761a;border-color:#f0d9a0">on probation</span>':'';return `<span class="vcard lv${lr||1}" ${o.click?`onclick="renderMReport('${e.id}')"`:''} style="${st.join(';')}"><span class="avatar sm">${initials(e.name)}</span><b>${esc(e.name)}${o.you?' (you)':''}</b><span class="oc-d">${esc(e.desig||'')}</span>${e.level?`<span class="oc-lv">${esc(e.level)}</span>`:''}${pill}</span>`;};
+  const _meBranch = reports.length?`<details open><summary>${_ocard(emp,{you:1})}</summary><div class="vchildren">${reports.map(r=>`<div class="vleaf">${_ocard(r,{click:1})}</div>`).join('')}</div></details>`:`<div class="vleaf">${_ocard(emp,{you:1})}</div>`;
+  const _tree = mgr?`<details open><summary>${_ocard(mgr)}</summary><div class="vchildren">${_meBranch}</div></details>`:_meBranch;
   const _tids=reports.map(r=>r.id);
   const pendLeave=(DB.leaveRequests||[]).filter(r=>r.status==='pending'&&_tids.indexOf(r.employeeId)>=0);
   const pendAdv=(DB.advances||[]).filter(a=>a.status==='pending'&&_tids.indexOf(a.employeeId)>=0);
   $('view').innerHTML=`
-   <div><h1 class="page">My Team</h1><p class="page-sub">${reports.length?'You manage the people below — open anyone to manage their goals, performance and probation.':'Your reporting line.'}</p></div>
-   <div class="card card-pad" style="text-align:center">
-     ${mgr?`<div class="small muted" style="margin-bottom:8px">Reports to</div>
-       <div style="display:inline-flex;align-items:center;gap:11px;border:1.5px solid var(--amaranth);background:#fff5fa;border-radius:12px;padding:11px 16px"><div class="avatar sm">${initials(mgr.name)}</div><div style="text-align:left"><b>${esc(mgr.name)}</b><div class="small muted">${esc(mgr.desig)}</div></div></div>
-       <div style="height:18px;width:2px;background:var(--rule);margin:10px auto"></div>`:''}
-     <div style="display:inline-flex;align-items:center;gap:11px;border:1.5px solid var(--rule);border-radius:12px;padding:11px 16px;background:var(--soft)"><div class="avatar sm">${initials(emp.name)}</div><div style="text-align:left"><b>${esc(emp.name)} (you)</b><div class="small muted">${esc(emp.desig)}</div></div></div>
-     ${peers.length?`<div class="small muted" style="margin-top:18px">Peers on your team: ${peers.map(p=>esc(p.name)).join(', ')}</div>`:''}
-   </div>
+   <div><h1 class="page">Org Structure</h1><p class="page-sub">Your reporting line — one level up and one level down.${reports.length?' Open a direct report to manage their goals, performance &amp; probation.':''}</p></div>
+   <div class="card card-pad"><div class="vtree">${_tree}</div>${peers.length?`<p class="small muted" style="margin-top:12px">Peers at your level: ${peers.map(p=>esc(p.name)).join(', ')}</p>`:''}</div>
    ${reports.length?`<div class="card card-pad" style="border-color:var(--amber-rule)"><div class="sec-h"><div class="si">!</div><h2>Approvals from your team</h2></div>
      ${(pendLeave.length||pendAdv.length)?(pendLeave.map(r=>`<div class="doc"><div class="dt"><b class="small">${esc((empById(r.employeeId)||{}).name||r.employeeName||'')}</b><div class="dm">Leave · ${esc(r.type)} · ${dfmt(r.from)} → ${dfmt(r.to)} · ${r.days} day(s) · ${esc(r.reason||'')}</div></div><div style="display:flex;gap:6px"><button class="btn btn-green btn-sm" onclick="decideLeave('${r.id}','approved')">Approve</button><button class="btn btn-ghost btn-sm" onclick="decideLeave('${r.id}','rejected')">Decline</button></div></div>`).join('')+pendAdv.map(a=>`<div class="doc"><div class="dt"><b class="small">${esc((empById(a.employeeId)||{}).name||a.employeeName||'')}</b><div class="dm">Advance · ${fmt(a.amount)} · ${esc(a.reason||'')}</div></div><div style="display:flex;gap:6px"><button class="btn btn-green btn-sm" onclick="decideAdvance('${a.id}','approved')">Approve</button><button class="btn btn-ghost btn-sm" onclick="decideAdvance('${a.id}','rejected')">Decline</button></div></div>`).join('')):'<div class="small muted">No pending requests from your team.</div>'}
-   </div>`:''}
-   ${reports.length?`<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.mteam}</svg></div><h2>My direct reports</h2></div>
-     ${reports.map(r=>{const p=probationInfo(r);return `<div class="doc" style="cursor:pointer" onclick="renderMReport('${r.id}')"><div class="avatar sm">${initials(r.name)}</div><div class="dt"><b class="small">${esc(r.name)}</b><div class="dm">${esc(r.desig)} · ${esc(r.level)}</div></div>${onProbation(r)?`<span class="pill onboarding">On probation</span>`:`<span class="pill ${r.status}">${esc(r.status)}</span>`}</div>`;}).join('')}
-   </div>`:'<div class="card card-pad muted small">You are not managing anyone yet — this page will let you manage your team when you do.</div>'}`;
+   </div>`:''}`;
 }
 
 /* ============================================================
@@ -1592,7 +1587,7 @@ function vMTeam(){
 function renderMReport(id){
   const e=empById(id);if(!e)return;const t=tenure(e.doj),p=probationInfo(e),ks=DB.kpis[id]||[],ach=DB.achievements[id]||[];
   $('view').innerHTML=`
-   <div><button class="btn btn-ghost btn-sm" onclick="go('team',document.querySelector('[data-pg=team]'))">← My Team</button></div>
+   <div><button class="btn btn-ghost btn-sm" onclick="go('team',document.querySelector('[data-pg=team]'))">← Org Structure</button></div>
    <div class="card card-pad"><div style="display:flex;align-items:center;gap:16px"><div class="avatar lg">${initials(e.name)}</div>
      <div><h1 class="page" style="font-size:21px">${esc(e.name)}</h1><p class="page-sub">${esc(e.desig)} · ${esc(e.dept)} · ${esc(e.level)} · <span class="pill ${e.status}">${esc(e.status)}</span></p></div></div></div>
    <div class="info-grid">
