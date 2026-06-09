@@ -1498,6 +1498,13 @@ function vDashboard(){
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.ladder}</svg></div><h2>By level</h2></div>${distRows(levels)}</div>
    </div>`;
 }
+let _orgLayout='vertical'; try{ _orgLayout=localStorage.getItem('orgLayout')||'vertical'; }catch(e){}
+function setOrgLayout(l){ _orgLayout=(l==='horizontal'?'horizontal':'vertical'); try{localStorage.setItem('orgLayout',_orgLayout);}catch(e){} vOrg(); }
+// horizontal top-down node (branches spread sideways; canvas is scrollable when large)
+function _orgNodeH(e, childrenOf){
+  var kids=childrenOf(e.id); var lr=levelRank(e.level);
+  return `<li><div class="orgcard lv${lr||1}" onclick="openEmp('${e.id}')"><div class="avatar sm">${initials(e.name)}</div><div class="oc-t"><b>${esc(e.name)}</b><div class="oc-d">${esc(e.desig||'')}</div></div>${e.level?`<span class="oc-lv">${esc(e.level)}</span>`:''}</div>${kids.length?`<ul>${kids.map(function(k){return _orgNodeH(k,childrenOf);}).join('')}</ul>`:''}</li>`;
+}
 function vOrg(){
   const live=DB.employees.filter(e=>e.status!=='exited');
   const liveSet=new Set(live.map(e=>e.id));
@@ -1509,13 +1516,15 @@ function vOrg(){
   const childrenOf=id=>live.filter(x=>effMgr(x)===id).sort(bySeniority);
   const legend=[['L6','#B00050'],['L5','#8e44ad'],['L4','#2980b9'],['L3','#16a085'],['L2','#e67e22'],['L1','#95a5a6']].map(x=>`<span><i style="background:${x[1]}"></i>${x[0]}</span>`).join('');
   const dateStr=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  const horiz=_orgLayout==='horizontal';
+  const _body=apex?(horiz?`<div class="tree"><ul>${_orgNodeH(apex,childrenOf)}</ul></div>`:`<div class="vtree" id="vtreeRoot">${_orgNodeHTML(apex,childrenOf)}</div>`):'<div class="empty">No reporting structure yet.</div>';
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px">
-     <div><h1 class="page">Org Chart</h1><p class="page-sub">The full company tree. Click a name to open their record; click a row to collapse / expand that team.</p></div>
-     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="orgExpandAll(true)">Expand all</button><button class="btn btn-ghost btn-sm" onclick="orgExpandAll(false)">Collapse all</button><button class="btn btn-primary btn-sm" onclick="downloadOrgPNG()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download as image</button></div></div>
+     <div><h1 class="page">Org Chart</h1><p class="page-sub">The full company tree. Click a name to open their record.${horiz?' Scroll sideways to pan a large chart.':' Click a row to collapse / expand a team.'}</p></div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="setOrgLayout('${horiz?'vertical':'horizontal'}')">${horiz?'↕ Vertical view':'↔ Horizontal view'}</button>${horiz?'':`<button class="btn btn-ghost btn-sm" onclick="orgExpandAll(true)">Expand all</button><button class="btn btn-ghost btn-sm" onclick="orgExpandAll(false)">Collapse all</button>`}<button class="btn btn-primary btn-sm" onclick="downloadOrgPNG()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download as image</button></div></div>
    <div class="card" style="padding:0">
-     <div id="orgCanvas" class="org-canvas" style="overflow:visible">
+     <div id="orgCanvas" class="org-canvas" style="overflow:${horiz?'auto':'visible'}">
        <div class="org-head"><div class="oh-logo"><b>Incredi</b>Pets</div><div class="oh-sub">Organisation Chart · ${live.length} people · ${dateStr}</div><div class="org-legend">${legend}</div></div>
-       <div class="vtree" id="vtreeRoot">${apex?_orgNodeHTML(apex,childrenOf):'<div class="empty">No reporting structure yet.</div>'}</div>
+       ${_body}
      </div>
    </div>`;
 }
