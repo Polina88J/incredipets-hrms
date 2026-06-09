@@ -525,6 +525,26 @@ const PORTALS=[
   {key:'ta',      label:'TA — Talent Acquisition', viewset:'recruiter', employeeId:null, desc:'Positions · candidates · offers'}
 ];
 
+// establish a session from an hrms_session response + remember it so a refresh stays logged in
+function _establishSession(data,code,pass){
+  _saveCreds={code:code,pass:pass};
+  try{localStorage.setItem('hrms_sess',JSON.stringify(_saveCreds));}catch(e){}
+  hydrateFromSession(data);
+  var me=data.me||{}; var role=data.role,isHr=(role==='super-admin'||role==='hr'||role==='gm'),isRec=(role==='recruiter');
+  var vs=isHr?'hr':(isRec?'recruiter':'employee');
+  var label=isHr?('HR Admin · '+(me.name||'')):(isRec?('Recruitment · '+(me.name||'')):(me.name||'Employee'));
+  startSession({viewset:vs,label:label,employeeId:me.id,realRole:role});
+}
+// boot: if a remembered session exists, sign back in automatically (so refresh doesn't log you out)
+async function bootApp(){
+  load();
+  var s=null; try{ s=JSON.parse(localStorage.getItem('hrms_sess')||'null'); }catch(e){}
+  if(s&&s.code&&sb){
+    try{ var r=await sb.rpc('hrms_session',{p_code:s.code,p_pass:s.pass}); if(!r.error&&r.data&&r.data.ok){ _establishSession(r.data,s.code,s.pass); return; } }catch(e){}
+    try{ localStorage.removeItem('hrms_sess'); }catch(e){}
+  }
+  renderPortals();
+}
 async function doLogin(){
   const code=$('li_email').value.trim(),pass=$('li_pass').value;
   // 1) real go-live login against Supabase (login = employee code; tables stay behind RLS)
@@ -542,13 +562,9 @@ async function doLogin(){
           if(r2.error||!r2.data||!r2.data.ok){ if(btn){btn.disabled=false;btn.textContent='Sign in';} $('loginErr').textContent='Could not set the new password — please try again.';$('loginErr').classList.remove('hidden'); return; }
           _saveCreds.pass=np;
         }
-        hydrateFromSession(data);
-        const role=data.role, isHr=(role==='super-admin'||role==='hr'||role==='gm'), isRec=(role==='recruiter');
-        const vs=isHr?'hr':(isRec?'recruiter':'employee');
-        const label=isHr?('HR Admin · '+(me.name||'')):(isRec?('Recruitment · '+(me.name||'')):(me.name||'Employee'));
         $('loginErr').classList.add('hidden');
         if(btn){btn.disabled=false;btn.textContent='Sign in';}
-        startSession({viewset:vs,label:label,employeeId:me.id,realRole:role});
+        _establishSession(data,code,_saveCreds.pass);
         return;
       }
     }catch(e){/* network/offline → fall through to demo */}
@@ -576,7 +592,7 @@ function startSession(p){
   try{ if(window.posthog){ var who=p.employeeId||(p.realRole||p.viewset); posthog.identify(who,{role:(p.realRole||p.viewset)}); track('session_start',{role:(p.realRole||p.viewset), via_alias:!!(p.realRole&&p.realRole!=='employee')}); } }catch(e){}
   buildNav();
 }
-function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posthog.reset(); }catch(e){} if(LIVE&&sb&&_saveT&&_saveCreds.code){ try{ clearTimeout(_saveT); _saveT=null; var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:rows}).then(function(){},function(){}); }catch(e){} } SES=null;_saveCreds={code:'',pass:''};if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
+function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posthog.reset(); }catch(e){} if(LIVE&&sb&&_saveT&&_saveCreds.code){ try{ clearTimeout(_saveT); _saveT=null; var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:rows}).then(function(){},function(){}); }catch(e){} } SES=null;_saveCreds={code:'',pass:''};try{localStorage.removeItem('hrms_sess');}catch(e){}if(LIVE){LIVE=false;DB=null;load();renderPortals();}$('app').classList.add('hidden');$('login').classList.remove('hidden');const lp=$('li_pass');if(lp)lp.value='';}
 
 /* ---------- nav ---------- */
 const NAVS={
@@ -752,6 +768,7 @@ const ONBOARD_FIELDS=[
   {k:'esic',l:'ESIC Applicable',sel:['Yes','No'],g:2},
   {k:'bonus',l:'Bonus (if any)',g:2,ph:'optional'},
   {k:'bankName',l:'Bank Name',g:3,req:1},
+  {k:'accountName',l:'Account Holder Name',g:3},
   {k:'account',l:'Account Number',g:3,req:1},
   {k:'ifsc',l:'IFSC Code',g:3,req:1,ph:'e.g. HDFC0001234'},
   {k:'pan',l:'PAN Number',g:3,req:1,ph:'ABCDE1234F'},
@@ -1689,6 +1706,15 @@ function vMyDocs(){
      ${emp.status==='exited'?`<div class="doc"><div class="dt"><b class="small">Relieving / experience letter</b></div><button class="btn btn-ghost btn-sm" onclick="printLetter('relieving','${emp.id}')">View / print</button></div>`:''}
      ${hasLetters?'':'<div class="empty">No letters yet.</div>'}
    </div>
+   <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div><h2>Bank &amp; on-file details</h2></div>
+     <div class="info-grid">
+       <div class="info-cell"><div class="k">Bank</div><div class="v" style="font-size:13px">${esc((emp.onboardingData||{}).bankName||'—')}</div></div>
+       <div class="info-cell"><div class="k">Account holder</div><div class="v" style="font-size:13px">${esc((emp.onboardingData||{}).accountName||'—')}</div></div>
+       <div class="info-cell"><div class="k">Account number</div><div class="v" style="font-size:13px">${esc((emp.onboardingData||{}).account||'—')}</div></div>
+       <div class="info-cell"><div class="k">IFSC</div><div class="v" style="font-size:13px">${esc((emp.onboardingData||{}).ifsc||'—')}</div></div>
+     </div>
+     <div class="lock-row" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> These are on record with HR — to update them, contact the People team.</div>
+   </div>
    ${warningsForEmp(emp.id).length?`<div class="card card-pad"><div class="sec-h"><div class="si" style="background:#fdecef;color:#a81243"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.warnings}</svg></div><h2>Disciplinary letters</h2></div>${warningsForEmp(emp.id).map((w,i)=>`<div class="doc"><div class="dt"><b class="small">${esc(w.type)}</b><div class="dm">${esc(w.reason)} · ${dfmt(w.date)}</div></div><button class="btn btn-ghost btn-sm" onclick="printWarningLetter('${emp.id}',${i})">View / print</button></div>`).join('')}<div style="margin-top:12px">${ackOf(emp,'warning')?`<span class="pill verified">✓ Acknowledged on ${dfmt(ackOf(emp,'warning'))}</span>`:`<button class="btn btn-ghost btn-sm" onclick="acknowledgeDoc('warning')">I acknowledge receipt</button>`}</div></div>`:''}
    <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><h2>Data privacy &amp; consent</h2></div>
      <p class="small muted" style="line-height:1.55">By selecting <b>"I have read &amp; consent"</b> you confirm that you have read and agree to the following. IncrediPets ("the Company") collects, stores and processes your personal and sensitive personal data — including your identity and contact details, bank account, statutory identifiers (PAN, Aadhaar, UAN/PF, ESIC) and payroll records — for employment administration, payroll, benefits and compliance with applicable Indian law, including the Income-tax Act 1961, the Employees' Provident Funds &amp; Misc. Provisions Act 1952, the Employees' State Insurance Act 1948, applicable Shops &amp; Establishments legislation and the POSH Act 2013. Processing is carried out in accordance with the Information Technology Act 2000 and the SPDI Rules 2011. Your data is stored securely, retained only for the duration of your employment and any period required by law thereafter, and is <b>never sold</b>; it is disclosed only (a) where required by law or a competent authority, or (b) to payroll, benefit or IT service providers acting on the Company's behalf under written confidentiality obligations. You may at any time access, correct or object to the processing of your data, or withdraw this consent (subject to the Company's statutory obligations), by contacting the People team. This consent remains valid for the duration of your engagement unless withdrawn in writing.</p>
@@ -1708,9 +1734,10 @@ function editMyDetails(){
    <div class="grid2">
      <div class="field"><label>Contact number</label><input id="md_phone" value="${esc(emp.phone||'')}"></div>
      <div class="field"><label>Personal email</label><input id="md_pmail" value="${esc(d.personalMail||'')}"></div>
-     <div class="field"><label>Bank name</label><input id="md_bank" value="${esc(d.bankName||'')}"></div>
-     <div class="field"><label>Account number</label><input id="md_acct" value="${esc(d.account||'')}"></div>
-     <div class="field"><label>IFSC</label><input id="md_ifsc" value="${esc(d.ifsc||'')}"></div>
+     <div class="field"><label>Bank name</label><div style="padding:9px 2px;font-weight:600">${esc(d.bankName||'—')}</div></div>
+     <div class="field"><label>Account number</label><div style="padding:9px 2px;font-weight:600">${esc(d.account||'—')}</div></div>
+     <div class="field"><label>IFSC</label><div style="padding:9px 2px;font-weight:600">${esc(d.ifsc||'—')}</div></div>
+     <div class="field full"><span class="small muted">🔒 Bank details are on record with HR and can't be edited here — contact the People team to update them.</span></div>
      <div class="field"><label>Official email</label><input id="md_omail" value="${esc(d.officialMail||emp.email||'')}"></div>
      <div class="field full"><label>Current address</label><input id="md_addr" value="${esc(d.address||'')}"></div>
      <div class="field"><label>Emergency contact name</label><input id="md_ecn" value="${esc(d.emergencyName||'')}"></div>
@@ -1721,7 +1748,7 @@ function editMyDetails(){
    <div style="margin-top:16px"><button class="btn btn-primary" onclick="saveMyDetails()">Save</button></div>
    <div class="lock-row" style="margin-top:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Updates are visible to your HR team.</div></div>`;
 }
-function saveMyDetails(){const emp=empById(SES.employeeId),g=id=>($(id)&&$(id).value||'').trim();emp.phone=g('md_phone');const d=emp.onboardingData=emp.onboardingData||{};d.personalMail=g('md_pmail');d.bankName=g('md_bank');d.account=g('md_acct');d.ifsc=g('md_ifsc');d.officialMail=g('md_omail');d.address=g('md_addr');d.emergencyName=g('md_ecn');d.emergencyPhone=g('md_ecp');d.nominee=g('md_nom');d.bloodGroup=g('md_blood');if(g('md_omail'))emp.email=g('md_omail');save();toast('Details updated');go('home',document.querySelector('[data-pg=home]'));}
+function saveMyDetails(){const emp=empById(SES.employeeId),g=id=>($(id)&&$(id).value||'').trim();emp.phone=g('md_phone');const d=emp.onboardingData=emp.onboardingData||{};d.personalMail=g('md_pmail');d.officialMail=g('md_omail');d.address=g('md_addr');d.emergencyName=g('md_ecn');d.emergencyPhone=g('md_ecp');d.nominee=g('md_nom');d.bloodGroup=g('md_blood');if(g('md_omail'))emp.email=g('md_omail');save();toast('Details updated');go('home',document.querySelector('[data-pg=home]'));}
 function employeeResign(){const emp=empById(SES.employeeId);const reason=prompt('Reason for leaving','Resignation');if(!reason)return;const lastDay=prompt('Your intended last working day (YYYY-MM-DD)','');if(!lastDay)return;emp.status='offboarding';emp.offboarding={reason:reason.trim(),lastDay:lastDay.trim(),initiatedAt:new Date().toISOString().slice(0,10),tasks:{},selfInitiated:true};save();toast('Resignation submitted — HR has been notified');buildNav();go('home');}
 function vReports(){
   const emps=DB.employees;
@@ -2044,7 +2071,7 @@ function hrUploadDoc(did,id){const d=DB.documents.find(x=>x.id===did);if(!d)retu
 function hrAddDoc(id){const t=prompt('Document name (e.g. Signed offer letter, Address proof, Police verification)');if(!t)return;DB.documents.push({id:'D'+id+'_x'+Date.now(),employeeId:id,type:t.trim(),status:'requested',fileName:null,uploadedAt:null});save();audit('Added document slot "'+t.trim()+'" for '+((empById(id)||{}).name||''));toast('Document added — now upload it');renderEmp360(id);}
 
 /* ---------- boot ---------- */
-load();renderPortals();
+bootApp();
 </script>
 </body>
 </html>
