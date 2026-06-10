@@ -832,6 +832,43 @@ function submitOnboarding(){
   toast('Onboarding submitted — HR will verify your documents and confirm you in.');buildNav();go('home');
 }
 
+function _inr(n){ n=Math.round(Number(n)||0); var s=String(Math.abs(n)); if(s.length>3){ var last=s.slice(-3), rest=s.slice(0,-3); rest=rest.replace(/\B(?=(\d{2})+(?!\d))/g,','); s=rest+','+last; } return (n<0?'-':'')+s; }
+function _amtWords(n){ n=Math.round(Number(n)||0); if(n===0)return 'Zero'; var a=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'],b=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety']; function t(x){return x<20?a[x]:b[Math.floor(x/10)]+(x%10?' '+a[x%10]:'');} function h(x){return x>=100?a[Math.floor(x/100)]+' Hundred'+(x%100?' '+t(x%100):''):t(x);} var cr=Math.floor(n/1e7);n%=1e7;var lk=Math.floor(n/1e5);n%=1e5;var th=Math.floor(n/1e3);n%=1e3;var p=[];if(cr)p.push(t(cr)+' Crore');if(lk)p.push(t(lk)+' Lakh');if(th)p.push(t(th)+' Thousand');if(n)p.push(h(n));return p.join(' '); }
+function _payslipDoc(p,emp){
+  var acct=p.bank_account?('XXXX XXXX '+String(p.bank_account).slice(-4)):'—';
+  var bank=p.bank_name||'—';
+  var pf=Number(p.pf_employee)||0, erpf=Number(p.employer_pf)||0, totpf=pf+erpf;
+  var doj=emp.doj?dfmt(emp.doj):'—';
+  var css='@page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#23252b;background:#fff}.slip{max-width:760px;margin:0 auto;border:1px solid #dcdce2}.head{display:flex;justify-content:space-between;align-items:flex-start;padding:20px 26px 16px;border-bottom:2px solid #8A003E}.wm{font-size:24px;font-weight:800}.wm .a{color:#1a1c22}.wm .b{color:#8A003E}.sub{font-size:10px;color:#7c7c87;margin-top:4px;line-height:1.5}.doc{text-align:right}.doc .t{font-size:13px;font-weight:700;letter-spacing:2px;color:#8A003E}.doc .pm{font-size:12px;font-weight:600;margin-top:5px}.doc .ref{font-size:10px;color:#9a9aa4;margin-top:3px}.sec{font-size:9.5px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#9a9aa4;padding:13px 26px 7px}.idn{display:grid;grid-template-columns:1fr 1fr;margin:0 26px;border-top:1px solid #ededf1}.cc{padding:7px 0;display:flex;gap:10px;border-bottom:1px solid #f1f1f5}.cc:nth-child(odd){padding-right:20px;border-right:1px solid #f1f1f5}.cc:nth-child(even){padding-left:20px}.k{font-size:11px;color:#8a8a95;min-width:112px}.v{font-size:11px;font-weight:600}.tbl{width:calc(100% - 52px);margin:7px 26px 0;border-collapse:collapse;table-layout:fixed}.tbl th{font-size:9.5px;font-weight:700;text-transform:uppercase;color:#6c6c77;text-align:left;padding:8px 11px;background:#f6f6f9;border:1px solid #e6e6ec}.tbl th.amt,.tbl td.amt{text-align:right}.tbl td{font-size:11.5px;padding:6px 11px;border:1px solid #ededf1;color:#3a3a44}.tbl td.lbl{color:#54545f}.tbl tr.tot td{font-weight:700;color:#1a1c22;background:#fafafc;border-top:1.5px solid #d8d8df}.net{margin:14px 26px 0;border:1px solid #e6d3dd;border-left:4px solid #8A003E;background:#fbf6f8;display:flex;justify-content:space-between;align-items:center;padding:13px 16px}.net .lab{font-size:10px;font-weight:700;text-transform:uppercase;color:#8A003E}.net .words{font-size:11px;color:#54545f;margin-top:4px}.net .big{font-size:24px;font-weight:800}.cap{font-size:9.5px;color:#8a8a95;margin:5px 26px 0;line-height:1.5}.note{margin:12px 26px 0;background:#f7f6f9;border:1px solid #e6e2ec;border-radius:6px;padding:10px 14px;font-size:10.5px;color:#54545f;line-height:1.55}.note b{color:#23252b}.note a{color:#8A003E;text-decoration:none;font-weight:600}.ft{margin:12px 26px 0;padding:10px 0 16px;border-top:1px solid #ededf1;font-size:9px;color:#a2a2ac;line-height:1.6}.ft b{color:#54545f}';
+  var H='<!doctype html><html><head><meta charset="utf-8"><title>Payslip-'+esc(p.employee_id)+'-'+esc(String(p.month||'').replace(/\s+/g,'-'))+'</title><style>'+css+'</style></head><body onload="setTimeout(function(){try{window.print();}catch(e){}},350)"><div class="slip">';
+  H+='<div class="head"><div><div class="wm"><span class="a">Incredi</span><span class="b">Pets</span></div><div class="sub">IncrediPets Private Limited<br>Regd. Office: [Registered office address] &middot; CIN: [____]</div></div><div class="doc"><div class="t">SALARY SLIP</div><div class="pm">'+esc(p.month||'')+'</div><div class="ref">Ref: IP/PAY/'+esc(p.employee_id)+'</div></div></div>';
+  H+='<div class="sec">Employee details</div><div class="idn">';
+  H+='<div class="cc"><span class="k">Employee Name</span><span class="v">'+esc(emp.name||p.name||'')+'</span></div><div class="cc"><span class="k">Employee Code</span><span class="v">'+esc(p.employee_id)+'</span></div>';
+  H+='<div class="cc"><span class="k">Designation</span><span class="v">'+esc(emp.desig||'—')+'</span></div><div class="cc"><span class="k">Department</span><span class="v">'+esc(emp.dept||'—')+'</span></div>';
+  H+='<div class="cc"><span class="k">Date of Joining</span><span class="v">'+esc(doj)+'</span></div><div class="cc"><span class="k">Location</span><span class="v">'+esc(emp.location||'—')+'</span></div>';
+  H+='<div class="cc"><span class="k">PAN</span><span class="v">—</span></div><div class="cc"><span class="k">UAN / PF No.</span><span class="v">—</span></div>';
+  H+='<div class="cc"><span class="k">Bank</span><span class="v">'+esc(bank)+'</span></div><div class="cc"><span class="k">Bank A/c No.</span><span class="v">'+esc(acct)+'</span></div>';
+  H+='<div class="cc"><span class="k">Pay Period</span><span class="v">'+esc(p.month||'')+'</span></div><div class="cc"><span class="k">Paid Days</span><span class="v">'+esc(String(p.working_days||'—'))+'</span></div></div>';
+  H+='<div class="sec">Earnings &amp; deductions</div><table class="tbl"><tr><th style="width:30%">Earnings</th><th class="amt" style="width:20%">Amount (₹)</th><th style="width:30%">Deductions</th><th class="amt" style="width:20%">Amount (₹)</th></tr>';
+  H+='<tr><td class="lbl">Basic Salary</td><td class="amt">'+_inr(p.basic)+'</td><td class="lbl">Provident Fund (Employee)</td><td class="amt">'+_inr(p.pf_employee)+'</td></tr>';
+  H+='<tr><td class="lbl">House Rent Allowance</td><td class="amt">'+_inr(p.hra)+'</td><td class="lbl">ESI (Employee)</td><td class="amt">'+_inr(p.esi_employee)+'</td></tr>';
+  H+='<tr><td class="lbl">Special Allowance</td><td class="amt">'+_inr(p.special)+'</td><td class="lbl">Professional Tax</td><td class="amt">'+_inr(p.pt)+'</td></tr>';
+  H+='<tr><td class="lbl">Reimbursements</td><td class="amt">'+_inr(p.reimbursement)+'</td><td class="lbl">TDS (Income Tax)</td><td class="amt">'+_inr(p.tds)+'</td></tr>';
+  H+='<tr><td class="lbl">Bonus</td><td class="amt">'+_inr(p.bonus)+'</td><td class="lbl">Salary Advance</td><td class="amt">'+_inr(p.salary_advances)+'</td></tr>';
+  H+='<tr><td class="lbl">&nbsp;</td><td class="amt">&nbsp;</td><td class="lbl">Other Deductions</td><td class="amt">'+_inr(p.other_deductions)+'</td></tr>';
+  H+='<tr class="tot"><td>Gross Earnings (A)</td><td class="amt">'+_inr(p.gross)+'</td><td>Total Deductions (B)</td><td class="amt">'+_inr(p.total_deduction)+'</td></tr></table>';
+  if(erpf>0){
+    H+='<div class="sec">Employer contribution (add-on)</div><table class="tbl"><tr><th style="width:72%">Particulars</th><th class="amt" style="width:28%">Amount (₹)</th></tr>';
+    H+='<tr><td class="lbl">Employer PF Contribution &mdash; over &amp; above monthly gross</td><td class="amt">'+_inr(erpf)+'</td></tr>';
+    H+='<tr class="tot"><td>Total PF credited to your PF (UAN) account &mdash; Employee ('+_inr(pf)+') + Employer ('+_inr(erpf)+')</td><td class="amt">'+_inr(totpf)+'</td></tr></table>';
+    H+='<div class="cap">The Employer PF is contributed by IncrediPets over and above your monthly gross and is not deducted from your pay. The total above is the full amount credited to your PF (UAN) account this month. Shown only where applicable.</div>';
+  }
+  H+='<div class="net"><div><div class="lab">Net Pay (A &minus; B)</div><div class="words">Amount in words: Rupees '+esc(_amtWords(p.net_in_hand))+' Only</div></div><div class="big">₹ '+_inr(p.net_in_hand)+'</div></div>';
+  H+='<div class="note"><b>Provident Fund:</b> Your PF contribution is fixed at the commencement of your employment and cannot be changed during the course of employment.<br><br><b>Questions about your pay this month?</b> For any query or clarification regarding your salary, please write to <a href="mailto:pooja@incredipets.in">pooja@incredipets.in</a> &mdash; our People &amp; Operations team will be glad to assist and resolve it at the earliest.</div>';
+  H+='<div class="ft"><b>This is a computer-generated salary slip and does not require a signature.</b><br>Issued under the Payment of Wages Act, 1936. Figures pertain to '+esc(p.month||'')+' only. Generated via the IncrediPets people portal.</div>';
+  H+='</div></body></html>';
+  return H;
+}
 async function downloadMyPayslip(month){
   const emp=empById(SES.employeeId); if(!emp){toast('Not available');return;}
   let rows=[];
@@ -839,9 +876,10 @@ async function downloadMyPayslip(month){
   rows=rows.filter(function(p){return p.employee_id===emp.id;}); // hard guard: only the logged-in person's own row
   if(!rows.length){ toast('Payslip not available'); return; }
   const p=rows[0];
-  const aoa=[['IncrediPets — Salary Slip',''],['Month',p.month],['Employee',p.name],['Code',p.employee_id],['',''],['Earnings',''],['Basic',p.basic],['HRA',p.hra],['Special allowance',p.special],['Gross',p.gross],['',''],['Deductions',''],['Provident Fund',p.pf_employee],['ESI',p.esi_employee],['Professional Tax',p.pt],['TDS',p.tds],['Salary advance',p.salary_advances],['Total deductions',p.total_deduction],['',''],['Net in hand',p.net_in_hand]];
-  const ws=XLSX.utils.aoa_to_sheet(aoa); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Payslip');
-  XLSX.writeFile(wb,'Payslip-'+String(p.month||'').replace(/\s+/g,'-')+'.xlsx'); track('payslip_download',{month:p.month}); toast('Your payslip downloaded');
+  const w=window.open('','_blank');
+  if(!w){ toast('Please allow pop-ups to open your payslip'); return; }
+  w.document.open(); w.document.write(_payslipDoc(p,emp)); w.document.close();
+  track('payslip_download',{month:p.month}); toast('Opening your payslip — choose “Save as PDF” to download.');
 }
 async function vPayslips(){
   const emp=empById(SES.employeeId); if(!emp){$('view').innerHTML='<div class="card card-pad"><div class="empty">Not available.</div></div>';return;}
