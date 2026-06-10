@@ -73,7 +73,7 @@
 
   /* ---- app shell ---- */
   .app{display:grid;grid-template-columns:242px 1fr;min-height:100dvh}
-  .side{background:var(--surface);border-right:1px solid var(--rule);padding:18px 14px;display:flex;flex-direction:column;gap:3px;position:sticky;top:0;height:100dvh}
+  .side{background:var(--surface);border-right:1px solid var(--rule);padding:18px 14px;display:flex;flex-direction:column;gap:3px;position:sticky;top:0;height:100dvh;overflow-y:auto;overscroll-behavior:contain}
   .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 14px}
   .brand .mark{width:32px;height:32px;border-radius:9px;background:var(--logo);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px}
   .brand .wm{font-weight:800;font-size:16px} .brand .wm b{color:var(--logo)}
