@@ -597,8 +597,8 @@ function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posth
 /* ---------- nav ---------- */
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['payslips','Salary Slips'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['team','Org Structure']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
-  recruiter:[['positions','Positions'],['pipeline','Pipeline'],['newoffer','New Candidate / Offer'],['offers','My Offers']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['addemp','Add employee'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
+  recruiter:[['positions','Positions'],['pipeline','Pipeline'],['newoffer','New Candidate / Offer'],['addemp','Add employee'],['offers','My Offers']],
   manager:[['mteam','My Team']]
 };
 const ICONS={
@@ -630,6 +630,7 @@ const ICONS={
   settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   board:'<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/>',
   directory:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>',
+  addemp:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M20 8v6M23 11h-6"/>',
   hrdocs:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
   positions:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
   newoffer:'<path d="M12 5v14M5 12h14"/>',
@@ -696,7 +697,7 @@ function go(page,el){
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
   const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,roster:vRoster,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,payslips:vPayslips,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
-    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
+    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,addemp:vAddEmployee,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
   track('page_view',{page:page});
 }
@@ -2127,9 +2128,9 @@ async function createEmployee(){
   const offerFile=($('ne_offer')&&$('ne_offer').files&&$('ne_offer').files[0])||null;
   let liveOk=true, offerMsg='';
   if(LIVE&&sb){
-    try{ await sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:(DB.employees||[]).map(unmapEmp)}); }catch(e){ liveOk=false; }
-    try{ const pr=await sb.rpc('hrms_admin_set_temp',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_target:code,p_temp:pass}); if(pr.error||!(pr.data&&pr.data.ok)) liveOk=false; }catch(e){ liveOk=false; }
-    if(offerFile){
+    const empPayload={id:id,code:code,name:name,desig:emp.desig,dept:emp.dept,level:emp.level,location:emp.location,doj:emp.doj||null,manager_id:emp.managerId||null,manager_name:(emp.managerId?((empById(emp.managerId)||{}).name||null):null),phone:emp.phone||null,email:email,personal_email:emp.personalEmail||null,status:status,onboarded:emp.onboarded};
+    try{ const cr=await sb.rpc('hrms_admin_create_employee',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_emp:empPayload,p_temp:pass}); if(cr.error||!(cr.data&&cr.data.ok)){ liveOk=false; if(cr.data&&cr.data.err==='exists'){ DB.employees=DB.employees.filter(x=>x.id!==id); toast('That employee code already exists in the system'); return; } } }catch(e){ liveOk=false; }
+    if(liveOk&&offerFile){
       if(offerFile.size>2600000){ offerMsg='\n\n(The offer file was too large to upload — please add it from their profile.)'; }
       else { try{ const resp=await liveDocUpload(id,'Signed offer letter',offerFile); const r=resp&&resp.data; if(r&&r.ok){ DB.documents.push({id:'D'+id+'_offer',employeeId:id,type:'Signed offer letter',status:'uploaded',fileName:offerFile.name,fileId:r.id}); offerMsg='\n\nOffer letter attached to their documents.'; } else { offerMsg='\n\n(Offer upload failed — add it from their profile.)'; } }catch(e){ offerMsg='\n\n(Offer upload failed — add it from their profile.)'; } }
     }
