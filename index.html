@@ -835,9 +835,10 @@ function submitOnboarding(){
 
 function _inr(n){ n=Math.round(Number(n)||0); var s=String(Math.abs(n)); if(s.length>3){ var last=s.slice(-3), rest=s.slice(0,-3); rest=rest.replace(/\B(?=(\d{2})+(?!\d))/g,','); s=rest+','+last; } return (n<0?'-':'')+s; }
 function _amtWords(n){ n=Math.round(Number(n)||0); if(n===0)return 'Zero'; var a=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'],b=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety']; function t(x){return x<20?a[x]:b[Math.floor(x/10)]+(x%10?' '+a[x%10]:'');} function h(x){return x>=100?a[Math.floor(x/100)]+' Hundred'+(x%100?' '+t(x%100):''):t(x);} var cr=Math.floor(n/1e7);n%=1e7;var lk=Math.floor(n/1e5);n%=1e5;var th=Math.floor(n/1e3);n%=1e3;var p=[];if(cr)p.push(t(cr)+' Crore');if(lk)p.push(t(lk)+' Lakh');if(th)p.push(t(th)+' Thousand');if(n)p.push(h(n));return p.join(' '); }
+function _bankFromIfsc(ifsc){ if(!ifsc)return ''; var m={IDFB:'IDFC FIRST Bank',KKBK:'Kotak Mahindra Bank',SBIN:'State Bank of India',HDFC:'HDFC Bank',HHDF:'HDFC Bank',ICIC:'ICICI Bank',UTIB:'Axis Bank',PUNB:'Punjab National Bank',BARB:'Bank of Baroda',UBIN:'Union Bank of India',INDB:'IndusInd Bank',CBIN:'Central Bank of India',CNRB:'Canara Bank',IBKL:'IDBI Bank',ESFB:'Equitas Small Finance Bank',YESB:'Yes Bank',FDRL:'Federal Bank',RATN:'RBL Bank',KARB:'Karnataka Bank',AUBL:'AU Small Finance Bank',BKID:'Bank of India',MAHB:'Bank of Maharashtra',IOBA:'Indian Overseas Bank',IDIB:'Indian Bank',PYTM:'Paytm Payments Bank',BDBL:'Bandhan Bank',JAKA:'J&K Bank',DCBL:'DCB Bank',SIBL:'South Indian Bank'}; var pre=String(ifsc).toUpperCase().slice(0,4); return m[pre]||('Bank ('+pre+')'); }
 function _payslipDoc(p,emp){
   var acct=p.bank_account?('XXXX XXXX '+String(p.bank_account).slice(-4)):'—';
-  var bank=p.bank_name||'—';
+  var bank=_bankFromIfsc(p.ifsc)||'—';
   var pf=Number(p.pf_employee)||0, erpf=Number(p.employer_pf)||0, totpf=pf+erpf;
   var doj=emp.doj?dfmt(emp.doj):'—';
   var _net=Number(p.net_in_hand)||0;
