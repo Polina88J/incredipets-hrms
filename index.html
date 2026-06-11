@@ -371,7 +371,7 @@ function mapEmp(r){return{id:r.id,code:r.code,name:r.name,desig:r.desig,dept:r.d
 function hydrateFromSession(p){
   const base=seed(); const d=p.data||{};
   DB={...base,
-    employees:(d.employees||[]).map(mapEmp),
+    employees:(d.employees||[]).map(mapEmp).filter(function(e){return e.status!=='system';}),
     positions:(d.positions||[]).map(r=>({id:r.id,title:r.title,dept:r.dept,level:r.level,location:r.location,openings:r.openings,hiringManager:r.hiring_manager,bandMin:r.band_min,bandMax:r.band_max,status:r.status,jd:r.jd,openedOn:r.opened_on})),
     offers:(d.offers||[]).map(r=>({id:r.id,employeeId:r.employee_id,positionId:r.position_id,ctc:r.ctc,status:r.status,releasedBy:r.released_by,approvedBy:r.approved_by,createdAt:r.created_at})),
     candidates:(d.candidates||[]).map(r=>({id:r.id,positionId:r.position_id,name:r.name,phone:r.phone,email:r.email,stage:r.stage,appliedOn:r.applied_on,hiredOn:r.hired_on})),
@@ -515,7 +515,7 @@ function dfmt(s){if(!s)return'—';return new Date(s).toLocaleDateString('en-IN'
 
 /* ---------- session & portals ---------- */
 let SES=null; // {role(viewset), label, employeeId}
-const ROLEMETA={employee:{title:'My Portal'},manager:{title:'Manager'},hr:{title:'HR Admin'},recruiter:{title:'Recruitment'}};
+const ROLEMETA={employee:{title:'My Portal'},manager:{title:'Manager'},hr:{title:'HR Admin'},recruiter:{title:'Recruitment'},accountant:{title:'Accounts'}};
 // The four sign-in portals on the starter page — role-based, no personal names.
 const PORTALS=[
   {key:'employee',label:'Employee',          viewset:'employee', employeeId:'E5',  desc:'Full employee view — pay, leave, advances, growth & team'},
@@ -530,9 +530,9 @@ function _establishSession(data,code,pass){
   _saveCreds={code:code,pass:pass};
   try{localStorage.setItem('hrms_sess',JSON.stringify(_saveCreds));}catch(e){}
   hydrateFromSession(data);
-  var me=data.me||{}; var role=data.role,isHr=(role==='super-admin'||role==='hr'||role==='gm'),isRec=(role==='recruiter');
-  var vs=isHr?'hr':(isRec?'recruiter':'employee');
-  var label=isHr?('HR Admin · '+(me.name||'')):(isRec?('Recruitment · '+(me.name||'')):(me.name||'Employee'));
+  var me=data.me||{}; var role=data.role,isHr=(role==='super-admin'||role==='hr'||role==='gm'),isRec=(role==='recruiter'),isAcct=(role==='accountant');
+  var vs=isHr?'hr':(isRec?'recruiter':(isAcct?'accountant':'employee'));
+  var label=isHr?('HR Admin · '+(me.name||'')):(isRec?('Recruitment · '+(me.name||'')):(isAcct?('Accounts · '+(me.name||'')):(me.name||'Employee')));
   startSession({viewset:vs,label:label,employeeId:me.id,realRole:role});
 }
 // boot: if a remembered session exists, sign back in automatically (so refresh doesn't log you out)
@@ -596,16 +596,18 @@ function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posth
 
 /* ---------- nav ---------- */
 const NAVS={
-  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['payslips','Salary Slips'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['team','Org Structure']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['addemp','Add employee'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
+  employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['payslips','Salary Slips'],['reimburse','Reimbursements'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['team','Org Structure']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['reimburse','Reimbursements'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['addemp','Add employee'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['pipeline','Pipeline'],['newoffer','New Candidate / Offer'],['addemp','Add employee'],['offers','My Offers']],
-  manager:[['mteam','My Team']]
+  manager:[['mteam','My Team']],
+  accountant:[['reimburse','Reimbursements']]
 };
 const ICONS={
   home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
   mteam:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/>',
   onboard:'<path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
   pay:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/>',
+  reimburse:'<path d="M4 2v20l2-1.5L8 22l2-1.5L12 22l2-1.5L16 22l2-1.5L20 22V2l-2 1.5L16 2l-2 1.5L12 2l-2 1.5L8 2 6 3.5 4 2Z"/><path d="M8 8h8M8 12h8"/>',
   leave:'<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/>',
   mydocs:'<path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>',
   reports:'<path d="M3 3v18h18"/><rect x="7" y="10" width="3" height="7"/><rect x="12" y="6" width="3" height="11"/><rect x="17" y="13" width="3" height="4"/>',
@@ -660,7 +662,7 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&needsOnboarding(emp)&&!emp.onboardingSubmitted)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'Org Structure',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',reimburse:'Reimbursements',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'Org Structure',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 /* ===== Analytics — privacy-safe interaction tracking (PostHog) =====
@@ -696,7 +698,7 @@ function go(page,el){
   _curPage=page;
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
-  const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,roster:vRoster,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,payslips:vPayslips,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
+  const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,roster:vRoster,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,payslips:vPayslips,reimburse:vReimburse,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
     dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,addemp:vAddEmployee,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
   if(fn)fn();window.scrollTo(0,0);
   track('page_view',{page:page});
@@ -1922,6 +1924,58 @@ function vLeaveRequests(){
 }
 function decideLeave(id,st){const r=(DB.leaveRequests||[]).find(x=>x.id===id);if(!r)return;r.status=st;r.decidedBy=(SES&&SES.label);if(LIVE&&sb){sb.rpc('hrms_decide',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_kind:'leave',p_id:id,p_status:st}).then(function(){},function(){});}else{save();}notify(r.employeeId,'Your leave request ('+r.type+', '+r.days+' day(s)) was '+st+'.');audit('Leave '+st+' for '+((empById(r.employeeId)||{}).name||r.employeeName||''));toast('Leave '+st);if(SES.role==='employee'){vTeam();}else{vLeaveRequests();}}
 async function applyAdvance(){const emp=empById(SES.employeeId);const amt=+prompt('Advance amount (₹)','10000');if(!amt)return;const reason=prompt('Reason','')||'';DB.advances=DB.advances||[];const date=new Date().toISOString().slice(0,10);const entry={id:'AD'+Date.now(),employeeId:emp.id,amount:amt,reason:reason,date:date,status:'pending',employeeName:emp.name};DB.advances.unshift(entry);if(LIVE&&sb){const rr=await sb.rpc('hrms_request',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_kind:'advance',p_payload:{amount:amt,reason:reason,date:date}});if(rr.error||!rr.data||!rr.data.ok){toast('Could not submit — please try again');return;}if(rr.data.id)entry.id=rr.data.id;}else{save();}notify(emp.id,'Advance request of '+fmt(amt)+' submitted — pending approval with your manager.');toast('Advance requested');go('pay',document.querySelector('[data-pg=pay]'));}
+/* ---------- Reimbursements (prepaid advances + postpaid claims) ---------- */
+async function _reimbLoad(){ try{ var r=await sb.rpc('reimb_list',{p_code:_saveCreds.code,p_pass:_saveCreds.pass}); if(r.error||!(r.data&&r.data.ok))return null; return r.data; }catch(e){ return null; } }
+function _rbSec(t){ return '<div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.reimburse+'</svg></div><h2>'+t+'</h2></div>'; }
+function _rbPill(s){ return {pending_transfer:'requested',active:'verified',submitted:'uploaded',cleared:'verified',rejected:'offboarding',settled:'verified'}[s]||'requested'; }
+function _rbLab(s){ return {pending_transfer:'Awaiting transfer',active:'Available',submitted:'Submitted',cleared:'Cleared',rejected:'Rejected',settled:'Settled'}[s]||s; }
+async function vReimburse(){
+  if(!(LIVE&&sb)){ $('view').innerHTML='<div class="card"><div class="empty">Reimbursements are available in the live portal.</div></div>'; return; }
+  $('view').innerHTML='<div class="card"><div class="empty">Loading reimbursements…</div></div>';
+  var d=await _reimbLoad(); if(!d){ $('view').innerHTML='<div class="card"><div class="empty">Could not load reimbursements. Please retry.</div></div>'; return; }
+  window._reimb=d; var A=d.advances||[], X=d.expenses||[];
+  var h='<div><h1 class="page">Reimbursements</h1><p class="page-sub">Travel &amp; expenses — prepaid advances and postpaid claims.</p></div>';
+  if(d.is_accountant){
+    var pend=A.filter(function(a){return a.status==='pending_transfer';}); var clr=X.filter(function(x){return x.status==='submitted';});
+    h+='<div class="card card-pad">'+_rbSec('Prepaid advances to transfer')+(pend.length?pend.map(function(a){return '<div class="doc"><div class="dt"><b class="small">'+esc(a.employee_name)+' · '+esc(a.employee_code)+'</b><div class="dm">Advance ₹'+_inr(a.amount)+(a.purpose?(' · '+esc(a.purpose)):'')+'</div></div><button class="btn btn-green btn-sm" onclick="reimbTransfer(\''+a.id+'\')">Mark transferred</button></div>';}).join(''):'<div class="empty">Nothing waiting to transfer.</div>')+'</div>';
+    h+='<div class="card card-pad">'+_rbSec('Claims to clear')+(clr.length?clr.map(function(x){return '<div class="doc"><div class="dt"><b class="small">'+esc(x.employee_name)+' · '+esc(x.employee_code)+'</b><div class="dm">'+(x.kind==='prepaid'?'Prepaid':'Postpaid')+' · ₹'+_inr(x.amount)+(x.description?(' · '+esc(x.description)):'')+'</div></div><div style="display:flex;gap:6px">'+(x.bill_file_id?'<button class="btn btn-ghost btn-sm" onclick="viewDoc(\''+x.bill_file_id+'\')">Bill</button>':'')+'<button class="btn btn-green btn-sm" onclick="reimbClear(\''+x.id+'\',\'clear\')">Clear</button><button class="btn btn-ghost btn-sm" onclick="reimbClear(\''+x.id+'\',\'reject\')">Reject</button></div></div>';}).join(''):'<div class="empty">No claims to clear.</div>')+'</div>';
+    h+='<div class="card card-pad">'+_rbSec('All advances')+(A.length?A.map(function(a){return '<div class="bl"><span>'+esc(a.employee_name)+' · ₹'+_inr(a.amount)+(a.purpose?(' · '+esc(a.purpose)):'')+'</span><span class="pill '+_rbPill(a.status)+'">'+_rbLab(a.status)+(a.status==='active'?(' · ₹'+_inr(a.balance)+' left'):'')+'</span></div>';}).join(''):'<div class="empty">None.</div>')+'</div>';
+    $('view').innerHTML=h; return;
+  }
+  if(d.can_grant){
+    var team=(DB.employees||[]).filter(function(e){return e.status==='active'&&e.id!==SES.employeeId;});
+    var rep=team.filter(function(e){return e.managerId===SES.employeeId;}); var opts=(rep.length?rep:team);
+    h+='<div class="card card-pad">'+_rbSec('Grant a prepaid advance')+'<p class="small muted" style="margin:-6px 0 12px">Give a team member an advance for travel/expenses. The accountant transfers it, then they claim against it with bills.</p><div class="grid2"><div class="field"><label>Employee</label><select id="rg_emp"><option value="">— choose —</option>'+opts.map(function(e){return '<option value="'+e.id+'">'+esc(e.name)+' · '+esc(e.code)+'</option>';}).join('')+'</select></div><div class="field"><label>Advance amount (₹)</label><input id="rg_amount" type="number" min="1" placeholder="5000"></div><div class="field" style="grid-column:1/-1"><label>Purpose</label><input id="rg_purpose" placeholder="e.g. Client visit to Jaipur — travel &amp; stay"></div></div><div style="margin-top:14px"><button class="btn btn-primary btn-sm" onclick="reimbGrant()">Create advance</button></div></div>';
+  }
+  var myAdv=A.filter(function(a){return a.employee_id===SES.employeeId;}); var active=myAdv.filter(function(a){return a.status==='active';});
+  if(myAdv.length){ h+='<div class="card card-pad">'+_rbSec('My prepaid advances')+myAdv.map(function(a){return '<div class="bl"><span>₹'+_inr(a.amount)+(a.purpose?(' · '+esc(a.purpose)):'')+'</span><span class="pill '+_rbPill(a.status)+'">'+_rbLab(a.status)+(a.status==='active'?(' · ₹'+_inr(a.balance)+' left'):'')+'</span></div>';}).join('')+'</div>'; }
+  h+='<div class="card card-pad">'+_rbSec('Submit a claim')+'<div class="grid2"><div class="field"><label>Type</label><select id="rb_kind" onchange="_rbKind()"><option value="postpaid">Postpaid — I paid, reimburse me</option><option value="prepaid"'+(active.length?'':' disabled')+'>Prepaid — against my advance</option></select></div><div class="field" id="rb_advWrap" style="display:none"><label>Against advance</label><select id="rb_adv">'+active.map(function(a){return '<option value="'+a.id+'">₹'+_inr(a.amount)+' · ₹'+_inr(a.balance)+' left'+(a.purpose?(' · '+esc(a.purpose)):'')+'</option>';}).join('')+'</select></div><div class="field"><label>Amount (₹)</label><input id="rb_amount" type="number" min="1" placeholder="1200"></div><div class="field"><label>What was it for?</label><input id="rb_desc" placeholder="e.g. Cab + meals"></div><div class="field" style="grid-column:1/-1"><label>Bill / receipt (PDF or photo)</label><input id="rb_bill" type="file" accept="application/pdf,image/*"></div></div><div style="margin-top:14px"><button class="btn btn-green btn-sm" onclick="reimbSubmit()">Submit claim</button></div></div>';
+  var myX=X.filter(function(x){return x.employee_id===SES.employeeId;});
+  h+='<div class="card card-pad">'+_rbSec('My claims')+(myX.length?myX.map(function(x){return '<div class="doc"><div class="dt"><b class="small">₹'+_inr(x.amount)+' · '+(x.kind==='prepaid'?'Prepaid':'Postpaid')+'</b><div class="dm">'+(x.description?esc(x.description):'—')+'</div></div>'+(x.bill_file_id?'<button class="btn btn-ghost btn-sm" onclick="viewDoc(\''+x.bill_file_id+'\')">Bill</button> ':'')+'<span class="pill '+_rbPill(x.status)+'">'+_rbLab(x.status)+'</span></div>';}).join(''):'<div class="empty">No claims yet.</div>')+'</div>';
+  if(d.can_grant){ var teamX=X.filter(function(x){return x.employee_id!==SES.employeeId;}); if(teamX.length){ h+='<div class="card card-pad">'+_rbSec('Team claims')+teamX.map(function(x){return '<div class="bl"><span>'+esc(x.employee_name)+' · ₹'+_inr(x.amount)+' · '+x.kind+'</span><span class="pill '+_rbPill(x.status)+'">'+_rbLab(x.status)+'</span></div>';}).join('')+'</div>'; } }
+  $('view').innerHTML=h;
+}
+function _rbKind(){ var k=$('rb_kind')&&$('rb_kind').value; var w=$('rb_advWrap'); if(w)w.style.display=(k==='prepaid')?'':'none'; }
+async function reimbGrant(){
+  var emp=($('rg_emp')&&$('rg_emp').value)||'', amount=Number(($('rg_amount')&&$('rg_amount').value)||0), purpose=(($('rg_purpose')&&$('rg_purpose').value)||'').trim();
+  if(!emp){ toast('Choose an employee'); return; } if(!amount||amount<=0){ toast('Enter a valid amount'); return; }
+  var res=await sb.rpc('reimb_create_advance',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_emp:emp,p_amount:amount,p_purpose:purpose});
+  if(res.error||!(res.data&&res.data.ok)){ toast('Could not create advance'); return; }
+  toast('Prepaid advance created — pending accountant transfer'); vReimburse();
+}
+async function reimbTransfer(id){ var res=await sb.rpc('reimb_transfer_advance',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_id:id}); if(res.error||!(res.data&&res.data.ok)){ toast('Could not mark transferred'); return; } toast('Transferred — now available to the employee'); vReimburse(); }
+async function reimbClear(id,decision){ var res=await sb.rpc('reimb_clear_expense',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_id:id,p_decision:decision}); if(res.error||!(res.data&&res.data.ok)){ toast('Could not update claim'); return; } toast(decision==='reject'?'Claim rejected':'Claim cleared'); vReimburse(); }
+async function reimbSubmit(){
+  var kind=($('rb_kind')&&$('rb_kind').value)||'postpaid', amount=Number(($('rb_amount')&&$('rb_amount').value)||0), desc=(($('rb_desc')&&$('rb_desc').value)||'').trim();
+  var advId=kind==='prepaid'?(($('rb_adv')&&$('rb_adv').value)||''):'';
+  if(!amount||amount<=0){ toast('Enter a valid amount'); return; }
+  if(kind==='prepaid'&&!advId){ toast('Choose which advance this is against'); return; }
+  var billId=''; var f=$('rb_bill')&&$('rb_bill').files&&$('rb_bill').files[0];
+  if(f){ if(f.size>2600000){ toast('Bill file too large (max ~2.5 MB)'); return; } try{ var up=await liveDocUpload(SES.employeeId,'Reimbursement bill — '+(desc||'expense'),f); var rr=up&&up.data; if(rr&&rr.ok) billId=rr.id; }catch(e){} }
+  var res=await sb.rpc('reimb_submit_expense',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_advance_id:advId||null,p_kind:kind,p_amount:amount,p_desc:desc,p_bill:billId});
+  if(res.error||!(res.data&&res.data.ok)){ toast('Could not submit claim'); return; }
+  toast('Claim submitted — the accounts team will clear it'); vReimburse();
+}
 function vAdvances(){
   const adv=DB.advances||[];
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Salary Advances</h1><p class="page-sub">Record salary advances here — each one is deducted from that employee's payroll.</p></div><button class="btn btn-primary btn-sm" onclick="recordAdvance()">Record an advance</button></div>
