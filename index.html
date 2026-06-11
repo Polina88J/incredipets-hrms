@@ -2068,12 +2068,13 @@ function printPayslip(empId,month){const r=payslipFor(empId);if(!r){toast('No sa
 /* ===== batch 5 — manual create employee + HR document upload ===== */
 function vAddEmployee(){
   const mgrs=DB.employees.filter(e=>e.status!=='exited');
+  var _mx=0; DB.employees.forEach(function(e){var m=/^IN-(\d+)$/.exec(((e.code||e.id)||'').toUpperCase());if(m){var nu=+m[1]; if(nu<900&&nu>_mx)_mx=nu;}}); var _nextCode='IN-'+String(_mx+1).padStart(3,'0');
   $('view').innerHTML=`<div><button class="btn btn-ghost btn-sm" onclick="go('directory',document.querySelector('[data-pg=directory]'))">← Directory</button></div>
    <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.directory}</svg></div><h2>Add employee</h2></div>
      <p class="small muted" style="margin:-6px 0 14px">For staff not on the sheet (e.g. ground staff) or any new joiner. Creates the profile and a login the employee can use.</p>
      <div class="grid2">
        <div class="field"><label>Full name *</label><input id="ne_name"></div>
-       <div class="field"><label>Employee code *</label><input id="ne_code" placeholder="e.g. IN-321"></div>
+       <div class="field"><label>Employee code *</label><input id="ne_code" value="${_nextCode}"><div class="small muted" style="margin-top:4px">Next free number, auto-filled — use this and add the same number to the salary sheet.</div></div>
        <div class="field"><label>Designation</label><input id="ne_desig"></div>
        <div class="field"><label>Department</label><input id="ne_dept"></div>
        <div class="field"><label>Level</label><select id="ne_level"><option value="">—</option>${['L1','L2','L3','L4','L5','L6'].map(l=>`<option>${l}</option>`).join('')}</select></div>
@@ -2084,28 +2085,38 @@ function vAddEmployee(){
        <div class="field"><label>Official email (used as login)</label><input id="ne_email" placeholder="name@incredipets.in"></div>
        <div class="field"><label>Personal email</label><input id="ne_pmail"></div>
        <div class="field"><label>Location</label><input id="ne_loc" value="Gurugram, Delhi NCR"></div>
+       <div class="field" style="grid-column:1/-1"><label>Offer letter (PDF / image) — upload the released offer</label><input id="ne_offer" type="file" accept="application/pdf,image/*"><div class="small muted" style="margin-top:4px">Saved straight to the employee's documents. (You can also add it later from their profile.)</div></div>
      </div>
-     <div style="margin-top:16px"><button class="btn btn-primary" onclick="createEmployee()">Create employee &amp; login</button></div>
+     <div style="margin-top:16px"><button class="btn btn-primary" onclick="createEmployee()">Create employee, login &amp; attach offer</button></div>
    </div>`;
 }
-function createEmployee(){
+async function createEmployee(){
   const g=id=>($(id)&&$(id).value||'').trim();
   const name=g('ne_name'),code=g('ne_code');
   if(!name||!code){toast('Name and employee code are required');return;}
-  if(DB.employees.some(e=>(e.code||'').toLowerCase()===code.toLowerCase())){toast('That employee code already exists');return;}
-  const id='E'+Date.now();
+  if(DB.employees.some(e=>(e.code||'').toLowerCase()===code.toLowerCase()||(e.id||'').toLowerCase()===code.toLowerCase())){toast('That employee code already exists');return;}
+  const id=code; // keep id == employee code (IN-###), consistent with the rest of the org
   const email=(g('ne_email')||(code.toLowerCase().replace(/[^a-z0-9]/g,'')+'@incredipets.in')).toLowerCase();
   const status=g('ne_status')||'active';
-  const emp={id:id,code:code,name:name,desig:g('ne_desig'),dept:g('ne_dept'),level:g('ne_level'),location:g('ne_loc'),doj:g('ne_doj'),managerId:g('ne_mgr')||null,phone:g('ne_phone'),email:email,status:status,onboarded:status!=='onboarding',createdManually:true};
-  if(g('ne_pmail'))emp.onboardingData={personalMail:g('ne_pmail')};
+  const emp={id:id,code:code,name:name,desig:g('ne_desig'),dept:g('ne_dept'),level:g('ne_level'),location:g('ne_loc'),doj:g('ne_doj'),managerId:g('ne_mgr')||null,phone:g('ne_phone'),email:email,personalEmail:g('ne_pmail')||null,status:status,onboarded:status!=='onboarding',mustChange:true,createdManually:true};
   DB.employees.push(emp);
   const pass=genPassword();
   if(!DB.users.find(u=>u.email===email))DB.users.push({email:email,pass:pass,role:'employee',employeeId:id});
   emp.tempPassword=pass;emp.passwordSet=false;emp.loginCode=code;
   DB.docTypes.forEach((t,i)=>DB.documents.push({id:'D'+id+'_'+i,employeeId:id,type:t,status:'requested',fileName:null,uploadedAt:null}));
+  const offerFile=($('ne_offer')&&$('ne_offer').files&&$('ne_offer').files[0])||null;
+  let liveOk=true, offerMsg='';
+  if(LIVE&&sb){
+    try{ await sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:(DB.employees||[]).map(unmapEmp)}); }catch(e){ liveOk=false; }
+    try{ const pr=await sb.rpc('hrms_admin_set_temp',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_target:code,p_temp:pass}); if(pr.error||!(pr.data&&pr.data.ok)) liveOk=false; }catch(e){ liveOk=false; }
+    if(offerFile){
+      if(offerFile.size>2600000){ offerMsg='\n\n(The offer file was too large to upload — please add it from their profile.)'; }
+      else { try{ const resp=await liveDocUpload(id,'Signed offer letter',offerFile); const r=resp&&resp.data; if(r&&r.ok){ DB.documents.push({id:'D'+id+'_offer',employeeId:id,type:'Signed offer letter',status:'uploaded',fileName:offerFile.name,fileId:r.id}); offerMsg='\n\nOffer letter attached to their documents.'; } else { offerMsg='\n\n(Offer upload failed — add it from their profile.)'; } }catch(e){ offerMsg='\n\n(Offer upload failed — add it from their profile.)'; } }
+    }
+  } else if(offerFile){ DB.documents.push({id:'D'+id+'_offer',employeeId:id,type:'Signed offer letter',status:'uploaded',fileName:offerFile.name}); offerMsg='\n\nOffer letter attached to their documents.'; }
   audit('Created employee '+name+' ('+code+')');save();
-  toast('Employee created');
-  alert('Login created for '+name+'\n\nLogin (email): '+email+'\nTemporary password: '+pass+'\n\nShare these with the employee. They will be asked to change the password on first login.');
+  if(!liveOk){ toast('Created — but the live login could not be set; check connection and retry'); } else { toast('Employee created'); }
+  alert('Login created for '+name+'\n\nEmployee number: '+code+'\nOne-time password: '+pass+'\n\nShare these with '+(name.split(' ')[0])+'. They sign in with their number + this password, then set their own password on first login.'+offerMsg);
   openEmp(id);
 }
 function hrUploadDoc(did,id){const d=DB.documents.find(x=>x.id===did);if(!d)return;const inp=document.createElement('input');inp.type='file';inp.onchange=async ()=>{const file=inp.files[0];if(!file)return; if(LIVE&&sb){ if(file.size>2600000){toast('File too large (max ~2.5 MB)');return;} const resp=await liveDocUpload(id,d.type,file); const r=resp.data; if(resp.error||!r||!r.ok){toast('Upload failed');return;} d.status='uploaded';d.fileName=file.name;d.fileId=r.id;audit('HR uploaded '+d.type+' for '+((empById(id)||{}).name||''));toast('Uploaded '+d.type);renderEmp360(id);return; } d.status='uploaded';d.fileName=file.name||'document.pdf';d.uploadedAt=new Date().toISOString().slice(0,10);save();audit('HR uploaded '+d.type+' for '+((empById(id)||{}).name||''));toast('Uploaded '+d.type);renderEmp360(id);};inp.click();}
