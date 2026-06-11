@@ -367,7 +367,7 @@ const SB_KEY='sb_publishable_m2rIXmKjXjV0b91EyOrIfQ_IYGsnoj3';
 const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SB_URL,SB_KEY):null;
 let LIVE=false; // true once a real Supabase login hydrates DB — real PII is never written to localStorage
 let _saveCreds={code:'',pass:''}; let _saveT=null;
-function mapEmp(r){return{id:r.id,code:r.code,name:r.name,desig:r.desig,dept:r.dept,level:r.level,location:r.location,doj:r.doj,managerId:r.manager_id,managerName:r.manager_name,phone:r.phone,email:r.email||r.login_email,personalEmail:r.personal_email,status:r.status,onboarded:!!r.onboarded,onboardingSubmitted:!!r.onboarding_submitted,confirmedOn:r.confirmed_on,track:r.track,ladderTitle:r.ladder_title,weekOff:r.week_off,ctc:r.ctc,monthlyGross:r.monthly_gross,onboardingData:r.onboarding_data||undefined,offboarding:r.exit_data||null,mustChange:r.must_change,role:r.role};}
+function mapEmp(r){return{id:r.id,code:r.code,name:r.name,desig:r.desig,dept:r.dept,level:r.level,location:r.location,doj:r.doj,managerId:r.manager_id,managerName:r.manager_name,phone:r.phone,email:r.email||r.login_email,personalEmail:r.personal_email,status:r.status,onboarded:!!r.onboarded,onboardingSubmitted:!!(r.onboarding_submitted||(r.onboarding_data&&r.onboarding_data.submittedAt)),confirmedOn:r.confirmed_on,track:r.track,ladderTitle:r.ladder_title,weekOff:r.week_off,ctc:r.ctc,monthlyGross:r.monthly_gross,onboardingData:r.onboarding_data||undefined,offboarding:r.exit_data||null,mustChange:r.must_change,role:r.role};}
 function hydrateFromSession(p){
   const base=seed(); const d=p.data||{};
   DB={...base,
