@@ -2121,7 +2121,7 @@ async function vPayroll(){
   let months=Array.from(new Set(_payAll.map(p=>p.month))).sort();
   if(!_payMonth||months.indexOf(_payMonth)<0) _payMonth=months[months.length-1]||'May 2026';
   const rows=_payAll.filter(p=>p.month===_payMonth);
-  const monthPaid=rows.length>0&&rows.every(function(r){return r.paid;});
+  const monthPaid=rows.length>0&&rows.some(function(r){return r.paid;});
   const totNet=rows.reduce((s,p)=>s+(+p.net_in_hand||0),0), totGross=rows.reduce((s,p)=>s+(+p.gross||0),0), totAdv=rows.reduce((s,p)=>s+(+p.salary_advances||0),0);
   const mbtns=months.map(m=>`<button class="btn ${m===_payMonth?'btn-primary':'btn-ghost'} btn-sm" onclick="_payMonth='${m}';vPayroll()">${esc(m)}</button>`).join(' ');
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Payroll</h1><p class="page-sub">Each month carries everyone's standard salary; only approved advances and mid-month joiners/leavers change.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${monthPaid?`<span class="pill verified">Paid ✓ · slips released</span><button class="btn btn-ghost btn-sm" onclick="printAllSlips('${_payMonth}')">Open all slips (1 PDF)</button><button class="btn btn-ghost btn-sm" onclick="downloadAllSlipsZip('${_payMonth}')">All slips (ZIP)</button>`:`<button class="btn btn-green btn-sm" onclick="markPaid('${_payMonth}')">Mark paid → release slips</button>`}<button class="btn btn-ghost btn-sm" onclick="runPayrollMonth()">Run a month…</button><button class="btn btn-primary btn-sm" onclick="downloadSalarySheet('${_payMonth}')">Download ${esc(_payMonth)} (Excel)</button></div></div>
