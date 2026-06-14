@@ -888,6 +888,14 @@ async function downloadMyPayslip(month){
   w.document.open(); w.document.write(_payslipDoc(p,emp)); w.document.close();
   track('payslip_download',{month:p.month}); toast('Opening your payslip — choose “Save as PDF” to download.');
 }
+async function adminDownloadSlip(empId,month){
+  const emp=empById(empId); if(!emp){toast('Not available');return;}
+  let rows=[]; try{ const _all=await ensurePayAll(); rows=_all.filter(function(x){return x.employee_id===empId&&x.month===month;}); }catch(e){}
+  if(!rows.length){ toast('Payslip not available for '+month); return; }
+  const p=rows[0]; const w=window.open('','_blank'); if(!w){ toast('Please allow pop-ups to open the payslip'); return; }
+  w.document.open(); w.document.write(_payslipDoc(p,emp)); w.document.close();
+  track('payslip_admin_view',{month:month}); toast('Opening '+(emp.name.split(' ')[0])+'’s '+month+' payslip — choose “Save as PDF”.');
+}
 async function vPayslips(){
   const emp=empById(SES.employeeId); if(!emp){$('view').innerHTML='<div class="card card-pad"><div class="empty">Not available.</div></div>';return;}
   if(!(LIVE&&sb)){ $('view').innerHTML=`<div><h1 class="page">Salary Slips</h1><p class="page-sub">Your monthly salary slips — visible only to you.</p></div><div class="card card-pad"><div class="empty">Your salary slips will appear here once payroll is processed.</div></div>`; return; }
@@ -1354,7 +1362,7 @@ function maskPII(k,v){v=String(v);if(k==='aadhaar')return v.length>4?'XXXX XXXX 
 async function renderEmp360(id){
   const e=empById(id);if(!e)return;const off=offerForEmp(id),t=tenure(e.doj),docs=docsForEmp(id);
   const mgr=e.managerId?empById(e.managerId):null;
-  let _payRow=null; if(LIVE&&sb&&canSeeComp(e)){ try{ const _all=await ensurePayAll(); const _mine=_all.filter(x=>x.employee_id===id); _payRow=_mine.filter(x=>x.month==='May 2026')[0]||_mine.filter(x=>x.month==='June 2026')[0]||_mine[0]||null; }catch(_e){} }
+  let _payRow=null,_payMonths=[]; if(LIVE&&sb&&canSeeComp(e)){ try{ const _all=await ensurePayAll(); const _mine=_all.filter(x=>x.employee_id===id); _payRow=_mine.filter(x=>x.month==='May 2026')[0]||_mine.filter(x=>x.month==='June 2026')[0]||_mine[0]||null; _payMonths=_mine.filter(x=>x.paid).map(function(x){return x.month;}); }catch(_e){} }
   $('view').innerHTML=`
    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="vDirectory()">← Directory</button>${DB.employees.some(x=>x.managerId===id&&x.status!=='exited')?`<button class="btn btn-ghost btn-sm" onclick="downloadTeamTree('${id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download team tree</button>`:''}</div>
    <div class="card card-pad"><div style="display:flex;align-items:center;gap:16px"><div class="avatar lg">${initials(e.name)}</div>
@@ -1372,6 +1380,10 @@ async function renderEmp360(id){
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Compensation</h2></div>
      ${canSeeComp(e)?(LIVE?payBreakupHTML(_payRow,_payRow?_payRow.month:null):compBreakupHTML(compForEmp(e))):'<div class="empty">Compensation is visible to management only.</div>'}
    </div>
+   ${canSeeComp(e)&&_payMonths.length?`<div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Salary slips</h2></div>
+     ${_payMonths.map(m=>`<div class="doc"><div class="dt"><b class="small">${esc(m)}</b><div class="dm">Branded payslip — opens to print / save as PDF</div></div><button class="btn btn-ghost btn-sm" onclick="adminDownloadSlip('${id}','${esc(m)}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download</button></div>`).join('')}
+   </div>`:''}
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.onboard}</svg></div><h2>Onboarding form</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="hrEditOnboarding('${id}')">${e.onboardingData?'Edit':'Fill for employee'}</button>${e.onboardingData?`<span class="pill verified" style="margin-left:8px">Submitted ${dfmt(e.onboardingData.submittedAt)}</span>`:''}</div>
      ${e.onboardingData?`<div class="info-grid">${ONBOARD_FIELDS.filter(f=>e.onboardingData[f.k]!=null&&e.onboardingData[f.k]!=='').map(f=>`<div class="info-cell"><div class="k">${f.l}</div><div class="v" style="font-size:13px">${esc(maskPII(f.k,e.onboardingData[f.k]))}</div></div>`).join('')}</div>`:'<div class="empty">Not submitted yet — waiting on the employee.</div>'}
