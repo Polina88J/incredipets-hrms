@@ -896,6 +896,28 @@ async function adminDownloadSlip(empId,month){
   w.document.open(); w.document.write(_payslipDoc(p,emp)); w.document.close();
   track('payslip_admin_view',{month:month}); toast('Opening '+(emp.name.split(' ')[0])+'’s '+month+' payslip — choose “Save as PDF”.');
 }
+function _ensureJSZip(){ return new Promise(function(res,rej){ if(window.JSZip){res();return;} var s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload=function(){res();}; s.onerror=function(){rej(new Error('jszip'));}; document.head.appendChild(s); }); }
+async function _slipsForMonth(month){ var all=[]; try{ all=await ensurePayAll(); }catch(e){} return (all||[]).filter(function(p){return p.month===month && p.paid && Math.round(Number(p.net_in_hand)||0)>0;}); }
+async function printAllSlips(month){
+  var rows=await _slipsForMonth(month); if(!rows.length){ toast('No released slips for '+month); return; }
+  toast('Building all '+rows.length+' slips for '+month+'…');
+  var css='', bodies=[];
+  rows.forEach(function(p){ var emp=empById(p.employee_id); if(!emp)return; var doc=new DOMParser().parseFromString(_payslipDoc(p,emp),'text/html'); if(!css){ var st=doc.querySelector('style'); css=st?st.textContent:''; } var slip=doc.querySelector('.slip'); if(slip){ bodies.push('<div style="page-break-after:always;margin-bottom:16px">'+slip.outerHTML+'</div>'); } });
+  var w=window.open('','_blank'); if(!w){ toast('Please allow pop-ups to open the slips'); return; }
+  w.document.open(); w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>IncrediPets payslips — '+month+'</title><style>'+css+'</style></head><body>'+bodies.join('')+'</body></html>'); w.document.close();
+  setTimeout(function(){ try{ w.print(); }catch(e){} }, 700);
+  track('payslips_print_all',{month:month}); toast('Opening all '+rows.length+' slips — choose “Save as PDF” for one combined file.');
+}
+async function downloadAllSlipsZip(month){
+  var rows=await _slipsForMonth(month); if(!rows.length){ toast('No released slips for '+month); return; }
+  toast('Zipping '+rows.length+' slips for '+month+'…');
+  try{ await _ensureJSZip(); }catch(e){ toast('Could not load the zip tool — try “Open all slips” instead'); return; }
+  var zip=new JSZip(), folder=zip.folder('IncrediPets payslips '+month);
+  rows.forEach(function(p){ var emp=empById(p.employee_id); if(!emp)return; var safe=(emp.name||p.employee_id).replace(/[\\/:*?"<>|()]/g,' ').replace(/\s+/g,' ').trim(); folder.file(p.employee_id+' '+safe+'.html', _payslipDoc(p,emp)); });
+  var blob=await zip.generateAsync({type:'blob'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='IncrediPets-payslips-'+month.replace(/\s+/g,'-')+'.zip'; document.body.appendChild(a); a.click(); setTimeout(function(){a.remove();URL.revokeObjectURL(a.href);},1000);
+  track('payslips_zip',{month:month}); toast('Downloaded '+rows.length+' slips for '+month+' (ZIP).');
+}
 async function vPayslips(){
   const emp=empById(SES.employeeId); if(!emp){$('view').innerHTML='<div class="card card-pad"><div class="empty">Not available.</div></div>';return;}
   if(!(LIVE&&sb)){ $('view').innerHTML=`<div><h1 class="page">Salary Slips</h1><p class="page-sub">Your monthly salary slips — visible only to you.</p></div><div class="card card-pad"><div class="empty">Your salary slips will appear here once payroll is processed.</div></div>`; return; }
@@ -2102,7 +2124,7 @@ async function vPayroll(){
   const monthPaid=rows.length>0&&rows.every(function(r){return r.paid;});
   const totNet=rows.reduce((s,p)=>s+(+p.net_in_hand||0),0), totGross=rows.reduce((s,p)=>s+(+p.gross||0),0), totAdv=rows.reduce((s,p)=>s+(+p.salary_advances||0),0);
   const mbtns=months.map(m=>`<button class="btn ${m===_payMonth?'btn-primary':'btn-ghost'} btn-sm" onclick="_payMonth='${m}';vPayroll()">${esc(m)}</button>`).join(' ');
-  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Payroll</h1><p class="page-sub">Each month carries everyone's standard salary; only approved advances and mid-month joiners/leavers change.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${monthPaid?'<span class="pill verified">Paid ✓ · slips released</span>':`<button class="btn btn-green btn-sm" onclick="markPaid('${_payMonth}')">Mark paid → release slips</button>`}<button class="btn btn-ghost btn-sm" onclick="runPayrollMonth()">Run a month…</button><button class="btn btn-primary btn-sm" onclick="downloadSalarySheet('${_payMonth}')">Download ${esc(_payMonth)} (Excel)</button></div></div>
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Payroll</h1><p class="page-sub">Each month carries everyone's standard salary; only approved advances and mid-month joiners/leavers change.</p></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${monthPaid?`<span class="pill verified">Paid ✓ · slips released</span><button class="btn btn-ghost btn-sm" onclick="printAllSlips('${_payMonth}')">Open all slips (1 PDF)</button><button class="btn btn-ghost btn-sm" onclick="downloadAllSlipsZip('${_payMonth}')">All slips (ZIP)</button>`:`<button class="btn btn-green btn-sm" onclick="markPaid('${_payMonth}')">Mark paid → release slips</button>`}<button class="btn btn-ghost btn-sm" onclick="runPayrollMonth()">Run a month…</button><button class="btn btn-primary btn-sm" onclick="downloadSalarySheet('${_payMonth}')">Download ${esc(_payMonth)} (Excel)</button></div></div>
    <div style="margin:2px 0 12px;display:flex;gap:6px;flex-wrap:wrap">${mbtns}</div>
    <div class="stats"><div class="stat"><div class="k">On payroll · ${esc(_payMonth)}</div><div class="v num">${rows.length}</div></div><div class="stat"><div class="k">Gross</div><div class="v num">${fmt(totGross)}</div></div><div class="stat"><div class="k">Advances recovered</div><div class="v num">${fmt(totAdv)}</div></div><div class="stat"><div class="k">Net payable</div><div class="v num">${fmt(totNet)}</div></div></div>
    <div class="card"><table class="list"><tr><th>Employee</th><th>Gross</th><th>PF</th><th>ESI</th><th>Advances</th><th>Net in hand</th></tr>
