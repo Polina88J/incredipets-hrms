@@ -1129,6 +1129,38 @@ function offerLetterHTML(emp,off,stampMode){
      <div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>Jiten Kakar</b><br>Founder &amp; CEO</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
    </div>`;
 }
+// Send-ready, standalone offer letter (own styling) — opened to print / save as PDF and sent to the candidate.
+function offerLetterDoc(emp,off){
+  var c=calc(off.ctc); var mgr=emp.managerId?((empById(emp.managerId)||{}).name||''):(emp._mgrName||'');
+  var dt=(off&&off.createdAt)?off.createdAt:new Date().toISOString();
+  var css='@page{size:A4;margin:18mm}*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:#23252b;line-height:1.55;font-size:13px}.ltr{max-width:720px;margin:0 auto}.lh{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #8A003E;padding-bottom:14px}.wm{font-size:24px;font-weight:800}.wm .b{color:#8A003E}.co{font-size:10.5px;color:#7c7c87;margin-top:4px;line-height:1.5}.meta{text-align:right;font-size:10.5px;color:#7c7c87}.pc{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8A003E;margin:14px 0 0}h1{font-size:16px;letter-spacing:1px;text-align:center;margin:14px 0 16px}h2.s{font-size:12.5px;color:#8A003E;margin:16px 0 3px}p{margin:9px 0}b{color:#1a1c22}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #e6e6ec;padding:7px 10px;text-align:left;font-size:12.5px}th{background:#f6f6f9;font-size:10px;text-transform:uppercase;color:#6c6c77}td.num,th.num{text-align:right}.muted{color:#7c7c87;font-size:11px}.sign{display:flex;justify-content:space-between;margin-top:38px}';
+  var body='<div class="lh"><div><div class="wm">Incredi<span class="b">Pets</span></div><div class="co">IncrediPets Private Limited<br>Gurugram, Delhi NCR &middot; careers@incredipets.in</div></div><div class="meta">Date: '+dfmt(dt)+'<br>Ref: IP/OFR/'+esc(emp.code||'____')+'</div></div>'
+   +'<div class="pc">Private &amp; Confidential</div>'
+   +'<h1>LETTER OF OFFER</h1>'
+   +'<p>Dear <b>'+esc(emp.name)+'</b>,</p>'
+   +'<p>We are delighted to offer you employment with <b>IncrediPets Private Limited</b> ("the Company"). We were impressed by your candidature and look forward to welcoming you. The key terms of your offer are set out below.</p>'
+   +'<h2 class="s">1. Position &amp; reporting</h2><p>You will join as <b>'+esc(emp.desig||'')+'</b> in the <b>'+esc(emp.dept||'')+'</b> team, based at '+esc(emp.location||'Delhi NCR')+(mgr?(', reporting to <b>'+esc(mgr)+'</b>'):'')+'.</p>'
+   +'<h2 class="s">2. Date of joining</h2><p>Your tentative date of joining is <b>'+(emp.doj?dfmt(emp.doj):'to be mutually confirmed')+'</b>.</p>'
+   +'<h2 class="s">3. Compensation</h2><p>Your annual Cost to Company (CTC) is <b>'+fmt(off.ctc)+'</b>, with the monthly structure below:</p>'
+   +'<table><tr><th>Component</th><th class="num">Monthly (&#8377;)</th></tr><tr><td>Basic Salary</td><td class="num">'+fmt(c.basic)+'</td></tr><tr><td>House Rent Allowance</td><td class="num">'+fmt(c.hra)+'</td></tr><tr><td>Special Allowance</td><td class="num">'+fmt(c.spl)+'</td></tr><tr><th>Monthly Gross</th><th class="num">'+fmt(c.m)+'</th></tr></table>'
+   +'<p class="muted">Provident Fund and ESI (where applicable) and TDS are deducted/contributed as per applicable law; the employer’s PF contribution is over and above the monthly gross where applicable.</p>'
+   +'<h2 class="s">4. Probation &amp; confirmation</h2><p>You will be on probation for the first three (3) months from your date of joining; confirmation is subject to satisfactory performance.</p>'
+   +'<h2 class="s">5. Working schedule</h2><p>This is a six-day working role; your weekly off will follow the team roster. Working hours and location may be revised in line with business needs.</p>'
+   +'<h2 class="s">6. Notice period</h2><p>The notice period is seven (7) days during probation and thirty (30) days after confirmation, by either party.</p>'
+   +'<h2 class="s">7. Pre-joining &amp; verification</h2><p>This offer is subject to satisfactory background verification and submission of the documents requested at joining (government ID, PAN, Aadhaar, bank details, educational and prior-employment records). Confidentiality, data-protection and non-solicitation obligations apply throughout your employment.</p>'
+   +'<h2 class="s">8. Validity</h2><p>Please confirm your acceptance by signing below within <b>seven (7) days</b> of the date of this letter.</p>'
+   +'<p style="margin-top:14px">We are excited about the contribution you will make and warmly welcome you to IncrediPets.</p>'
+   +'<div class="sign"><div>For <b>IncrediPets Pvt. Ltd.</b><br><br><br><b>Jiten Kakar</b><br>Founder &amp; CEO</div><div style="text-align:right">Accepted &amp; agreed<br><br><br>_____________________<br><b>'+esc(emp.name)+'</b><br>Date: __________</div></div>';
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Offer letter — '+esc(emp.name)+'</title><style>'+css+'</style></head><body><div class="ltr">'+body+'</div></body></html>';
+}
+function downloadOfferLetter(){
+  if(!_letterEmp||!_letterOff){ toast('Fill the candidate details first'); return; }
+  if(!_letterEmp.name||_letterEmp.name.charAt(0)==='['){ toast('Add the candidate name first'); return; }
+  var w=window.open('','_blank'); if(!w){ toast('Please allow pop-ups to open the offer letter'); return; }
+  w.document.open(); w.document.write(offerLetterDoc(_letterEmp,_letterOff)); w.document.close();
+  setTimeout(function(){ try{ w.print(); }catch(e){} }, 500);
+  track('offer_letter_download',{}); toast('Offer letter ready — choose “Save as PDF” to send to '+(_letterEmp.name.split(' ')[0])+'.');
+}
 
 /* ============================================================
    RECRUITER VIEWS
@@ -1237,9 +1269,10 @@ function genOffer(){
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>Offer letter preview</h2></div>
      ${offerLetterDraftHTML(tmpEmp,_letterOff)}
      <div style="margin-top:18px;display:flex;gap:10px;justify-content:center">
-       <button class="btn btn-ghost" onclick="liveBreakup()">Edit</button>
-       <button class="btn btn-green" onclick="submitForApproval()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/></svg>Send to HR for approval</button>
-     </div></div>`;
+       <button class="btn btn-ghost" onclick="liveBreakup()">Edit details</button>
+       <button class="btn btn-green" onclick="downloadOfferLetter()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download offer letter</button>
+     </div>
+     <p class="small muted" style="text-align:center;margin-top:10px">Save as PDF and send it to the candidate. Once they accept &amp; sign, add them via <b>Add employee</b> (upload the signed letter) to begin onboarding — HR is notified at that point.</p></div>`;
   $('letterWrap').scrollIntoView({behavior:'smooth'});
 }
 function offerLetterDraftHTML(emp,off){
