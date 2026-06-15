@@ -1133,7 +1133,7 @@ function offerLetterHTML(emp,off,stampMode){
 function offerLetterDoc(emp,off){
   var c=calc(off.ctc); var mgr=emp.managerId?((empById(emp.managerId)||{}).name||''):(emp._mgrName||'');
   var dt=(off&&off.createdAt)?off.createdAt:new Date().toISOString();
-  var css='@page{size:A4;margin:18mm}*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:#23252b;line-height:1.55;font-size:13px}.ltr{max-width:720px;margin:0 auto}.lh{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #8A003E;padding-bottom:14px}.wm{font-size:24px;font-weight:800}.wm .b{color:#8A003E}.co{font-size:10.5px;color:#7c7c87;margin-top:4px;line-height:1.5}.meta{text-align:right;font-size:10.5px;color:#7c7c87}.pc{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8A003E;margin:14px 0 0}h1{font-size:16px;letter-spacing:1px;text-align:center;margin:14px 0 16px}h2.s{font-size:12.5px;color:#8A003E;margin:16px 0 3px}p{margin:9px 0}b{color:#1a1c22}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #e6e6ec;padding:7px 10px;text-align:left;font-size:12.5px}th{background:#f6f6f9;font-size:10px;text-transform:uppercase;color:#6c6c77}td.num,th.num{text-align:right}.muted{color:#7c7c87;font-size:11px}.sign{display:flex;justify-content:space-between;margin-top:38px}';
+  var css='@page{size:A4;margin:18mm}*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:#23252b;line-height:1.55;font-size:13px}.ltr{max-width:720px;margin:0 auto}.lh{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #8A003E;padding-bottom:14px}.wm{font-size:24px;font-weight:800}.wm .b{color:#8A003E}.co{font-size:10.5px;color:#7c7c87;margin-top:4px;line-height:1.5}.meta{text-align:right;font-size:10.5px;color:#7c7c87}.pc{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8A003E;margin:14px 0 0}h1{font-size:16px;letter-spacing:1px;text-align:center;margin:14px 0 16px}h2.s{font-size:12.5px;color:#8A003E;margin:16px 0 3px}p{margin:9px 0}b{color:#1a1c22}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #e6e6ec;padding:7px 10px;text-align:left;font-size:12.5px}th{background:#f6f6f9;font-size:10px;text-transform:uppercase;color:#6c6c77}td.num,th.num{text-align:right}.muted{color:#7c7c87;font-size:11px}.sign{display:flex;justify-content:space-between;margin-top:38px}.no-print{font-family:"Segoe UI",Arial,sans-serif}@media print{.no-print{display:none!important}}';
   var body='<div class="lh"><div><div class="wm">Incredi<span class="b">Pets</span></div><div class="co">IncrediPets Private Limited<br>Gurugram, Delhi NCR &middot; careers@incredipets.in</div></div><div class="meta">Date: '+dfmt(dt)+'<br>Ref: IP/OFR/'+esc(emp.code||'____')+'</div></div>'
    +'<div class="pc">Private &amp; Confidential</div>'
    +'<h1>LETTER OF OFFER</h1>'
@@ -1151,15 +1151,15 @@ function offerLetterDoc(emp,off){
    +'<h2 class="s">8. Validity</h2><p>Please confirm your acceptance by signing below within <b>seven (7) days</b> of the date of this letter.</p>'
    +'<p style="margin-top:14px">We are excited about the contribution you will make and warmly welcome you to IncrediPets.</p>'
    +'<div class="sign"><div>For <b>IncrediPets Pvt. Ltd.</b><br><br><br><b>Jiten Kakar</b><br>Founder &amp; CEO</div><div style="text-align:right">Accepted &amp; agreed<br><br><br>_____________________<br><b>'+esc(emp.name)+'</b><br>Date: __________</div></div>';
-  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Offer letter — '+esc(emp.name)+'</title><style>'+css+'</style></head><body><div class="ltr">'+body+'</div></body></html>';
+  var bar='<div class="no-print" style="position:sticky;top:0;z-index:9;background:#8A003E;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap"><button onclick="window.print()" style="background:#fff;color:#8A003E;border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer">⬇ Save as PDF</button><span style="font-size:12.5px;line-height:1.4">In the box that opens, set <b>Destination = “Save as PDF”</b>, then click <b>Save</b>. This bar won’t appear in the saved file.</span></div>';
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Offer letter — '+esc(emp.name)+'</title><style>'+css+'</style></head><body>'+bar+'<div class="ltr">'+body+'</div></body></html>';
 }
 function downloadOfferLetter(){
   if(!_letterEmp||!_letterOff){ toast('Fill the candidate details first'); return; }
   if(!_letterEmp.name||_letterEmp.name.charAt(0)==='['){ toast('Add the candidate name first'); return; }
-  var w=window.open('','_blank'); if(!w){ toast('Please allow pop-ups to open the offer letter'); return; }
+  var w=window.open('','_blank'); if(!w){ toast('Please allow pop-ups, then click Download again'); return; }
   w.document.open(); w.document.write(offerLetterDoc(_letterEmp,_letterOff)); w.document.close();
-  setTimeout(function(){ try{ w.print(); }catch(e){} }, 500);
-  track('offer_letter_download',{}); toast('Offer letter ready — choose “Save as PDF” to send to '+(_letterEmp.name.split(' ')[0])+'.');
+  track('offer_letter_download',{}); toast('Offer letter opened — click the pink “Save as PDF” button at the top.');
 }
 
 /* ============================================================
