@@ -1205,11 +1205,65 @@ function offerLetterDoc(emp,off){
   var bar='<div class="no-print" style="position:sticky;top:0;z-index:9;background:#8A003E;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap"><button onclick="window.print()" style="background:#fff;color:#8A003E;border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer">⬇ Save as PDF</button><span style="font-size:12.5px;line-height:1.4">In the box that opens, set <b>Destination = “Save as PDF”</b>, then click <b>Save</b>. This bar won’t appear in the saved file.</span></div>';
   return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Offer letter — '+esc(emp.name)+'</title><style>'+css+'</style></head><body>'+bar+'<div class="ltr">'+b+'</div></body></html>';
 }
+function internshipLetterDoc(emp,off){
+  var stipend=Math.round(+(off&&off.stipend)||0); var dur=Math.max(1,Math.round(+(off&&off.durMonths)||3));
+  var start=(emp&&emp.doj)||(off&&off.start)||null; var endStr='';
+  if(start){ var d0=new Date(start); if(!isNaN(d0.getTime())){ d0.setMonth(d0.getMonth()+dur); d0.setDate(d0.getDate()-1); endStr=dfmt(d0.toISOString().slice(0,10)); } }
+  var mgr=emp.managerId?((empById(emp.managerId)||{}).name||''):(emp._mgrName||'');
+  var dt=(off&&off.createdAt)?off.createdAt:new Date().toISOString(); var total=stipend*dur;
+  var dw=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'][dur]||dur;
+  var ST='https://polina88j.github.io/incredipets-hrms/stamp.png', HE='https://polina88j.github.io/incredipets-hrms/heart.jpg';
+  var css='@page{size:A4;margin:16mm}*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:#23252b;line-height:1.5;font-size:12.5px}.wmbg{position:fixed;inset:0;background:url('+HE+') center 44% no-repeat;background-size:60%;opacity:.05;z-index:-1;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ltr{max-width:730px;margin:0 auto;position:relative}.lh{display:flex;justify-content:flex-end;border-bottom:2px solid #8A003E;padding-bottom:8px;margin-bottom:6px}.wm{font-size:23px;font-weight:800}.wm .a{color:#E2231A}.wm .b{color:#8A003E}.meta{font-size:10.5px;color:#7c7c87;margin:8px 0}.pc{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8A003E}h1{font-size:15px;letter-spacing:1.5px;text-align:center;margin:14px 0 16px;text-decoration:underline}h2.s{font-size:12.5px;color:#0f9aa6;font-weight:700;margin:16px 0 3px}p{margin:8px 0}b{color:#1a1c22}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{border:1px solid #e6e6ec;padding:6px 10px;text-align:left;font-size:12px}th{background:#f6f6f9;font-size:10px;text-transform:uppercase;color:#6c6c77}td.num,th.num{text-align:right}tr.net th{background:#fbf0f5;color:#8A003E}.muted{color:#7c7c87;font-size:10.5px}.sb{margin-top:34px}.stamp{width:118px;height:auto;display:block;margin-bottom:2px}.acc{margin-top:26px;border-top:1px solid #e6e6ec;padding-top:10px}.no-print{font-family:"Segoe UI",Arial,sans-serif}@media print{.no-print{display:none!important}}';
+  var b='<div class="wmbg"></div><div class="lh"><div class="wm"><span class="a">Incredi</span><span class="b">Pets</span></div></div>'
+   +'<h1>INTERNSHIP OFFER LETTER</h1>'
+   +'<div class="meta"><b>Date:</b> '+dfmt(dt)+(emp.code?(' &nbsp;|&nbsp; <b>Ref:</b> IP/INT/'+esc(emp.code)):'')+'</div>'
+   +'<div class="pc">Private &amp; Confidential</div>'
+   +'<p>Dear <b>'+esc(emp.name)+'</b>,</p>'
+   +'<p>We are pleased to offer you an <b>internship</b> with <b>IncrediPets</b> as a <b>“'+esc(emp.desig||'')+'”</b> in the <b>'+esc(emp.dept||'')+'</b> team'+(mgr?(', reporting to '+esc(mgr)):'')+', subject to the terms and conditions below.</p>'
+   +'<h2 class="s">1. Internship role &amp; reporting</h2><p>You will work as a <b>'+esc(emp.desig||'')+'</b>, based at '+esc(emp.location||'Delhi NCR')+', supporting the '+esc(emp.dept||'')+' team and performing tasks assigned by your reporting manager. This is a learning-focused engagement and does not constitute employment with the Company.</p>'
+   +'<h2 class="s">2. Duration</h2><p>This is a fixed-term internship of <b>'+dw+' ('+dur+') month'+(dur>1?'s':'')+'</b>'+(start?(', from <b>'+dfmt(start)+'</b>'+(endStr?(' to <b>'+endStr+'</b>'):'')):'')+'. The duration may be extended or shortened by mutual written agreement.</p>'
+   +'<h2 class="s">3. Stipend</h2><p>You will receive a consolidated monthly stipend as below. As an intern, no Provident Fund, ESI or gratuity applies; TDS will be deducted only if required under applicable law.</p>'
+   +'<table><tr><th>Particulars</th><th class="num">Monthly (₹)</th><th class="num">Total — '+dur+' month'+(dur>1?'s':'')+' (₹)</th></tr>'
+   +'<tr><td>Consolidated Stipend</td><td class="num">'+fmt(stipend)+'</td><td class="num">'+fmt(total)+'</td></tr>'
+   +'<tr class="net"><th>Payable (take-home)</th><th class="num">'+fmt(stipend)+'</th><th class="num">'+fmt(total)+'</th></tr></table>'
+   +'<p class="muted">The stipend is a fixed consolidated amount with no statutory deductions (PF/ESI/gratuity) applicable to interns. It is not a salary and does not imply an offer of employment. The Company may revise the stipend at its discretion.</p>'
+   +'<h2 class="s">4. Working Hours</h2><p>Your working hours shall be as per Company policy. You may occasionally be required to work extended hours based on project needs. No additional compensation is payable for such work.</p>'
+   +'<h2 class="s">5. Place of Work &amp; Mobility</h2><p>Your place of work will be '+esc(emp.location||'Delhi NCR')+', or any other location as assigned by the management. You may be required to travel for the purpose of the internship.</p>'
+   +'<h2 class="s">6. Attendance &amp; Leave</h2><p>You are expected to maintain regular attendance throughout the internship. Leave is by prior approval of your reporting manager and is limited given the fixed-term nature of the engagement.</p>'
+   +'<h2 class="s">7. Code of Conduct &amp; Policies</h2><p>You shall comply with all Company policies, SOPs and codes of conduct as amended from time to time. Any violation may result in termination of the internship.</p>'
+   +'<h2 class="s">8. Confidentiality &amp; Data Protection</h2><p>You shall not, during or after the internship, disclose, misuse or share any confidential or proprietary information of the Company, including client data, employee data, business strategies, pricing, systems or processes. This obligation survives the end of the internship.</p>'
+   +'<h2 class="s">9. Conflict of Interest</h2><p>You shall not engage in any activity that conflicts with the interests of the Company during the internship, and must disclose any actual or potential conflict immediately.</p>'
+   +'<h2 class="s">10. Intellectual Property</h2><p>All work products, documents, designs, processes or intellectual property created by you during the internship shall be the sole and exclusive property of the Company.</p>'
+   +'<h2 class="s">11. Certificate &amp; Pre-Placement Offer</h2><p>On satisfactory completion of the internship, you will receive an <b>Internship Completion Certificate</b>. Based on your performance, the Company may, at its sole discretion, extend a <b>Pre-Placement Offer (PPO)</b> for full-time employment.</p>'
+   +'<h2 class="s">12. Termination</h2><p>Either party may end the internship by giving <b>seven (7) days</b> written notice. The Company may terminate the internship with immediate effect in cases of misconduct, breach of confidentiality, or policy non-compliance, without notice.</p>'
+   +'<h2 class="s">13. Governing Law &amp; Jurisdiction</h2><p>This internship shall be governed by the laws of India, and the courts at Gurgaon, Haryana shall have exclusive jurisdiction.</p>'
+   +'<p style="margin-top:12px">We look forward to having you on board and to a rewarding learning experience. Please sign and return a copy of this letter as your acceptance within 24 hours of receiving this email.</p>'
+   +'<div class="sb"><img class="stamp" src="'+ST+'" alt="IncrediPets authorised stamp"><b>Authorized Signatory</b><br>Priya Perral<br>Manager &ndash; HR<br>IncrediPets</div>'
+   +'<div class="acc">Accepted and signed by &ndash;<br><br>Signature: ____________________<br>Name: '+esc(emp.name)+'<br>Date: __________</div>';
+  var bar='<div class="no-print" style="position:sticky;top:0;z-index:9;background:#8A003E;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap"><button onclick="window.print()" style="background:#fff;color:#8A003E;border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer">⬇ Save as PDF</button><span style="font-size:12.5px;line-height:1.4">In the box that opens, set <b>Destination = “Save as PDF”</b>, then click <b>Save</b>. This bar won’t appear in the saved file.</span></div>';
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Internship offer — '+esc(emp.name)+'</title><style>'+css+'</style></head><body>'+bar+'<div class="ltr">'+b+'</div></body></html>';
+}
+function internshipLetterDraftHTML(emp,off){
+  var st=Math.round(+(off&&off.stipend)||0), dur=Math.max(1,Math.round(+(off&&off.durMonths)||3)), total=st*dur;
+  return `<div class="letter"><div class="stamp draft">DRAFT</div>
+   <div class="lh"><div><div class="wm"><b>Incredi</b>Pets</div><div class="co">Incredipets Pvt. Ltd. · Gurugram, Delhi NCR</div></div><div class="small muted">${dfmt(off.createdAt)}</div></div>
+   <h3>INTERNSHIP OFFER LETTER</h3>
+   <p>Dear <b>${esc(emp.name)}</b>,</p>
+   <p>We are pleased to offer you an internship as <b>${esc(emp.desig)}</b> in the <b>${esc(emp.dept)}</b> team${emp._mgrName?', reporting to '+esc(emp._mgrName):''}.</p>
+   <p>Duration: <b>${dur} month${dur>1?'s':''}</b>${emp.doj?' from <b>'+dfmt(emp.doj)+'</b>':''}. Monthly stipend <b>${fmt(st)}</b> · total <b>${fmt(total)}</b> (no PF/ESI — intern).</p>
+   <table><tr><th>Particulars</th><th>Monthly</th></tr>
+     <tr><td>Consolidated stipend</td><td class="num">${fmt(st)}</td></tr>
+     <tr><th>Total (${dur} mo)</th><th class="num">${fmt(total)}</th></tr></table>
+   <p class="small muted">Completion certificate; PPO at the Company's discretion; 7-day notice.</p>
+   <div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>Priya Perral</b><br>Manager – HR</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
+  </div>`;
+}
 function downloadOfferLetter(){
   if(!_letterEmp||!_letterOff){ toast('Fill the candidate details first'); return; }
   if(!_letterEmp.name||_letterEmp.name.charAt(0)==='['){ toast('Add the candidate name first'); return; }
   var w=window.open('','_blank'); if(!w){ toast('Please allow pop-ups, then click Download again'); return; }
-  w.document.open(); w.document.write(offerLetterDoc(_letterEmp,_letterOff)); w.document.close();
+  var docHtml=(_letterOff.type==='internship')?internshipLetterDoc(_letterEmp,_letterOff):offerLetterDoc(_letterEmp,_letterOff);
+  w.document.open(); w.document.write(docHtml); w.document.close();
   track('offer_letter_download',{}); toast('Offer letter opened — click the pink “Save as PDF” button at the top.');
 }
 
@@ -1279,13 +1333,23 @@ function vNewOffer(){
        <div class="field"><label>Reporting manager</label><input id="f_mgr" placeholder="e.g. Ankit"></div>
      </div>
      <div class="sec-h" style="margin-top:22px"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Compensation</h2></div>
-     <p class="small muted" style="margin:-4px 0 10px">Enter the <b>monthly gross</b> — everything (basic, HRA, deductions, net in-hand, and the annual CTC) is calculated from it.</p>
-     <div class="grid2">
-       <div class="field"><label>Monthly Gross (₹)</label><input id="f_gross" type="number" placeholder="35000" oninput="liveBreakup()"></div>
-       <div class="field"><label>Previous PF history?</label><select id="f_pfhist" onchange="liveBreakup()"><option>Yes</option><option>No</option></select></div>
-       <div class="field"><label>If no PF history — preference</label><select id="f_pfpref" onchange="liveBreakup()"><option>Opt-out</option><option>Opt-in</option></select></div>
-       <div class="breakup" id="bk" style="grid-column:1/-1"><h4>Salary break-up</h4><div class="small muted">Enter monthly gross to see the full split.</div></div>
+     <div class="field" style="max-width:300px"><label>Offer type</label><select id="f_otype" onchange="onOfferType()"><option value="employment">Employment (full-time)</option><option value="internship">Internship</option></select></div>
+     <div id="empComp" style="margin-top:10px">
+       <p class="small muted" style="margin:0 0 10px">Enter the <b>monthly gross</b> — basic, HRA, deductions, net in-hand and the annual CTC are all calculated from it.</p>
+       <div class="grid2">
+         <div class="field"><label>Monthly Gross (₹)</label><input id="f_gross" type="number" placeholder="35000" oninput="liveBreakup()"></div>
+         <div class="field"><label>Previous PF history?</label><select id="f_pfhist" onchange="liveBreakup()"><option>Yes</option><option>No</option></select></div>
+         <div class="field"><label>If no PF history — preference</label><select id="f_pfpref" onchange="liveBreakup()"><option>Opt-out</option><option>Opt-in</option></select></div>
+       </div>
      </div>
+     <div id="intComp" style="display:none;margin-top:10px">
+       <p class="small muted" style="margin:0 0 10px">Enter the <b>monthly stipend</b> and <b>duration</b> — the total is calculated. (Interns have no PF/ESI/CTC. The "Date of joining" above is the internship start date.)</p>
+       <div class="grid2">
+         <div class="field"><label>Monthly Stipend (₹)</label><input id="f_stipend" type="number" placeholder="15000" oninput="liveBreakup()"></div>
+         <div class="field"><label>Duration (months)</label><input id="f_dur" type="number" value="3" min="1" oninput="liveBreakup()"></div>
+       </div>
+     </div>
+     <div class="breakup" id="bk" style="margin-top:10px"><h4>Break-up</h4><div class="small muted">Fill the compensation above to see the split.</div></div>
      <div class="lock-row" style="margin-top:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Comp is visible to you for this candidate only — never the company salary master.</div>
      <div style="margin-top:18px"><button class="btn btn-primary" onclick="genOffer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Generate offer letter</button></div>
    </div>
@@ -1300,9 +1364,21 @@ function onPositionPick(){
   $('jdBox').innerHTML=`<div class="breakup" style="margin-top:12px"><h4>Job description · level ${esc(p.level)}${lvl?' ('+esc(lvl.comp)+')':''} · band ${p.bandMin?fmt(p.bandMin):'—'}–${p.bandMax?fmt(p.bandMax):'—'}</h4><div class="small">${esc(p.jd)||'<span class="muted">No JD text.</span>'}${p.jdFile?` <span class="muted">· file: ${esc(p.jdFile)}</span>`:''}</div></div>`;
   liveBreakup();
 }
+function onOfferType(){ var t=(($('f_otype')||{}).value)||'employment'; var e=$('empComp'),i=$('intComp'); if(e)e.style.display=(t==='internship')?'none':''; if(i)i.style.display=(t==='internship')?'':'none'; liveBreakup(); }
 function liveBreakup(){
-  const gross=+(($('f_gross')||{}).value)||0,b=$('bk');
-  if(!b)return;
+  var b=$('bk'); if(!b)return;
+  var t=(($('f_otype')||{}).value)||'employment';
+  if(t==='internship'){
+    var st=+(($('f_stipend')||{}).value)||0, dur=Math.max(1,Math.round(+(($('f_dur')||{}).value)||3));
+    if(!st){ b.innerHTML='<h4>Internship break-up</h4><div class="small muted">Enter the monthly stipend.</div>'; return; }
+    b.innerHTML='<h4>Internship stipend</h4>'
+     +'<div class="bl"><span>Monthly stipend</span><span class="num">'+fmt(st)+'</span></div>'
+     +'<div class="bl"><span>Duration</span><span class="num">'+dur+' month'+(dur>1?'s':'')+'</span></div>'
+     +'<div class="bl tot"><span>Total stipend</span><span class="num">'+fmt(st*dur)+'</span></div>'
+     +'<div class="bl"><span class="small muted">No PF / ESI / gratuity for interns</span><span></span></div>';
+    return;
+  }
+  const gross=+(($('f_gross')||{}).value)||0;
   if(!gross){b.innerHTML='<h4>Salary break-up</h4><div class="small muted">Enter monthly gross to see the full split.</div>';return;}
   const hist=(($('f_pfhist')||{}).value)||'Yes',pref=(($('f_pfpref')||{}).value)||'Opt-out';
   const c=calcOffer(gross,hist,pref);
@@ -1323,14 +1399,15 @@ function liveBreakup(){
 }
 function genOffer(){
   const g=id=>$(id).value;
-  const gross=+g('f_gross')||0; const hist=g('f_pfhist')||'Yes', pref=g('f_pfpref')||'Opt-out'; const cc=calcOffer(gross,hist,pref);
+  const type=g('f_otype')||'employment';
   _letterEmp={name:g('f_name')||'[Candidate Name]',desig:g('f_desig')||'[Designation]',dept:g('f_dept')||'[Department]',location:g('f_loc')||'[Location]',doj:g('f_doj')||null,managerId:null,_mgrName:g('f_mgr'),phone:g('f_phone'),email:g('f_email'),positionId:$('f_pos').value};
-  _letterOff={gross:gross,pfHistory:hist,pfPref:pref,ctc:cc.ctcA,createdAt:new Date().toISOString().slice(0,10),positionId:$('f_pos').value};
+  if(type==='internship'){ const st=+g('f_stipend')||0, dur=Math.max(1,Math.round(+g('f_dur')||3)); _letterOff={type:'internship',stipend:st,durMonths:dur,start:g('f_doj')||null,ctc:st*dur,createdAt:new Date().toISOString().slice(0,10),positionId:$('f_pos').value}; }
+  else { const gross=+g('f_gross')||0, hist=g('f_pfhist')||'Yes', pref=g('f_pfpref')||'Opt-out', cc=calcOffer(gross,hist,pref); _letterOff={type:'employment',gross:gross,pfHistory:hist,pfPref:pref,ctc:cc.ctcA,createdAt:new Date().toISOString().slice(0,10),positionId:$('f_pos').value}; }
   // render letter (manager shown from typed name)
   const tmpEmp={..._letterEmp};const origEmpById=empById;
   $('letterWrap').innerHTML=`<div class="card card-pad" style="margin-top:4px">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></div><h2>Offer letter preview</h2></div>
-     ${offerLetterDraftHTML(tmpEmp,_letterOff)}
+     ${_letterOff.type==='internship'?internshipLetterDraftHTML(tmpEmp,_letterOff):offerLetterDraftHTML(tmpEmp,_letterOff)}
      <div style="margin-top:18px;display:flex;gap:10px;justify-content:center">
        <button class="btn btn-ghost" onclick="liveBreakup()">Edit details</button>
        <button class="btn btn-green" onclick="downloadOfferLetter()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download offer letter</button>
