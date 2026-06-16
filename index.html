@@ -1130,12 +1130,32 @@ function offerLetterHTML(emp,off,stampMode){
    </div>`;
 }
 // Send-ready, standalone offer letter (own styling) — opened to print / save as PDF and sent to the candidate.
+/* ---- Salary break-up calculator (matches the Recruitment Tracker "Salary Break up" tab) — driven by MONTHLY GROSS ---- */
+function offerTDS(annualGross){
+  var ti=Math.max(0,Math.round(annualGross)-75000); // new-regime std deduction
+  if(ti<=1200000) return 0; // s.87A rebate — tax-free up to 12L taxable
+  var edges=[[400000,0],[800000,0.05],[1200000,0.10],[1600000,0.15],[2000000,0.20],[2400000,0.25],[1e15,0.30]];
+  var tax=0,prev=0; for(var i=0;i<edges.length;i++){ if(ti>prev){ tax+=(Math.min(ti,edges[i][0])-prev)*edges[i][1]; prev=edges[i][0]; } }
+  var mr=ti-1200000; if(tax>mr) tax=mr; // marginal relief near the 12L threshold
+  return Math.round(tax*1.04/12); // +4% cess, per month
+}
+function offerPfApplies(basic,pfHistory,pfPref){ if(basic<=15000) return true; if(pfHistory==='Yes') return true; if(pfPref==='Opt-in') return true; return false; }
+function calcOffer(gross,pfHistory,pfPref){
+  gross=Math.round(+gross||0);
+  var basic=Math.round(gross*0.62), hra=Math.round(basic*0.5), spl=gross-basic-hra;
+  var pfYes=offerPfApplies(basic,pfHistory,pfPref); var pfBasic=Math.min(basic,15000);
+  var empPf=pfYes?Math.round(pfBasic*0.12):0; var esiYes=gross>0&&gross<=21000;
+  var empEsi=esiYes?Math.round(gross*0.0075):0; var pt=gross>0?200:0; var tds=offerTDS(gross*12);
+  var net=gross-empPf-empEsi-pt-tds;
+  var erPf=pfYes?Math.round(pfBasic*0.12):0, erEsi=esiYes?Math.round(gross*0.0325):0, grat=Math.round(basic*0.0481);
+  var ctcM=gross+erPf+erEsi+grat;
+  return {gross:gross,basic:basic,hra:hra,spl:spl,pfYes:pfYes,empPf:empPf,empEsi:empEsi,esiYes:esiYes,pt:pt,tds:tds,net:net,erPf:erPf,erEsi:erEsi,grat:grat,ctcM:ctcM,ctcA:ctcM*12};
+}
 function offerLetterDoc(emp,off){
-  var c=calc(off.ctc); var mgr=emp.managerId?((empById(emp.managerId)||{}).name||''):(emp._mgrName||'');
+  var grossIn=(off&&off.gross!=null)?off.gross:Math.round((off&&off.ctc||0)/12);
+  var c=calcOffer(grossIn, off&&off.pfHistory, off&&off.pfPref);
+  var mgr=emp.managerId?((empById(emp.managerId)||{}).name||''):(emp._mgrName||'');
   var dt=(off&&off.createdAt)?off.createdAt:new Date().toISOString();
-  var basic=Math.round(c.basic),hra=Math.round(c.hra),spl=Math.round(c.spl),gross=Math.round(c.m);
-  var pf=Math.round(Math.min(basic,15000)*0.12); var esi=(gross<=21000)?Math.round(gross*0.0075):0;
-  var net=gross-pf-esi; var erpf=pf;
   var pos=(emp.positionId&&typeof DB!=='undefined'&&DB.positions)?DB.positions.find(function(p){return p.id===emp.positionId;}):null;
   var jd=(pos&&pos.jd)?pos.jd:(emp.jd||'');
   var duties=jd?('<ul>'+jd.split(/\n+/).filter(function(l){return l.trim();}).map(function(l){return '<li>'+esc(l.replace(/^[-•*\s]+/,''))+'</li>';}).join('')+'<li>Other related duties as assigned by management from time to time.</li></ul>')
@@ -1151,16 +1171,24 @@ function offerLetterDoc(emp,off){
    +'<p>We are pleased to offer you the position of <b>“'+esc(emp.desig||'')+'”</b> in the <b>'+esc(emp.dept||'')+'</b> team at <b>IncrediPets</b>'+(mgr?(', reporting to '+esc(mgr)):'')+', subject to the following terms and conditions. Your employment will commence on <b>'+(emp.doj?dfmt(emp.doj):'a mutually confirmed date')+'</b>'+(emp.location?(', based at '+esc(emp.location)):'')+'.</p>'
    +'<h2 class="s">1. Scope of Duties</h2><p>Your key responsibilities will include, but not be limited to:</p>'+duties
    +'<h2 class="s">2. Probation</h2><p>You will be on probation for a period of 90 (ninety) days from your date of joining. During this period, your performance, conduct, integrity, attendance and suitability for the role will be evaluated and confirmed based on satisfactory performance. The Company reserves the right to extend the probation period or terminate your employment at any time during probation, without notice or notice pay. Upon successful completion of probation, you will continue as a confirmed employee, with or without issuance of a separate confirmation letter, unless otherwise communicated in writing. During the probation period, should you wish to resign, a notice period of one (1) month is required.</p>'
-   +'<h2 class="s">3. Compensation</h2><p>Your total annual Cost to Company (CTC) is <b>'+fmt(off.ctc)+' per annum</b>. The monthly salary structure and indicative in-hand are set out below:</p>'
-   +'<table><tr><th>Particulars</th><th class="num">Monthly (&#8377;)</th><th class="num">Annual (&#8377;)</th></tr>'
-   +'<tr><td>Basic Salary</td><td class="num">'+fmt(basic)+'</td><td class="num">'+fmt(basic*12)+'</td></tr>'
-   +'<tr><td>House Rent Allowance (HRA)</td><td class="num">'+fmt(hra)+'</td><td class="num">'+fmt(hra*12)+'</td></tr>'
-   +'<tr><td>Special Allowance</td><td class="num">'+fmt(spl)+'</td><td class="num">'+fmt(spl*12)+'</td></tr>'
-   +'<tr class="sub"><th>Monthly Gross</th><th class="num">'+fmt(gross)+'</th><th class="num">'+fmt(gross*12)+'</th></tr>'
-   +'<tr><td>Less: Provident Fund (Employee, 12%)</td><td class="num">'+fmt(pf)+'</td><td class="num">'+fmt(pf*12)+'</td></tr>'
-   +'<tr><td>Less: ESI (Employee, 0.75%)</td><td class="num">'+(esi?fmt(esi):'Not applicable')+'</td><td class="num">'+(esi?fmt(esi*12):'&mdash;')+'</td></tr>'
-   +'<tr class="net"><th>Net Monthly In-hand (indicative)</th><th class="num">'+fmt(net)+'</th><th class="num">'+fmt(net*12)+'</th></tr></table>'
-   +'<p class="muted">The figures above are indicative. Net in-hand is shown before TDS (Income Tax), which is deducted as per your declarations and the applicable slabs. In addition, the Company contributes Provident Fund of '+fmt(erpf)+' per month (employer’s share) over and above your gross. PF and ESI apply as per statutory norms. The Company reserves the right to revise or restructure compensation at its discretion.</p>'
+   +'<h2 class="s">3. Compensation</h2><p>Your <b>monthly gross salary</b> is <b>'+fmt(c.gross)+'</b>, for a total annual Cost to Company (CTC) of <b>'+fmt(c.ctcA)+'</b>. The detailed structure is set out below:</p>'
+   +'<table><tr><th>Particulars</th><th class="num">Monthly (₹)</th><th class="num">Annual (₹)</th></tr>'
+   +'<tr><td>Basic (62% of Gross)</td><td class="num">'+fmt(c.basic)+'</td><td class="num">'+fmt(c.basic*12)+'</td></tr>'
+   +'<tr><td>House Rent Allowance (50% of Basic)</td><td class="num">'+fmt(c.hra)+'</td><td class="num">'+fmt(c.hra*12)+'</td></tr>'
+   +'<tr><td>Special Allowance</td><td class="num">'+fmt(c.spl)+'</td><td class="num">'+fmt(c.spl*12)+'</td></tr>'
+   +'<tr class="sub"><th>Monthly Gross</th><th class="num">'+fmt(c.gross)+'</th><th class="num">'+fmt(c.gross*12)+'</th></tr>'
+   +'<tr><td colspan="3" style="background:#eef6f7;color:#0f7d88;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px">Employee deductions</td></tr>'
+   +'<tr><td>Provident Fund (12% of capped Basic)</td><td class="num">'+(c.empPf?fmt(c.empPf):'—')+'</td><td class="num">'+(c.empPf?fmt(c.empPf*12):'—')+'</td></tr>'
+   +'<tr><td>ESI (0.75%)</td><td class="num">'+(c.empEsi?fmt(c.empEsi):'—')+'</td><td class="num">'+(c.empEsi?fmt(c.empEsi*12):'—')+'</td></tr>'
+   +'<tr><td>Professional Tax</td><td class="num">'+fmt(c.pt)+'</td><td class="num">'+fmt(c.pt*12)+'</td></tr>'
+   +'<tr><td>TDS (new regime, estimate)</td><td class="num">'+(c.tds?fmt(c.tds):'—')+'</td><td class="num">'+(c.tds?fmt(c.tds*12):'—')+'</td></tr>'
+   +'<tr class="net"><th>Net In-hand (take-home)</th><th class="num">'+fmt(c.net)+'</th><th class="num">'+fmt(c.net*12)+'</th></tr>'
+   +'<tr><td colspan="3" style="background:#eef6f7;color:#0f7d88;font-weight:700;text-transform:uppercase;font-size:10px;letter-spacing:.5px">Employer contribution (added for CTC)</td></tr>'
+   +'<tr><td>Employer PF (12%)</td><td class="num">'+(c.erPf?fmt(c.erPf):'—')+'</td><td class="num">'+(c.erPf?fmt(c.erPf*12):'—')+'</td></tr>'
+   +'<tr><td>Employer ESI (3.25%)</td><td class="num">'+(c.erEsi?fmt(c.erEsi):'—')+'</td><td class="num">'+(c.erEsi?fmt(c.erEsi*12):'—')+'</td></tr>'
+   +'<tr><td>Gratuity (4.81% of Basic)</td><td class="num">'+fmt(c.grat)+'</td><td class="num">'+fmt(c.grat*12)+'</td></tr>'
+   +'<tr><th style="background:#0f9aa6;color:#fff">Total CTC</th><th class="num" style="background:#0f9aa6;color:#fff">'+fmt(c.ctcM)+'</th><th class="num" style="background:#0f9aa6;color:#fff">'+fmt(c.ctcA)+'</th></tr></table>'
+   +'<p class="muted">Net in-hand is indicative; TDS is a new-regime estimate (₹75,000 standard deduction, applicable slabs, s.87A rebate, marginal relief, 4% cess) and the final figure will be confirmed by payroll. ESI applies only where monthly gross is ₹21,000 or below. '+(c.pfYes?'Provident Fund is deducted as above and the employer contributes an equal share over and above your gross.':'No Provident Fund deduction applies, per your PF preference (basic exceeds ₹15,000).')+' Professional Tax is shown at ₹200/month and varies by state. The Company may revise or restructure compensation at its discretion.</p>'
    +'<h2 class="s">4. Working Hours</h2><p>Your working hours shall be as per Company policy. Depending on the nature of the role, you may be required to work extended hours, including weekends or holidays, based on business needs. No additional compensation shall be payable for such work.</p>'
    +'<h2 class="s">5. Place of Work &amp; Mobility</h2><p>Your primary place of work will be '+esc(emp.location||'Gurgaon')+', or any other location as assigned by the management. You may be required to travel or relocate temporarily or permanently in the interest of business.</p>'
    +'<h2 class="s">6. Leave &amp; Holidays</h2><p>You shall be eligible for leave and holidays as per Company policy applicable from time to time. Grant of leave is subject to management approval and business exigencies.</p>'
@@ -1251,9 +1279,12 @@ function vNewOffer(){
        <div class="field"><label>Reporting manager</label><input id="f_mgr" placeholder="e.g. Ankit"></div>
      </div>
      <div class="sec-h" style="margin-top:22px"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Compensation</h2></div>
+     <p class="small muted" style="margin:-4px 0 10px">Enter the <b>monthly gross</b> — everything (basic, HRA, deductions, net in-hand, and the annual CTC) is calculated from it.</p>
      <div class="grid2">
-       <div class="field"><label>Annual CTC (₹)</label><input id="f_ctc" type="number" placeholder="360000" oninput="liveBreakup()"></div>
-       <div class="breakup" id="bk"><h4>Auto breakup (62 / 31 / 7)</h4><div class="small muted">Enter CTC to see the split.</div></div>
+       <div class="field"><label>Monthly Gross (₹)</label><input id="f_gross" type="number" placeholder="35000" oninput="liveBreakup()"></div>
+       <div class="field"><label>Previous PF history?</label><select id="f_pfhist" onchange="liveBreakup()"><option>Yes</option><option>No</option></select></div>
+       <div class="field"><label>If no PF history — preference</label><select id="f_pfpref" onchange="liveBreakup()"><option>Opt-out</option><option>Opt-in</option></select></div>
+       <div class="breakup" id="bk" style="grid-column:1/-1"><h4>Salary break-up</h4><div class="small muted">Enter monthly gross to see the full split.</div></div>
      </div>
      <div class="lock-row" style="margin-top:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Comp is visible to you for this candidate only — never the company salary master.</div>
      <div style="margin-top:18px"><button class="btn btn-primary" onclick="genOffer()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Generate offer letter</button></div>
@@ -1270,22 +1301,31 @@ function onPositionPick(){
   liveBreakup();
 }
 function liveBreakup(){
-  const ctc=+$('f_ctc').value||0,b=$('bk');
-  if(!ctc){b.innerHTML='<h4>Auto breakup (62 / 31 / 7)</h4><div class="small muted">Enter CTC to see the split.</div>';return;}
-  const c=calc(ctc);
+  const gross=+(($('f_gross')||{}).value)||0,b=$('bk');
+  if(!b)return;
+  if(!gross){b.innerHTML='<h4>Salary break-up</h4><div class="small muted">Enter monthly gross to see the full split.</div>';return;}
+  const hist=(($('f_pfhist')||{}).value)||'Yes',pref=(($('f_pfpref')||{}).value)||'Opt-out';
+  const c=calcOffer(gross,hist,pref);
   let bandNote='';
-  if(_offerBand){const mn=_offerBand[0],mx=_offerBand[1];if(mn&&ctc<mn)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">Below the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else if(mx&&ctc>mx)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">Above the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else bandNote='<div class="bl"><span class="small" style="color:var(--green);font-weight:700">Within the level band ✓</span></div>';}
-  b.innerHTML=`<h4>Monthly breakup (62 / 31 / 7)</h4>
-   <div class="bl"><span>Basic (62%)</span><span class="num">${fmt(c.basic)}</span></div>
-   <div class="bl"><span>HRA (31%)</span><span class="num">${fmt(c.hra)}</span></div>
-   <div class="bl"><span>Special allowance (7%)</span><span class="num">${fmt(c.spl)}</span></div>
-   <div class="bl tot"><span>Monthly gross</span><span class="num">${fmt(c.m)}</span></div>${bandNote}`;
+  if(_offerBand){const mn=_offerBand[0],mx=_offerBand[1],a=c.ctcA;if(mn&&a<mn)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">CTC below the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else if(mx&&a>mx)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">CTC above the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else bandNote='<div class="bl"><span class="small" style="color:var(--green);font-weight:700">CTC within the level band ✓</span></div>';}
+  b.innerHTML=`<h4>Salary break-up (from monthly gross)</h4>
+   <div class="bl"><span>Basic (62% of gross)</span><span class="num">${fmt(c.basic)}</span></div>
+   <div class="bl"><span>HRA (50% of basic)</span><span class="num">${fmt(c.hra)}</span></div>
+   <div class="bl"><span>Special allowance</span><span class="num">${fmt(c.spl)}</span></div>
+   <div class="bl tot"><span>Monthly gross</span><span class="num">${fmt(c.gross)}</span></div>
+   <div class="bl"><span>− Employee PF</span><span class="num">${c.empPf?fmt(c.empPf):'—'}</span></div>
+   <div class="bl"><span>− ESI (0.75%)</span><span class="num">${c.empEsi?fmt(c.empEsi):'—'}</span></div>
+   <div class="bl"><span>− Professional Tax</span><span class="num">${fmt(c.pt)}</span></div>
+   <div class="bl"><span>− TDS (est.)</span><span class="num">${c.tds?fmt(c.tds):'—'}</span></div>
+   <div class="bl tot"><span>Net in-hand</span><span class="num">${fmt(c.net)}</span></div>
+   <div class="bl"><span>Employer PF + ESI + Gratuity</span><span class="num">${fmt(c.erPf+c.erEsi+c.grat)}</span></div>
+   <div class="bl tot"><span>Total CTC (annual)</span><span class="num">${fmt(c.ctcA)}</span></div>${bandNote}`;
 }
 function genOffer(){
   const g=id=>$(id).value;
-  const ctc=+g('f_ctc')||0;
+  const gross=+g('f_gross')||0; const hist=g('f_pfhist')||'Yes', pref=g('f_pfpref')||'Opt-out'; const cc=calcOffer(gross,hist,pref);
   _letterEmp={name:g('f_name')||'[Candidate Name]',desig:g('f_desig')||'[Designation]',dept:g('f_dept')||'[Department]',location:g('f_loc')||'[Location]',doj:g('f_doj')||null,managerId:null,_mgrName:g('f_mgr'),phone:g('f_phone'),email:g('f_email'),positionId:$('f_pos').value};
-  _letterOff={ctc,createdAt:new Date().toISOString().slice(0,10),positionId:$('f_pos').value};
+  _letterOff={gross:gross,pfHistory:hist,pfPref:pref,ctc:cc.ctcA,createdAt:new Date().toISOString().slice(0,10),positionId:$('f_pos').value};
   // render letter (manager shown from typed name)
   const tmpEmp={..._letterEmp};const origEmpById=empById;
   $('letterWrap').innerHTML=`<div class="card card-pad" style="margin-top:4px">
@@ -1299,18 +1339,19 @@ function genOffer(){
   $('letterWrap').scrollIntoView({behavior:'smooth'});
 }
 function offerLetterDraftHTML(emp,off){
-  const c=calc(off.ctc);
+  const c=calcOffer(off.gross,off.pfHistory,off.pfPref);
   return `<div class="letter"><div class="stamp draft">DRAFT</div>
      <div class="lh"><div><div class="wm"><b>Incredi</b>Pets</div><div class="co">Incredipets Pvt. Ltd. · Gurugram, Delhi NCR</div></div><div class="small muted">${dfmt(off.createdAt)}</div></div>
      <h3>LETTER OF OFFER</h3>
      <p>Dear <b>${esc(emp.name)}</b>,</p>
      <p>We are delighted to offer you the position of <b>${esc(emp.desig)}</b> in the <b>${esc(emp.dept)}</b> team at Incredipets Pvt. Ltd., based at ${esc(emp.location)}. Your tentative date of joining is <b>${emp.doj?dfmt(emp.doj):'[DOJ]'}</b>${emp._mgrName?', reporting to '+esc(emp._mgrName):''}.</p>
-     <p>Your annual cost to company (CTC) is <b>${fmt(off.ctc)}</b>, structured monthly as follows:</p>
+     <p>Your <b>monthly gross</b> is <b>${fmt(c.gross)}</b> · net in-hand <b>${fmt(c.net)}</b> · annual CTC <b>${fmt(c.ctcA)}</b>. Structure:</p>
      <table><tr><th>Component</th><th>Monthly</th></tr>
-       <tr><td>Basic (62%)</td><td class="num">${fmt(c.basic)}</td></tr>
-       <tr><td>HRA (31%)</td><td class="num">${fmt(c.hra)}</td></tr>
-       <tr><td>Special allowance (7%)</td><td class="num">${fmt(c.spl)}</td></tr>
-       <tr><th>Gross (monthly)</th><th class="num">${fmt(c.m)}</th></tr></table>
+       <tr><td>Basic (62% of gross)</td><td class="num">${fmt(c.basic)}</td></tr>
+       <tr><td>HRA (50% of basic)</td><td class="num">${fmt(c.hra)}</td></tr>
+       <tr><td>Special allowance</td><td class="num">${fmt(c.spl)}</td></tr>
+       <tr><th>Monthly gross</th><th class="num">${fmt(c.gross)}</th></tr>
+       <tr><td>Net in-hand</td><td class="num">${fmt(c.net)}</td></tr></table>
      <p class="small muted">Statutory deductions (PF, ESI where applicable, TDS) apply as per law. Employment is subject to a standard probation period, background verification, and the company's policies.</p>
      <div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>Jiten Kakar</b><br>Founder &amp; CEO</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
    </div>`;
