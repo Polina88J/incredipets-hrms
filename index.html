@@ -394,6 +394,8 @@ async function liveDocUpload(employeeId,docType,file){ var b64=await _fileToB64(
 async function viewDoc(fileId){ if(!sb||!fileId)return; try{ var resp=await sb.rpc('hrms_doc_get',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_id:fileId}); var d=resp.data; if(resp.error||!d||!d.ok){toast('Could not open document');return;} var bin=atob(d.data_b64||''); var arr=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i); var url=URL.createObjectURL(new Blob([arr],{type:d.mime||'application/octet-stream'})); window.open(url,'_blank'); }catch(e){toast('Could not open document');} }
 function unmapEmp(e){return{id:e.id,code:e.code||null,name:e.name||null,desig:e.desig||null,dept:e.dept||null,level:e.level||null,location:e.location||null,doj:e.doj||null,manager_id:e.managerId||null,manager_name:e.managerName||null,phone:e.phone||null,email:e.email||null,personal_email:e.personalEmail||null,status:e.status||null,onboarded:!!e.onboarded,onboarding_submitted:!!e.onboardingSubmitted,confirmed_on:e.confirmedOn||null,track:e.track||null,ladder_title:e.ladderTitle||null,week_off:e.weekOff||null,ctc:(e.ctc==null||e.ctc==='')?null:e.ctc,monthly_gross:(e.monthlyGross==null||e.monthlyGross==='')?null:e.monthlyGross,confirmed_on:e.confirmedOn||null,onboarding_submitted:!!e.onboardingSubmitted,onboarding_data:e.onboardingData||null,exit_data:e.offboarding||null,last_working_day:(e.offboarding&&e.offboarding.lastDay)||null,exit_reason:(e.offboarding&&e.offboarding.reason)||null};}
 function liveSave(){ if(!sb||!LIVE)return; clearTimeout(_saveT); _saveT=setTimeout(function(){ try{ var rows=(DB.employees||[]).map(unmapEmp); sb.rpc('hrms_save',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_employees:rows}).then(function(){},function(){}); }catch(e){} }, 700); }
+// Persist positions to Supabase in live mode (recruiter/HR/GM/super-admin). Sends the full list; server upserts by id.
+function livePosSave(){ if(!sb||!LIVE)return; try{ var rows=(DB.positions||[]).map(function(p){return {id:p.id,title:p.title,dept:p.dept,level:p.level,location:p.location,openings:p.openings,hiring_manager:p.hiringManager,band_min:p.bandMin,band_max:p.bandMax,status:p.status,jd:p.jd,opened_on:p.openedOn||null};}); return sb.rpc('hrms_save_position',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_positions:rows}).then(function(){},function(){}); }catch(e){} }
 
 /* ---------- seed ---------- */
 function seed(){
@@ -1306,8 +1308,9 @@ function savePosition(){
   const g=id=>$(id).value.trim();
   if(!g('p_title')){toast('Add a role title');return;}
   const jdFile=($('p_jdfile')&&$('p_jdfile').files[0]&&$('p_jdfile').files[0].name)||null;
-  DB.positions.unshift({id:'P'+(Date.now()),title:g('p_title'),dept:g('p_dept')||'—',level:$('p_level').value,location:g('p_loc')||'—',openings:+g('p_open')||1,hiringManager:g('p_mgr')||'—',bandMin:+g('p_bmin')||0,bandMax:+g('p_bmax')||0,status:'Open',jd:g('p_jd'),jdFile:jdFile});
-  save();toast('Position opened');vPositions();
+  DB.positions.unshift({id:'P'+(Date.now()),title:g('p_title'),dept:g('p_dept')||'—',level:$('p_level').value,location:g('p_loc')||'—',openings:+g('p_open')||1,hiringManager:g('p_mgr')||'—',bandMin:+g('p_bmin')||0,bandMax:+g('p_bmax')||0,status:'Open',jd:g('p_jd'),jdFile:jdFile,openedOn:new Date().toISOString().slice(0,10)});
+  if(LIVE&&sb)livePosSave(); else save();
+  toast('Position opened');vPositions();
 }
 function raiseFromPosition(pid){go('newoffer');setTimeout(()=>{const sel=$('f_pos');if(sel){sel.value=pid;onPositionPick();}},30);}
 
@@ -2209,7 +2212,7 @@ function vAudit(){
   $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Audit Trail</h1><p class="page-sub">Key actions taken in the system.</p></div><button class="btn btn-ghost btn-sm" onclick="exportCSV('audit.csv',['When','Who','Action'],(DB.audit||[]).map(x=>[x.at,x.who,x.text]))">Export CSV</button></div>
    <div class="card"><table class="list"><tr><th>When</th><th>Who</th><th>Action</th></tr>${a.length?a.map(x=>`<tr><td class="small">${dfmt(x.at)}</td><td class="small">${esc(x.who)}</td><td class="small">${esc(x.text)}</td></tr>`).join(''):'<tr><td colspan=3 class="empty">No actions logged yet.</td></tr>'}</table></div>`;
 }
-function closePosition(id){const p=DB.positions.find(x=>x.id===id);if(!p)return;p.status=p.status==='Open'?'Closed':'Open';save();audit('Position "'+p.title+'" marked '+p.status);toast('Position '+p.status);vPositions();}
+function closePosition(id){const p=DB.positions.find(x=>x.id===id);if(!p)return;p.status=p.status==='Open'?'Closed':'Open';if(LIVE&&sb)livePosSave(); else save();audit('Position "'+p.title+'" marked '+p.status);toast('Position '+p.status);vPositions();}
 function setNewPassword(){const emp=empById(SES.employeeId),np=prompt('Set a new password (min 6 characters)');if(!np||np.length<6){toast('Password must be at least 6 characters');return;}const u=DB.users.find(x=>x.employeeId===emp.id);if(u)u.pass=np;emp.passwordSet=true;emp.tempPassword=null;save();toast('Password updated');go('home');}
 function ackOf(emp,kind){return (emp&&emp.onboardingData&&emp.onboardingData.acks&&emp.onboardingData.acks[kind])||(emp&&emp.acks&&emp.acks[kind])||null;}
 function acknowledgeDoc(kind){const emp=empById(SES.employeeId);const d=new Date().toISOString().slice(0,10);emp.acks=emp.acks||{};emp.acks[kind]=d;emp.onboardingData=emp.onboardingData||{};emp.onboardingData.acks=Object.assign({},emp.onboardingData.acks||{});emp.onboardingData.acks[kind]=d;save();audit(emp.name+' acknowledged '+kind);toast('Recorded — thank you');go(kind==='offer'?'pay':'mydocs',null);}
