@@ -535,7 +535,7 @@ function _establishSession(data,code,pass){
   var me=data.me||{}; var role=data.role,isHr=(role==='super-admin'||role==='hr'||role==='gm'),isRec=(role==='recruiter'),isAcct=(role==='accountant');
   var vs=isHr?'hr':(isRec?'recruiter':(isAcct?'accountant':'employee'));
   var label=isHr?('HR Admin · '+(me.name||'')):(isRec?('Recruitment · '+(me.name||'')):(isAcct?('Accounts · '+(me.name||'')):(me.name||'Employee')));
-  startSession({viewset:vs,label:label,employeeId:me.id,realRole:role});
+  startSession({viewset:vs,label:label,employeeId:me.id,realRole:role,name:me.name||'',title:me.desig||''});
 }
 // boot: if a remembered session exists, sign back in automatically (so refresh doesn't log you out)
 async function bootApp(){
@@ -583,7 +583,7 @@ async function doLogin(){
 function enterPortal(key){const p=PORTALS.find(x=>x.key===key);if(p)startSession(p);}
 function toggleEmail(){const f=$('emailFields'),t=$('emailToggle');f.classList.toggle('hidden');t.textContent=f.classList.contains('hidden')?'Sign in with work email instead':'Hide email sign-in';}
 function startSession(p){
-  SES={role:p.viewset,label:p.label,employeeId:p.employeeId,realRole:p.realRole||null};
+  SES={role:p.viewset,label:p.label,employeeId:p.employeeId,realRole:p.realRole||null,userName:p.name||null,userTitle:p.title||null};
   const emp=p.employeeId?empById(p.employeeId):null;
   const ident=((p.viewset==='employee'||p.viewset==='manager')&&emp)?emp.name:p.label;
   $('login').classList.add('hidden');$('app').classList.remove('hidden');
@@ -1128,7 +1128,7 @@ function offerLetterHTML(emp,off,stampMode){
        <tr><td>Special allowance (7%)</td><td class="num">${fmt(c.spl)}</td></tr>
        <tr><th>Gross (monthly)</th><th class="num">${fmt(c.m)}</th></tr></table>
      <p class="small muted">Statutory deductions (PF, ESI where applicable, TDS) apply as per law. Employment is subject to a standard probation period, background verification, and the company's policies. <i>[Standard clauses — confidentiality, notice period, non-solicit — to be finalised with the locked template.]</i></p>
-     <div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>Jiten Kakar</b><br>Founder &amp; CEO</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
+     <div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>${esc(letterSigner().name)}</b>${letterSigner().title?('<br>'+esc(letterSigner().title)):''}</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
    </div>`;
 }
 // Send-ready, standalone offer letter (own styling) — opened to print / save as PDF and sent to the candidate.
@@ -1153,12 +1153,22 @@ function calcOffer(gross,pfHistory,pfPref){
   var ctcM=gross+erPf+erEsi+grat;
   return {gross:gross,basic:basic,hra:hra,spl:spl,pfYes:pfYes,empPf:empPf,empEsi:empEsi,esiYes:esiYes,pt:pt,tds:tds,net:net,erPf:erPf,erEsi:erEsi,grat:grat,ctcM:ctcM,ctcA:ctcM*12};
 }
+// Signatory on generated letters = the logged-in sender (name + their designation). Falls back to Priya Perral / Manager – HR in demo/offline.
+function letterSigner(){
+  var n=(SES&&SES.userName)?SES.userName:'';
+  var t=(SES&&SES.userTitle)?SES.userTitle:'';
+  if(!n){ n='Priya Perral'; t=t||'Manager – HR'; }
+  return {name:n,title:t};
+}
 function offerLetterDoc(emp,off){
   var grossIn=(off&&off.gross!=null)?off.gross:Math.round((off&&off.ctc||0)/12);
   var c=calcOffer(grossIn, off&&off.pfHistory, off&&off.pfPref);
   var mgr=emp.managerId?((empById(emp.managerId)||{}).name||''):(emp._mgrName||'');
   var dt=(off&&off.createdAt)?off.createdAt:new Date().toISOString();
   var pos=(emp.positionId&&typeof DB!=='undefined'&&DB.positions)?DB.positions.find(function(p){return p.id===emp.positionId;}):null;
+  var sg=letterSigner();
+  var lvlN=parseInt(String((pos&&pos.level)||emp.level||'').replace(/\D/g,''),10)||0;
+  var noticeTxt=(lvlN>=4)?'90 (ninety) days':'60 (sixty) days';
   var jd=(pos&&pos.jd)?pos.jd:(emp.jd||'');
   var duties=jd?('<ul>'+jd.split(/\n+/).filter(function(l){return l.trim();}).map(function(l){return '<li>'+esc(l.replace(/^[-•*\s]+/,''))+'</li>';}).join('')+'<li>Other related duties as assigned by management from time to time.</li></ul>')
     :('<p>Your responsibilities will align with the role of <b>'+esc(emp.desig||'')+'</b> and will be communicated in detail by your reporting manager. You will also perform other related duties as assigned by management from time to time.</p>');
@@ -1182,10 +1192,11 @@ function offerLetterDoc(emp,off){
    +'<h2 class="s">9. Conflict of Interest &amp; Outside Employment</h2><p>You shall not engage in any other employment, consultancy, business or professional activity — paid or unpaid — without the prior written approval of the Company. Any actual or potential conflict of interest must be disclosed immediately.</p>'
    +'<h2 class="s">10. Intellectual Property</h2><p>All work products, documents, policies, systems, designs, processes or intellectual property created by you during the course of employment shall be the sole and exclusive property of the Company.</p>'
    +'<h2 class="s">11. Background Verification</h2><p>This offer and continued employment are subject to satisfactory background verification, reference checks and document verification. Any misrepresentation or suppression of facts may result in withdrawal of the offer or termination.</p>'
-   +'<h2 class="s">12. Termination</h2><p>During the probation period, the Company may terminate your employment with immediate effect, without notice or notice pay. Post confirmation, either party may terminate employment by serving a written notice of 60 (sixty) days. The Company reserves the right to terminate employment immediately, without notice or notice pay, in cases of misconduct, breach of trust, confidentiality violations, or policy non-compliance.</p>'
+   +'<h2 class="s">12. Termination, Notice &amp; Final Settlement</h2><p>During the probation period, the Company may terminate your employment with immediate effect, without notice or notice pay. Post confirmation, either party may terminate the employment by serving a written notice of <b>'+noticeTxt+'</b> (basis your level), or salary in lieu thereof. The Company reserves the right to terminate employment immediately, without notice or notice pay, in cases of misconduct, breach of trust, confidentiality violations or policy non-compliance.</p>'
+   +'<p>Final settlement terms:</p><ul><li>If you leave the organization within one (1) week of joining, no salary will be credited for the period worked.</li><li>If you resign during the probation period, your Full &amp; Final (F&amp;F) settlement will be processed after 45 (forty-five) days from your last working day.</li><li>If the Company terminates your employment during the probation period, your Full &amp; Final (F&amp;F) settlement will be processed within one (1) week of your last working day.</li></ul>'
    +'<h2 class="s">13. Governing Law &amp; Jurisdiction</h2><p>This employment shall be governed by and construed in accordance with the laws of India, and the courts at Gurgaon, Haryana shall have exclusive jurisdiction.</p>'
    +'<p style="margin-top:12px">We welcome you to the team and look forward to your meaningful contributions. Please sign and return a copy of this letter as your acceptance within 24 hours of receiving this email.</p>'
-   +'<div class="sb"><img class="stamp" src="'+ST+'" alt="IncrediPets authorised stamp"><b>Authorized Signatory</b><br>Priya Perral<br>Manager &ndash; HR<br>IncrediPets</div>'
+   +'<div class="sb"><img class="stamp" src="'+ST+'" alt="IncrediPets authorised stamp"><b>Authorised Signatory</b><br>'+esc(sg.name)+(sg.title?('<br>'+esc(sg.title)):'')+'<br>IncrediPets</div>'
    +'<div class="acc">Accepted and signed by &ndash;<br><br>Signature: ____________________<br>Name: '+esc(emp.name)+'<br>Date: __________</div>'
    +'<div class="annex"><h2 class="s">Annexure A — Salary Break-up</h2><p class="muted" style="margin:2px 0 6px">Detailed monthly &amp; annual structure for '+esc(emp.name)+(emp.desig?(', '+esc(emp.desig)):'')+'. All amounts in ₹.</p>'
    +'<table><tr><th>Particulars</th><th class="num">Monthly (₹)</th><th class="num">Annual (₹)</th></tr>'
@@ -1215,6 +1226,7 @@ function internshipLetterDoc(emp,off){
   var mgr=emp.managerId?((empById(emp.managerId)||{}).name||''):(emp._mgrName||'');
   var dt=(off&&off.createdAt)?off.createdAt:new Date().toISOString(); var total=stipend*dur;
   var dw=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve'][dur]||dur;
+  var sg=letterSigner();
   var ST='https://polina88j.github.io/incredipets-hrms/stamp.png', HE='https://polina88j.github.io/incredipets-hrms/heart.jpg';
   var css='@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:#23252b;line-height:1.5;font-size:12.5px}.wmbg{position:fixed;inset:0;background:url('+HE+') center 44% no-repeat;background-size:60%;opacity:.05;z-index:-1;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ltr{max-width:730px;margin:0 auto;position:relative;padding:16mm 15mm 18mm}.lh{display:flex;justify-content:flex-end;border-bottom:2px solid #8A003E;padding-bottom:8px;margin-bottom:6px}.wm{font-size:23px;font-weight:800}.wm .a{color:#2E9D52}.wm .b{color:#8A003E}.meta{font-size:10.5px;color:#7c7c87;margin:8px 0}.pc{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8A003E}h1{font-size:15px;letter-spacing:1.5px;text-align:center;margin:14px 0 16px;text-decoration:underline}h2.s{font-size:12.5px;color:#2E9D52;font-weight:700;margin:16px 0 3px;break-after:avoid;page-break-after:avoid}p{margin:8px 0}b{color:#1a1c22}table{width:100%;border-collapse:collapse;margin:8px 0;break-inside:avoid;page-break-inside:avoid}tr{break-inside:avoid;page-break-inside:avoid}th,td{border:1px solid #e6e6ec;padding:6px 10px;text-align:left;font-size:12px}th{background:#f6f6f9;font-size:10px;text-transform:uppercase;color:#6c6c77}td.num,th.num{text-align:right}tr.net th{background:#fbf0f5;color:#8A003E}.muted{color:#7c7c87;font-size:10.5px}.sb{margin-top:34px}.stamp{width:118px;height:auto;display:block;margin-bottom:2px}.acc{margin-top:26px;border-top:1px solid #e6e6ec;padding-top:10px}.no-print{font-family:"Segoe UI",Arial,sans-serif}@media print{.no-print{display:none!important}}';
   var b='<div class="wmbg"></div><div class="lh"><div class="wm"><span class="a">Incredi</span><span class="b">Pets</span></div></div>'
@@ -1241,7 +1253,7 @@ function internshipLetterDoc(emp,off){
    +'<h2 class="s">12. Termination</h2><p>Either party may end the internship by giving <b>seven (7) days</b> written notice. The Company may terminate the internship with immediate effect in cases of misconduct, breach of confidentiality, or policy non-compliance, without notice.</p>'
    +'<h2 class="s">13. Governing Law &amp; Jurisdiction</h2><p>This internship shall be governed by the laws of India, and the courts at Gurgaon, Haryana shall have exclusive jurisdiction.</p>'
    +'<p style="margin-top:12px">We look forward to having you on board and to a rewarding learning experience. Please sign and return a copy of this letter as your acceptance within 24 hours of receiving this email.</p>'
-   +'<div class="sb"><img class="stamp" src="'+ST+'" alt="IncrediPets authorised stamp"><b>Authorized Signatory</b><br>Priya Perral<br>Manager &ndash; HR<br>IncrediPets</div>'
+   +'<div class="sb"><img class="stamp" src="'+ST+'" alt="IncrediPets authorised stamp"><b>Authorised Signatory</b><br>'+esc(sg.name)+(sg.title?('<br>'+esc(sg.title)):'')+'<br>IncrediPets</div>'
    +'<div class="acc">Accepted and signed by &ndash;<br><br>Signature: ____________________<br>Name: '+esc(emp.name)+'<br>Date: __________</div>';
   var bar='<div class="no-print" style="position:sticky;top:0;z-index:9;background:#8A003E;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap"><button onclick="window.print()" style="background:#fff;color:#8A003E;border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer">⬇ Save as PDF</button><span style="font-size:12.5px;line-height:1.4">In the box that opens, set <b>Destination = “Save as PDF”</b>, then click <b>Save</b>. This bar won’t appear in the saved file.</span></div>';
   return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Internship offer — '+esc(emp.name)+'</title><style>'+css+'</style></head><body>'+bar+'<div class="ltr">'+b+'</div></body></html>';
@@ -1256,13 +1268,14 @@ function contractLetterDraftHTML(emp,off){
      <p>We are pleased to offer you the role of <b>“${esc(emp.desig)}”</b> with IncrediPets, with an anticipated start date of <b>${emp.doj?dfmt(emp.doj):'[start date]'}</b>, based at ${esc(emp.location)}.</p>
      <p>You will draw a fixed salary of <b>${fmt(off.monthly)} per month (CTC)</b>, inclusive of travel allowance. This is a contract-based, full-time role with a 3-month probation. Full terms — at-will employment, confidentiality, IPR, anti-competition — are set out in the full letter.</p>
      <p class="small muted"><b>Probation &amp; settlement:</b> no salary if you leave within one week of joining; F&amp;F after 45 days if you resign during probation; F&amp;F within one week if the Company terminates during probation.</p>
-     <div class="sign"><div>For MangoPaw Technologies and Solutions Pvt. Ltd.<br><br><b>Priya Perral</b><br>Manager – HR</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
+     <div class="sign"><div>For MangoPaw Technologies and Solutions Pvt. Ltd.<br><br><b>${esc(letterSigner().name)}</b>${letterSigner().title?('<br>'+esc(letterSigner().title)):''}</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
    </div>`;
 }
 function contractLetterDoc(emp,off){
   var ST='https://polina88j.github.io/incredipets-hrms/stamp.png', HE='https://polina88j.github.io/incredipets-hrms/heart.jpg';
   var dt=(off&&off.createdAt)?off.createdAt:new Date().toISOString();
   var monthly=Math.round(+(off&&off.monthly)||0);
+  var sg=letterSigner();
   var first=(emp.name||'').split(' ')[0]||emp.name||'';
   var acc=(off&&off.acceptBy)?('by <b>'+dfmt(off.acceptBy)+'</b>'):'<b>within 7 (seven) days of the date of this letter</b>';
   var css='@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Arial,sans-serif;color:#23252b;line-height:1.55;font-size:12.5px}.wmbg{position:fixed;inset:0;background:url('+HE+') center 44% no-repeat;background-size:60%;opacity:.05;z-index:-1;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ltr{max-width:730px;margin:0 auto;position:relative;padding:16mm 15mm 18mm}.lh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #8A003E;padding-bottom:8px;margin-bottom:6px}.wm{font-size:23px;font-weight:800}.wm .a{color:#2E9D52}.wm .b{color:#8A003E}.dt{font-size:10.5px;color:#7c7c87;white-space:nowrap}.co{font-size:9.5px;color:#9a9aa3;margin-top:3px}h1{font-size:15px;letter-spacing:1.5px;text-align:center;margin:14px 0 12px;text-decoration:underline}.nm{margin:6px 0 2px;font-size:12.5px}.addr{font-size:11.5px;color:#555;margin:0 0 6px;max-width:62%}.pc{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#8A003E;margin:6px 0}h2.s{font-size:11.5px;color:#2E9D52;font-weight:700;margin:15px 0 3px;text-transform:uppercase;letter-spacing:.4px;break-after:avoid;page-break-after:avoid}p{margin:7px 0}ul{margin:6px 0;padding-left:20px}li{margin:5px 0}b{color:#1a1c22}.policy{background:#eaf6ee;border:1px solid #cfe9d8;border-radius:8px;padding:8px 14px;margin:8px 0;break-inside:avoid;page-break-inside:avoid}.sb,.acc{break-inside:avoid}.sb{margin-top:30px}.stamp{width:118px;height:auto;display:block;margin-bottom:2px}.acc{margin-top:24px;border-top:1px solid #e6e6ec;padding-top:10px;font-size:12px}.foot{margin-top:20px;text-align:center;font-size:9px;letter-spacing:.6px;color:#9a9aa3;text-transform:uppercase}.no-print{font-family:"Segoe UI",Arial,sans-serif}@media print{.no-print{display:none!important}}';
@@ -1291,7 +1304,7 @@ function contractLetterDoc(emp,off){
    +'<h2 class="s">Anti-Competition</h2><p>During your employment, and for a period of 12 (twelve) months following termination or resignation — regardless of the reason — you agree not to engage in any activity that competes in the pet-service industry. Specifically, you agree not to, directly or indirectly, own, manage, operate, join, control or participate in any business that competes in the pet-service industry.</p>'
    +'<h2 class="s">Interpretation, Amendment &amp; Enforcement</h2><p>This letter supersedes and replaces any prior agreements, representations or understandings (whether written, oral, implied or otherwise) between you and the Company and constitutes the complete agreement regarding the subject matter set out herein. It may not be amended or modified except by an express written agreement signed by both you and a duly authorized officer of the Company.</p>'
    +'<p style="margin-top:12px">You may indicate your agreement with these terms and accept this offer by signing and dating this agreement '+acc+'. Upon your acceptance, IncrediPets will provide you with the necessary paperwork and instructions.</p>'
-   +'<div class="sb"><img class="stamp" src="'+ST+'" alt="IncrediPets authorised stamp"><b>Regards,</b><br>Priya Perral<br>Manager &ndash; HR<br>IncrediPets &middot; MangoPaw Technologies and Solutions Private Limited</div>'
+   +'<div class="sb"><img class="stamp" src="'+ST+'" alt="IncrediPets authorised stamp"><b>Regards,</b><br>'+esc(sg.name)+(sg.title?('<br>'+esc(sg.title)):'')+'<br>IncrediPets &middot; MangoPaw Technologies and Solutions Private Limited</div>'
    +'<div class="acc">Applicant Signature: ____________________ &nbsp;&nbsp;&nbsp; Date: ____________<br>Name: '+esc(emp.name||'')+'</div>'
    +'<div class="foot">MangoPaw Technologies and Solutions Private Limited &middot; Confidential</div>';
   var bar='<div class="no-print" style="position:sticky;top:0;z-index:9;background:#8A003E;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap"><button onclick="window.print()" style="background:#fff;color:#8A003E;border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer">⬇ Save as PDF</button><span style="font-size:12.5px;line-height:1.4">In the box that opens, set <b>Destination = “Save as PDF”</b>, then click <b>Save</b>. This bar won’t appear in the saved file.</span></div>';
@@ -1309,7 +1322,7 @@ function internshipLetterDraftHTML(emp,off){
      <tr><td>Consolidated stipend</td><td class="num">${fmt(st)}</td></tr>
      <tr><th>Total (${dur} mo)</th><th class="num">${fmt(total)}</th></tr></table>
    <p class="small muted">Completion certificate; PPO at the Company's discretion; 7-day notice.</p>
-   <div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>Priya Perral</b><br>Manager – HR</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
+   <div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>${esc(letterSigner().name)}</b>${letterSigner().title?('<br>'+esc(letterSigner().title)):''}</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
   </div>`;
 }
 function downloadOfferLetter(){
@@ -1503,7 +1516,7 @@ function offerLetterDraftHTML(emp,off){
        <tr><th>Monthly gross</th><th class="num">${fmt(c.gross)}</th></tr>
        <tr><td>Net in-hand</td><td class="num">${fmt(c.net)}</td></tr></table>
      <p class="small muted">Statutory deductions (PF, ESI where applicable, TDS) apply as per law. Employment is subject to a standard probation period, background verification, and the company's policies.</p>
-     <div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>Jiten Kakar</b><br>Founder &amp; CEO</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
+     <div class="sign"><div>For Incredipets Pvt. Ltd.<br><br><b>${esc(letterSigner().name)}</b>${letterSigner().title?('<br>'+esc(letterSigner().title)):''}</div><div style="text-align:right">Accepted by<br><br>_______________<br>${esc(emp.name)}</div></div>
    </div>`;
 }
 function submitForApproval(){
@@ -1512,7 +1525,7 @@ function submitForApproval(){
   const code='IN-'+(320+DB.employees.length);
   const eid='E'+(Date.now());
   DB.employees.push({id:eid,code,name:_letterEmp.name,desig:_letterEmp.desig,dept:_letterEmp.dept,level:(DB.positions.find(p=>p.id===_letterEmp.positionId)||{}).level||'L2',location:_letterEmp.location,doj:_letterEmp.doj,managerId:null,phone:_letterEmp.phone,email:_letterEmp.email,status:'offered',onboarded:false,positionId:_letterEmp.positionId});
-  DB.offers.unshift({id:'O'+(Date.now()),employeeId:eid,positionId:_letterEmp.positionId,ctc:_letterOff.ctc,status:'pending_approval',releasedBy:'Anushka',approvedBy:null,createdAt:_letterOff.createdAt});
+  DB.offers.unshift({id:'O'+(Date.now()),employeeId:eid,positionId:_letterEmp.positionId,ctc:_letterOff.ctc,status:'pending_approval',releasedBy:(SES&&SES.userName)||(SES&&SES.label)||'Recruitment',approvedBy:null,createdAt:_letterOff.createdAt});
   save();toast('Sent to HR for approval — '+code+' created');
   _letterEmp=null;_letterOff=null;
   setTimeout(()=>go('offers',document.querySelector('[data-pg=offers]')),700);
