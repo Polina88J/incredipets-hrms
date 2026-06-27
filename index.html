@@ -605,8 +605,8 @@ function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posth
 /* ---------- nav ---------- */
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['payslips','Salary Slips'],['reimburse','Reimbursements'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['team','Org Structure']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['reimburse','Reimbursements'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['addemp','Add employee'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
-  recruiter:[['positions','Positions'],['pipeline','Pipeline'],['newoffer','New Candidate / Offer'],['addemp','Add employee'],['offers','My Offers']],
+  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['reimburse','Reimbursements'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['addemp','Add employee'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['recanalytics','Recruitment Analytics'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
+  recruiter:[['positions','Positions'],['pipeline','Screening & Pipeline'],['newoffer','New Candidate / Offer'],['recanalytics','Analytics'],['addemp','Add employee'],['offers','My Offers']],
   manager:[['mteam','My Team']],
   accountant:[['reimburse','Reimbursements']]
 };
@@ -670,7 +670,7 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&needsOnboarding(emp)&&!emp.onboardingSubmitted)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Candidate Pipeline',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',reimburse:'Reimbursements',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'Org Structure',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Screening & Pipeline',recanalytics:'Recruitment Analytics',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',reimburse:'Reimbursements',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'Org Structure',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 /* ===== Analytics — privacy-safe interaction tracking (PostHog) =====
@@ -707,7 +707,7 @@ function go(page,el){
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
   const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,roster:vRoster,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,payslips:vPayslips,reimburse:vReimburse,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
-    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,addemp:vAddEmployee,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers}[page];
+    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,addemp:vAddEmployee,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers,recanalytics:vRecruitAnalytics}[page];
   if(fn)fn();window.scrollTo(0,0);
   track('page_view',{page:page});
 }
@@ -2413,6 +2413,100 @@ function addCandidate(pid){screeningForm(pid);}
 function advanceCandidate(id){const c=(DB.candidates||[]).find(x=>x.id===id);if(!c)return;const i=PIPE_STAGES.indexOf(c.stage);if(i<0||i>=PIPE_STAGES.length-1)return;c.stage=PIPE_STAGES[i+1];if(c.stage==='Hired')c.hiredOn=new Date().toISOString().slice(0,10);save();if(LIVE&&sb)liveCandSave();audit(c.name+' advanced to '+c.stage);toast('Moved to '+c.stage);vPipeline();}
 function rejectCandidate(id){const c=(DB.candidates||[]).find(x=>x.id===id);if(!c)return;c.stage='Rejected';save();if(LIVE&&sb)liveCandSave();audit(c.name+' rejected');toast('Candidate rejected');vPipeline();}
 function exportPipeline(){const rows=[];(DB.candidates||[]).forEach(c=>{const p=DB.positions.find(x=>x.id===c.positionId);rows.push([c.name,c.phone,c.email,p?p.title:'',c.source||'',c.currentCtc!=null?c.currentCtc:'',c.expectedCtc!=null?c.expectedCtc:'',c.noticeDays!=null?c.noticeDays:'',c.noticeNeg?'Yes':'',c.stage,c.decision||'',c.rejectionReason||'',c.recruiter||'',c.screeningDate||c.appliedOn,c.cvLink||'']);});exportCSV('pipeline.csv',['Candidate','Phone','Email','Position','Source','Current CTC (LPA)','Expected CTC (LPA)','Notice (days)','Notice nego','Stage','Decision','Rejection reason','Recruiter','Screened on','CV link'],rows);}
+
+/* ===== Recruitment Analytics — metrics, downloadable reports, benchmark-grounded insights ===== */
+function recruitMetrics(){
+  var C=DB.candidates||[], P=DB.positions||[], O=DB.offers||[]; var today=new Date();
+  function d(a,b){ if(!a)return null; var n=Math.round(((b||today)-new Date(a))/86400000); return isNaN(n)?null:n; }
+  function pct(a,b){return b?Math.round(a/b*100):0;}
+  var isShort=function(c){return c.decision==='Shortlist'||['Interviewed','Offer','Hired'].indexOf(c.stage)>=0;};
+  var screened=C.length;
+  var shortlisted=C.filter(isShort).length;
+  var interviewed=C.filter(c=>['Interviewed','Offer','Hired'].indexOf(c.stage)>=0).length;
+  var offered=C.filter(c=>['Offer','Hired'].indexOf(c.stage)>=0).length;
+  var hired=C.filter(c=>c.stage==='Hired').length;
+  var rejected=C.filter(c=>c.stage==='Rejected').length;
+  var pending=C.filter(c=>c.stage==='Screened'&&!c.decision).length;
+  var onhold=C.filter(c=>c.decision==='Hold').length;
+  var oAcc=O.filter(o=>['accepted','released','joined'].indexOf(o.status)>=0).length;
+  var oDec=O.filter(o=>['declined','rejected'].indexOf(o.status)>=0).length;
+  var acceptRate=(oAcc+oDec)?Math.round(oAcc/(oAcc+oDec)*100):null;
+  var srcMap={}; C.forEach(c=>{var s=(c.source||'—').trim()||'—';srcMap[s]=srcMap[s]||{src:s,count:0,short:0,hired:0};srcMap[s].count++;if(isShort(c))srcMap[s].short++;if(c.stage==='Hired')srcMap[s].hired++;});
+  var sources=Object.keys(srcMap).map(k=>srcMap[k]).sort((a,b)=>b.count-a.count);
+  var recMap={}; C.forEach(c=>{var r=(c.recruiter||'—').trim()||'—';recMap[r]=recMap[r]||{rec:r,screened:0,short:0,hired:0};recMap[r].screened++;if(isShort(c))recMap[r].short++;if(c.stage==='Hired')recMap[r].hired++;});
+  var recruiters=Object.keys(recMap).map(k=>recMap[k]).sort((a,b)=>b.screened-a.screened);
+  var rejMap={}; C.filter(c=>c.stage==='Rejected').forEach(c=>{var r=(c.rejectionReason||'Unspecified').trim()||'Unspecified';rejMap[r]=(rejMap[r]||0)+1;});
+  var rejReasons=Object.keys(rejMap).map(k=>({reason:k,n:rejMap[k]})).sort((a,b)=>b.n-a.n);
+  var withExp=C.filter(c=>c.expectedCtc!=null&&c.expectedCtc!=='');
+  var overBudget=withExp.filter(c=>{var p=P.find(x=>x.id===c.positionId);return p&&p.bandMax&&(c.expectedCtc*100000)>p.bandMax;}).length;
+  var withNotice=C.filter(c=>c.noticeDays!=null&&c.noticeDays!=='');
+  var avgNotice=withNotice.length?Math.round(withNotice.reduce((s,c)=>s+(+c.noticeDays||0),0)/withNotice.length):null;
+  var tgt=function(lv){var n=parseInt(String(lv||'').replace(/\D/g,''),10)||0;return n>=5?90:(n>=4?75:45);};
+  var reqs=P.map(p=>{var cs=C.filter(c=>c.positionId===p.id);var h=cs.find(c=>c.stage==='Hired');var ttf=(h&&p.openedOn)?d(p.openedOn,new Date(h.hiredOn||h.appliedOn)):null;var age=p.status==='Open'?d(p.openedOn):null;var sh=cs.filter(isShort).length;var T=tgt(p.level);return {id:p.id,title:p.title,dept:p.dept,level:p.level,status:p.status,openings:p.openings,hiringManager:p.hiringManager,openedOn:p.openedOn,cands:cs.length,short:sh,ttf:ttf,age:age,target:T,aging:(p.status==='Open'&&age!=null&&age>T)};});
+  var openReqs=reqs.filter(r=>r.status==='Open');
+  var ttfs=reqs.filter(r=>r.ttf!=null).map(r=>r.ttf);
+  var avgTtf=ttfs.length?Math.round(ttfs.reduce((a,b)=>a+b,0)/ttfs.length):null;
+  return {screened,shortlisted,interviewed,offered,hired,rejected,pending,onhold,scrToInt:pct(interviewed,screened),intToOff:pct(offered,interviewed),shortRate:pct(shortlisted,screened),acceptRate,oAcc,oDec,sources,recruiters,rejReasons,overBudget,overBudgetRate:pct(overBudget,withExp.length),withExpN:withExp.length,avgNotice,reqs,openReqs,avgTtf,agingReqs:openReqs.filter(r=>r.aging)};
+}
+function recruitInsights(m){
+  var ins=[];
+  if(m.acceptRate!=null&&m.acceptRate<85)ins.push(['warn','Offer acceptance '+m.acceptRate+'% is below the healthy 85–95% band — review comp competitiveness and offer turnaround.']);
+  if(m.avgTtf!=null&&m.avgTtf>45)ins.push(['warn','Average time-to-fill '+m.avgTtf+'d exceeds the ~36–42d benchmark — check the slowest stage.']);
+  if(m.agingReqs.length)ins.push(['risk',m.agingReqs.length+' open req(s) past their level time-to-fill target — escalate: '+m.agingReqs.slice(0,3).map(r=>esc(r.title)+' ('+r.age+'d)').join(', ')+'.']);
+  if(m.overBudgetRate>=25&&m.withExpN>=5)ins.push(['warn',m.overBudgetRate+'% of screened candidates expect above the role band — tighten sourcing/JD comp range to cut late offer declines.']);
+  if(m.scrToInt<15&&m.screened>=20)ins.push(['warn','Screen→interview '+m.scrToInt+'% is below the ~15% benchmark — the biggest funnel leak; review screening criteria & JD fit.']);
+  var hiLo=m.sources.filter(s=>s.count>=10&&(s.short/s.count)<0.15);
+  if(hiLo.length)ins.push(['warn',hiLo.map(s=>esc(s.src)).join(', ')+' is high-volume / low-yield — referrals & direct sourcing convert ~4–11× better; shift effort there.']);
+  if(!ins.length)ins.push(['ok','No red flags against 2025–26 benchmarks in the current pipeline.']);
+  return ins;
+}
+function rag(ok,warn){return ok?'#2E9D52':(warn?'#BA7517':'#E24B4A');}
+function vRecruitAnalytics(){
+  var m=recruitMetrics();
+  var card=function(k,v,sub,col){return '<div class="stat"><div class="k">'+k+'</div><div class="v num" style="color:'+(col||'inherit')+'">'+v+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';};
+  var accCol=m.acceptRate==null?'inherit':rag(m.acceptRate>=85,m.acceptRate>=80);
+  var ttfCol=m.avgTtf==null?'inherit':rag(m.avgTtf<=42,m.avgTtf<=45);
+  var s2iCol=m.screened<20?'inherit':rag(m.scrToInt>=15,m.scrToInt>=10);
+  var insRows=recruitInsights(m).map(function(x){var c=x[0]==='risk'?'#E24B4A':(x[0]==='warn'?'#BA7517':'#2E9D52');return '<div class="bl"><span style="color:'+c+';font-weight:700">'+(x[0]==='ok'?'✓':'•')+'</span> <span class="small">'+x[1]+'</span></div>';}).join('');
+  $('view').innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Recruitment Analytics</h1><p class="page-sub">Funnel, sources, time-to-fill &amp; offer health vs 2025–26 benchmarks. Download the report for each view.</p></div><button class="btn btn-primary btn-sm" onclick="printRecExec()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>Exec report (PDF)</button></div>'
+   +'<div class="row" style="gap:12px;margin:12px 0;flex-wrap:wrap">'
+     +card('Screened',m.screened)+card('Shortlist rate',m.shortRate+'%')
+     +card('Screen→Interview',m.scrToInt+'%','benchmark ~15%',s2iCol)
+     +card('Interview→Offer',m.intToOff+'%','benchmark 20–30%')
+     +card('Offer acceptance',m.acceptRate==null?'—':m.acceptRate+'%','healthy 85–95%',accCol)
+     +card('Avg time-to-fill',m.avgTtf==null?'—':m.avgTtf+'d','benchmark ~36–42d',ttfCol)
+     +card('Open reqs',m.openReqs.length)
+     +card('Aging reqs',m.agingReqs.length,'past level target',m.agingReqs.length?'#E24B4A':'#2E9D52')
+   +'</div>'
+   +'<div class="card card-pad"><div class="sec-h"><div class="si">!</div><h2>Insights &amp; actions</h2></div>'+insRows+'</div>'
+   +'<div class="card card-pad" style="margin-top:14px"><h2 style="margin:0 0 4px">Downloadable reports — by view</h2><p class="small muted" style="margin:0 0 10px">Each report is tailored to who reads it. Click to download a CSV (or the exec PDF above).</p>'
+     +'<div class="row" style="flex-wrap:wrap;gap:10px">'
+       +'<div class="card card-pad" style="flex:1;min-width:220px"><b>Leadership / GM</b><p class="small muted">Time-to-fill, open-req load &amp; aging, offer acceptance, funnel summary.</p><button class="btn btn-ghost btn-sm" onclick="printRecExec()">Exec summary (PDF)</button> <button class="btn btn-ghost btn-sm" onclick="dlRecKpi()">KPIs (CSV)</button></div>'
+       +'<div class="card card-pad" style="flex:1;min-width:220px"><b>TA lead / HR</b><p class="small muted">Funnel conversion, source effectiveness (yield), rejection-reason mix, recruiter throughput.</p><button class="btn btn-ghost btn-sm" onclick="dlRecFunnel()">Funnel (CSV)</button> <button class="btn btn-ghost btn-sm" onclick="dlRecSources()">Sources (CSV)</button> <button class="btn btn-ghost btn-sm" onclick="dlRecRecruiters()">Recruiters (CSV)</button></div>'
+       +'<div class="card card-pad" style="flex:1;min-width:220px"><b>Hiring manager</b><p class="small muted">Per requisition: shortlist, CTC vs band, notice, status, aging &amp; TAT.</p><button class="btn btn-ghost btn-sm" onclick="dlRecReqs()">Requisitions (CSV)</button></div>'
+       +'<div class="card card-pad" style="flex:1;min-width:220px"><b>Recruiter ops</b><p class="small muted">Live candidate contact list with phone &amp; email, stage &amp; decision.</p><button class="btn btn-ghost btn-sm" onclick="dlRecContacts()">Contact list (CSV)</button></div>'
+     +'</div></div>'
+   +'<div class="card card-pad" style="margin-top:14px"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.positions+'</svg></div><h2>Source effectiveness</h2></div><table class="list"><tr><th>Source</th><th class="num">Screened</th><th class="num">Shortlisted</th><th class="num">Hired</th><th class="num">Yield %</th></tr>'+(m.sources.length?m.sources.map(s=>'<tr><td>'+esc(s.src)+'</td><td class="num">'+s.count+'</td><td class="num">'+s.short+'</td><td class="num">'+s.hired+'</td><td class="num">'+(s.count?Math.round(s.short/s.count*100):0)+'%</td></tr>').join(''):'<tr><td colspan=5 class="empty">No screening data yet.</td></tr>')+'</table></div>'
+   +'<div class="card card-pad" style="margin-top:14px"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.positions+'</svg></div><h2>Open requisitions — aging</h2></div><table class="list"><tr><th>Role</th><th>Dept</th><th>Level</th><th class="num">Shortlisted</th><th class="num">Open days</th><th class="num">Target</th><th>Status</th></tr>'+(m.openReqs.length?m.openReqs.map(r=>'<tr><td><b>'+esc(r.title)+'</b></td><td>'+esc(r.dept||'—')+'</td><td>'+esc(r.level||'—')+'</td><td class="num">'+r.short+'</td><td class="num">'+(r.age==null?'—':r.age)+'</td><td class="num">'+r.target+'</td><td>'+(r.aging?'<span class="pill rejected">aging</span>':'<span class="pill verified">on track</span>')+'</td></tr>').join(''):'<tr><td colspan=7 class="empty">No open requisitions.</td></tr>')+'</table></div>';
+}
+function dlRecKpi(){var m=recruitMetrics();exportCSV('recruitment-kpis.csv',['Metric','Value','Benchmark'],[['Screened',m.screened,''],['Shortlisted',m.shortlisted,''],['Shortlist rate %',m.shortRate,''],['Screen to interview %',m.scrToInt,'~15% (top >18%)'],['Interview to offer %',m.intToOff,'20–30%'],['Offers accepted',m.oAcc,''],['Offers declined',m.oDec,''],['Offer acceptance %',m.acceptRate==null?'':m.acceptRate,'85–95%'],['Avg time-to-fill (days)',m.avgTtf==null?'':m.avgTtf,'36–42'],['Open requisitions',m.openReqs.length,''],['Aging requisitions',m.agingReqs.length,'0'],['Hired',m.hired,'']]);}
+function dlRecFunnel(){var m=recruitMetrics();exportCSV('recruitment-funnel.csv',['Stage','Count','Conversion from previous'],[['Screened',m.screened,'—'],['Shortlisted',m.shortlisted,(m.screened?Math.round(m.shortlisted/m.screened*100):0)+'%'],['Interviewed',m.interviewed,(m.shortlisted?Math.round(m.interviewed/m.shortlisted*100):0)+'%'],['Offered',m.offered,(m.interviewed?Math.round(m.offered/m.interviewed*100):0)+'%'],['Hired',m.hired,(m.offered?Math.round(m.hired/m.offered*100):0)+'%'],['Rejected',m.rejected,''],['On hold',m.onhold,''],['Awaiting decision',m.pending,'']]);}
+function dlRecSources(){var m=recruitMetrics();exportCSV('source-effectiveness.csv',['Source','Screened','Shortlisted','Hired','Shortlist yield %','Hire yield %'],m.sources.map(s=>[s.src,s.count,s.short,s.hired,s.count?Math.round(s.short/s.count*100):0,s.count?Math.round(s.hired/s.count*100):0]));}
+function dlRecRecruiters(){var m=recruitMetrics();exportCSV('recruiter-throughput.csv',['Recruiter','Screened','Shortlisted','Hired','Shortlist rate %'],m.recruiters.map(r=>[r.rec,r.screened,r.short,r.hired,r.screened?Math.round(r.short/r.screened*100):0]));}
+function dlRecReqs(){var m=recruitMetrics();exportCSV('requisitions-report.csv',['Role','Dept','Level','Status','Openings','Hiring manager','Candidates','Shortlisted','Open days','Target days','Time-to-fill (days)','Aging'],m.reqs.map(r=>[r.title,r.dept||'',r.level||'',r.status,r.openings||'',r.hiringManager||'',r.cands,r.short,r.age==null?'':r.age,r.target,r.ttf==null?'':r.ttf,r.aging?'YES':'']));}
+function dlRecContacts(){var rows=[];(DB.candidates||[]).forEach(c=>{var p=(DB.positions||[]).find(x=>x.id===c.positionId);rows.push([c.name,c.phone||'',c.email||'',p?p.title:'',c.source||'',c.stage,c.decision||'',c.recruiter||'',c.screeningDate||c.appliedOn||'']);});exportCSV('candidate-contacts.csv',['Candidate','Phone','Email','Position','Source','Stage','Decision','Recruiter','Screened on'],rows);}
+function printRecExec(){var m=recruitMetrics();var ins=recruitInsights(m).map(x=>'<li>'+x[1]+'</li>').join('');
+  var rows=function(arr){return arr.map(r=>'<tr><td>'+r[0]+'</td><td style="text-align:right">'+r[1]+'</td><td class="muted">'+(r[2]||'')+'</td></tr>').join('');};
+  var kpi=rows([['Screened',m.screened,''],['Shortlist rate',m.shortRate+'%',''],['Screen→Interview',m.scrToInt+'%','~15%'],['Interview→Offer',m.intToOff+'%','20–30%'],['Offer acceptance',(m.acceptRate==null?'—':m.acceptRate+'%'),'85–95%'],['Avg time-to-fill',(m.avgTtf==null?'—':m.avgTtf+'d'),'36–42d'],['Open requisitions',m.openReqs.length,''],['Aging requisitions',m.agingReqs.length,'0']]);
+  var src=m.sources.slice(0,8).map(s=>'<tr><td>'+esc(s.src)+'</td><td style="text-align:right">'+s.count+'</td><td style="text-align:right">'+s.short+'</td><td style="text-align:right">'+s.hired+'</td></tr>').join('');
+  var html='<div class="letter"><div class="lh"><div><div class="wm"><b>Incredi</b>Pets</div><div class="co">Recruitment — Executive Summary · '+dfmt(new Date().toISOString())+'</div></div></div>'
+   +'<h3>RECRUITMENT EXECUTIVE SUMMARY</h3>'
+   +'<table><tr><th>Metric</th><th style="text-align:right">Value</th><th>Benchmark</th></tr>'+kpi+'</table>'
+   +'<p><b>Source effectiveness</b></p><table><tr><th>Source</th><th style="text-align:right">Screened</th><th style="text-align:right">Shortlisted</th><th style="text-align:right">Hired</th></tr>'+src+'</table>'
+   +'<p><b>Insights &amp; actions</b></p><ul>'+ins+'</ul>'
+   +'<p class="small muted">Benchmarks: time-to-fill ~36–42d (IC 30–45 / Mgr 45–75 / Exec 90+); screen→interview ~15%; interview→offer 20–30%; offer acceptance 85–95%; referrals/sourced convert 4–11× job boards. Generated by the IncrediPets HRMS.</p></div>';
+  printWindow(html);
+}
 /* ----- payroll / salary sheet ----- */
 function payrollRows(){
   return DB.employees.filter(e=>['active','onboarding','offboarding'].indexOf(e.status)>-1).map(e=>{
