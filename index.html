@@ -374,7 +374,7 @@ function hydrateFromSession(p){
     employees:(d.employees||[]).map(mapEmp).filter(function(e){return e.status!=='system';}),
     positions:(d.positions||[]).map(r=>({id:r.id,title:r.title,dept:r.dept,level:r.level,location:r.location,openings:r.openings,hiringManager:r.hiring_manager,bandMin:r.band_min,bandMax:r.band_max,status:r.status,jd:r.jd,openedOn:r.opened_on})),
     offers:(d.offers||[]).map(r=>({id:r.id,employeeId:r.employee_id,positionId:r.position_id,ctc:r.ctc,status:r.status,releasedBy:r.released_by,approvedBy:r.approved_by,createdAt:r.created_at})),
-    candidates:(d.candidates||[]).map(r=>({id:r.id,positionId:r.position_id,name:r.name,phone:r.phone,email:r.email,stage:r.stage,appliedOn:r.applied_on,hiredOn:r.hired_on})),
+    candidates:(d.candidates||[]).map(r=>({id:r.id,positionId:r.position_id,name:r.name,phone:r.phone,email:r.email,stage:r.stage,appliedOn:r.applied_on,hiredOn:r.hired_on,recruiter:r.recruiter,source:r.source,screeningDate:r.screening_date,callDone:r.call_done,waDone:r.wa_done,currentCtc:r.current_ctc,expectedCtc:r.expected_ctc,noticeDays:r.notice_days,noticeNeg:r.notice_neg,reasonForChange:r.reason_for_change,decision:r.decision,rejectionReason:r.rejection_reason,cvLink:r.cv_link,notes:r.notes})),
     assets:(d.assets||[]).map(r=>({id:r.id,employeeId:r.employee_id,type:r.asset_type,identifier:r.identifier,allocatedOn:r.allocated_on,returnedOn:r.returned_on})),
     warnings:(d.warnings||[]).map(r=>({id:r.id,employeeId:r.employee_id,type:r.warn_type,reason:r.reason,date:r.warn_date,issuedBy:r.issued_by})),
     documents:[],payslips:[],leave:{},kpis:{},achievements:{},attendance:{},notifications:[],audit:[],users:[],
@@ -398,7 +398,7 @@ function liveSave(){ if(!sb||!LIVE)return; clearTimeout(_saveT); _saveT=setTimeo
 function livePosSave(){ if(!sb||!LIVE)return; try{ var rows=(DB.positions||[]).map(function(p){return {id:p.id,title:p.title,dept:p.dept,level:p.level,location:p.location,openings:p.openings,hiring_manager:p.hiringManager,band_min:p.bandMin,band_max:p.bandMax,status:p.status,jd:p.jd,opened_on:p.openedOn||null};}); return sb.rpc('hrms_save_position',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_positions:rows}).then(function(){},function(){}); }catch(e){} }
 // Persist the remaining lifecycle tables to Supabase in live mode (full-array upsert, gated server-side).
 function liveOfferSave(){ if(!sb||!LIVE)return; try{ var rows=(DB.offers||[]).map(function(o){return {id:o.id,employee_id:o.employeeId||null,position_id:o.positionId||null,ctc:(o.ctc==null||o.ctc==='')?null:o.ctc,status:o.status||null,released_by:o.releasedBy||null,approved_by:o.approvedBy||null,created_at:o.createdAt||null};}); return sb.rpc('hrms_save_offer',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_offers:rows}).then(function(){},function(){}); }catch(e){} }
-function liveCandSave(){ if(!sb||!LIVE)return; try{ var rows=(DB.candidates||[]).map(function(c){return {id:c.id,position_id:c.positionId||null,name:c.name||null,phone:c.phone||null,email:c.email||null,stage:c.stage||null,applied_on:c.appliedOn||null,hired_on:c.hiredOn||null};}); return sb.rpc('hrms_save_candidate',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_candidates:rows}).then(function(){},function(){}); }catch(e){} }
+function liveCandSave(){ if(!sb||!LIVE)return; try{ var rows=(DB.candidates||[]).map(function(c){return {id:c.id,position_id:c.positionId||null,name:c.name||null,phone:c.phone||null,email:c.email||null,stage:c.stage||null,applied_on:c.appliedOn||null,hired_on:c.hiredOn||null,recruiter:c.recruiter||null,source:c.source||null,screening_date:c.screeningDate||null,call_done:!!c.callDone,wa_done:!!c.waDone,current_ctc:(c.currentCtc==null||c.currentCtc==='')?null:c.currentCtc,expected_ctc:(c.expectedCtc==null||c.expectedCtc==='')?null:c.expectedCtc,notice_days:(c.noticeDays==null||c.noticeDays==='')?null:c.noticeDays,notice_neg:!!c.noticeNeg,reason_for_change:c.reasonForChange||null,decision:c.decision||null,rejection_reason:c.rejectionReason||null,cv_link:c.cvLink||null,notes:c.notes||null};}); return sb.rpc('hrms_save_candidate',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_candidates:rows}).then(function(){},function(){}); }catch(e){} }
 function liveAssetSave(){ if(!sb||!LIVE)return; try{ var rows=(DB.assets||[]).map(function(a){return {id:a.id,employee_id:a.employeeId||null,asset_type:a.type||null,identifier:a.identifier||null,allocated_on:a.allocatedOn||null,returned_on:a.returnedOn||null};}); return sb.rpc('hrms_save_asset',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_assets:rows}).then(function(){},function(){}); }catch(e){} }
 function liveWarnSave(){ if(!sb||!LIVE)return; try{ var rows=(DB.warnings||[]).map(function(w){return {id:w.id,employee_id:w.employeeId||null,warn_type:w.type||null,reason:w.reason||null,warn_date:w.date||null,issued_by:w.issuedBy||null};}); return sb.rpc('hrms_save_warning',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_warnings:rows}).then(function(){},function(){}); }catch(e){} }
 function liveAudit(e){ if(!sb||!LIVE||!e)return; try{ sb.rpc('hrms_log_audit',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_id:e.id,p_who:e.who,p_body:e.text,p_at:e.at}).then(function(){},function(){}); }catch(_e){} }
@@ -2336,19 +2336,83 @@ function exitClearanceHTML(id){
 }
 /* ----- recruiter pipeline ----- */
 const PIPE_STAGES=['Applied','Screened','Interviewed','Offer','Hired'];
+const SOURCES=['LinkedIn','Naukri','Referral','IIM Jobs','Indeed','Agency','Walk-in','Other'];
+const REJECT_REASONS=['Over budget','Notice too long','Location / relocation','Skills mismatch','Employment gap','Not interested','Communication','Overqualified','Other'];
 function candsFor(pid){return (DB.candidates||[]).filter(c=>c.positionId===pid);}
+function ctcAnnual(c){return (c&&c.expectedCtc!=null&&c.expectedCtc!=='')?Math.round(c.expectedCtc*100000):null;}
+function bandFlag(p,c){var a=ctcAnnual(c);if(a==null||!p||(!p.bandMin&&!p.bandMax))return'';if(p.bandMin&&a<p.bandMin)return' <span class="pill onboarding">under band</span>';if(p.bandMax&&a>p.bandMax)return' <span class="pill rejected">over budget</span>';return' <span class="pill verified">in band</span>';}
 function vPipeline(){
-  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Candidate Pipeline</h1><p class="page-sub">Every opening and its candidates, stage by stage. Phone &amp; email on every row.</p></div><button class="btn btn-ghost btn-sm" onclick="exportPipeline()">Export CSV</button></div>
+  const all=DB.candidates||[];
+  const pend=all.filter(c=>c.stage==='Screened'&&!c.decision).length, shortl=all.filter(c=>c.decision==='Shortlist').length, rej=all.filter(c=>c.stage==='Rejected').length, hold=all.filter(c=>c.decision==='Hold').length;
+  const rate=all.length?Math.round(shortl/all.length*100):0;
+  const bySrc={}; all.forEach(c=>{const s=(c.source||'—').trim()||'—';bySrc[s]=(bySrc[s]||0)+1;});
+  const srcStr=Object.keys(bySrc).sort((a,b)=>bySrc[b]-bySrc[a]).slice(0,5).map(s=>esc(s)+' '+bySrc[s]).join(' · ')||'—';
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Screening &amp; Pipeline</h1><p class="page-sub">Screen candidates against a position with structured data — CTC, notice, source, decision. Phone &amp; email on every row.</p></div><div style="display:flex;gap:8px"><button class="btn btn-primary btn-sm" onclick="screeningForm('')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Screen candidate</button><button class="btn btn-ghost btn-sm" onclick="exportPipeline()">Export CSV</button></div></div>
+   <div class="row" style="gap:12px;margin:12px 0;flex-wrap:wrap">
+     <div class="stat"><div class="k">Screened</div><div class="v num">${all.length}</div></div>
+     <div class="stat"><div class="k">Awaiting decision</div><div class="v num">${pend}</div></div>
+     <div class="stat"><div class="k">Shortlisted</div><div class="v num">${shortl}</div></div>
+     <div class="stat"><div class="k">On hold</div><div class="v num">${hold}</div></div>
+     <div class="stat"><div class="k">Rejected</div><div class="v num">${rej}</div></div>
+     <div class="stat"><div class="k">Shortlist rate</div><div class="v num">${rate}<small>%</small></div></div>
+   </div>
+   <div class="small muted" style="margin:-2px 0 10px">Top sources: ${srcStr}</div>
+   <div id="scrFormWrap"></div>
    ${DB.positions.map(p=>{const cs=candsFor(p.id),hired=cs.find(c=>c.stage==='Hired'),ttf=hired&&p.openedOn?Math.round((new Date(hired.hiredOn||hired.appliedOn)-new Date(p.openedOn))/86400000):null;const active=cs.filter(c=>c.stage!=='Rejected'&&c.stage!=='Hired').length;
-     return `<div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><b>${esc(p.title)}</b> <span class="pill ${p.status==='Open'?'active':'rejected'}">${esc(p.status)}</span><div class="small muted">${esc(p.dept)} · ${esc(p.level)} · ${p.openings} opening(s) · ${active} in pipeline${ttf!=null?' · <b>filled in '+ttf+' days</b>':' · open '+(p.openedOn?Math.round((new Date()-new Date(p.openedOn))/86400000)+' days':'—')}</div></div><button class="btn btn-ghost btn-sm" onclick="addCandidate('${p.id}')">+ Add candidate</button></div>
-       <table class="list" style="margin-top:10px"><tr><th>Candidate</th><th>Phone</th><th>Email</th><th>Stage</th><th></th></tr>
-       ${cs.length?cs.map(c=>`<tr><td><b>${esc(c.name)}</b><div class="small muted">applied ${dfmt(c.appliedOn)}</div></td><td class="num">${esc(c.phone||'—')}</td><td class="small">${esc(c.email||'—')}</td><td><span class="pill ${c.stage==='Hired'?'verified':(c.stage==='Rejected'?'rejected':'offer')}">${esc(c.stage)}</span></td><td style="white-space:nowrap">${c.stage!=='Hired'&&c.stage!=='Rejected'?`<button class="btn btn-ghost btn-sm" onclick="advanceCandidate('${c.id}')">Advance</button> <button class="btn btn-ghost btn-sm" onclick="rejectCandidate('${c.id}')">Reject</button>`:''}</td></tr>`).join(''):'<tr><td colspan=5 class="empty">No candidates yet — add the first applicant.</td></tr>'}
+     return `<div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><b>${esc(p.title)}</b> <span class="pill ${p.status==='Open'?'active':'rejected'}">${esc(p.status)}</span><div class="small muted">${esc(p.dept)} · ${esc(p.level)} · band ${p.bandMin?fmt(p.bandMin):'—'}–${p.bandMax?fmt(p.bandMax):'—'} · ${p.openings} opening(s) · ${active} active${ttf!=null?' · <b>filled in '+ttf+' days</b>':''}</div></div><button class="btn btn-ghost btn-sm" onclick="screeningForm('${p.id}')">+ Screen for this role</button></div>
+       <table class="list" style="margin-top:10px"><tr><th>Candidate</th><th>Phone</th><th>Email</th><th>Source</th><th>CTC cur/exp</th><th>Notice</th><th>Decision</th><th></th></tr>
+       ${cs.length?cs.map(c=>{const dec=c.decision;const decPill=dec==='Shortlist'?'<span class="pill verified">Shortlisted</span>':(c.stage==='Rejected'?('<span class="pill rejected">Rejected'+(c.rejectionReason?' · '+esc(c.rejectionReason):'')+'</span>'):(dec==='Hold'?'<span class="pill onboarding">On hold</span>':'<span class="pill offer">'+esc(c.stage)+'</span>'));
+         const acts=(c.stage!=='Rejected'&&dec!=='Shortlist')?`<button class="btn btn-ghost btn-sm" onclick="scrShortlist('${c.id}')">Shortlist</button> <button class="btn btn-ghost btn-sm" onclick="scrHold('${c.id}')">Hold</button> <button class="btn btn-ghost btn-sm" onclick="scrReject('${c.id}')">Reject</button>`:(dec==='Shortlist'&&c.stage!=='Hired'&&c.stage!=='Rejected'?`<button class="btn btn-ghost btn-sm" onclick="advanceCandidate('${c.id}')">&rarr; Interview</button>`:'');
+         const ctc=(c.currentCtc!=null&&c.currentCtc!==''?c.currentCtc:'—')+' / '+(c.expectedCtc!=null&&c.expectedCtc!==''?c.expectedCtc:'—');
+         return `<tr><td><b>${esc(c.name)}</b><div class="small muted">${c.cvLink?`<a href="${esc(c.cvLink)}" target="_blank">CV</a> · `:''}screened ${dfmt(c.screeningDate||c.appliedOn)}${c.recruiter?' · '+esc(c.recruiter):''}</div></td><td class="num">${esc(c.phone||'—')}</td><td class="small">${esc(c.email||'—')}</td><td class="small">${esc(c.source||'—')}</td><td class="small">${ctc}${bandFlag(p,c)}</td><td class="small">${c.noticeDays!=null&&c.noticeDays!==''?c.noticeDays+'d'+(c.noticeNeg?' (neg)':''):'—'}</td><td>${decPill}</td><td style="white-space:nowrap">${acts}</td></tr>`;}).join(''):'<tr><td colspan=8 class="empty">No candidates yet — screen the first applicant.</td></tr>'}
        </table></div>`;}).join('')}`;
 }
-function addCandidate(pid){const name=prompt('Candidate name');if(!name)return;const phone=prompt('Phone number (required — a list nobody can call is not a deliverable)','');if(!phone){toast('Phone number is required');return;}const email=prompt('Email (optional)','')||'';DB.candidates=DB.candidates||[];DB.candidates.push({id:'C'+Date.now(),positionId:pid,name:name.trim(),phone:phone.trim(),email:email.trim(),stage:'Applied',appliedOn:new Date().toISOString().slice(0,10)});save();if(LIVE&&sb)liveCandSave();audit('Candidate '+name.trim()+' added to pipeline');toast('Candidate added');vPipeline();}
+function screeningForm(pid){
+  const opts=DB.positions.map(p=>`<option value="${p.id}"${p.id===pid?' selected':''}>${esc(p.title)} · ${esc(p.dept)} · ${esc(p.level)}</option>`).join('');
+  if(!$('scrFormWrap')){go('pipeline');setTimeout(()=>screeningForm(pid),40);return;}
+  $('scrFormWrap').innerHTML=`<div class="card card-pad">
+    <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><h2>Screen a candidate</h2></div>
+    <div class="grid2">
+      <div class="field full"><label>Position</label><select id="sc_pos" onchange="scrBandCheck()"><option value="">— Select an open position —</option>${opts}</select></div>
+      <div class="field"><label>Full name</label><input id="sc_name" placeholder="Candidate name"></div>
+      <div class="field"><label>Phone number</label><input id="sc_phone" placeholder="+91 ..."></div>
+      <div class="field"><label>Email</label><input id="sc_email" placeholder="name@email.com"></div>
+      <div class="field"><label>Source</label><select id="sc_source">${SOURCES.map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <div class="field"><label>Current CTC (₹ LPA)</label><input id="sc_cctc" type="number" step="0.1" placeholder="e.g. 9"></div>
+      <div class="field"><label>Expected CTC (₹ LPA)</label><input id="sc_ectc" type="number" step="0.1" placeholder="e.g. 13" oninput="scrBandCheck()"></div>
+      <div class="field"><label>Notice period (days)</label><input id="sc_notice" type="number" placeholder="e.g. 30"></div>
+      <div class="field"><label>Reason for change</label><input id="sc_reason"></div>
+      <div class="field full"><label>CV link <span class="muted" style="font-weight:600">(Drive / LinkedIn URL)</span></label><input id="sc_cv" placeholder="https://..."></div>
+      <div class="field full"><label>Notes</label><textarea id="sc_notes" placeholder="Screening notes, availability, etc."></textarea></div>
+    </div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;align-items:center">
+      <label class="small"><input type="checkbox" id="sc_call"> Call done</label>
+      <label class="small"><input type="checkbox" id="sc_wa"> WhatsApp done</label>
+      <label class="small"><input type="checkbox" id="sc_neg"> Notice negotiable</label>
+      <span id="sc_band"></span>
+    </div>
+    <div style="margin-top:14px;display:flex;gap:10px"><button class="btn btn-primary" onclick="saveScreening()">Save screening</button><button class="btn btn-ghost" onclick="$('scrFormWrap').innerHTML=''">Cancel</button></div>
+  </div>`;
+  $('scrFormWrap').scrollIntoView({behavior:'smooth'});
+}
+function scrBandCheck(){const sel=$('sc_pos');const p=sel?DB.positions.find(x=>x.id===sel.value):null;const exp=parseFloat(($('sc_ectc')||{}).value);const el=$('sc_band');if(!el)return;if(!p||isNaN(exp)){el.innerHTML='';return;}const a=Math.round(exp*100000);var msg='',col='';if(p.bandMin&&a<p.bandMin){msg='Below the '+esc(p.level)+' band ('+fmt(p.bandMin)+'–'+fmt(p.bandMax)+')';col='#BA7517';}else if(p.bandMax&&a>p.bandMax){msg='Over budget — above the '+esc(p.level)+' band ('+fmt(p.bandMin)+'–'+fmt(p.bandMax)+')';col='#E24B4A';}else if(p.bandMin||p.bandMax){msg='Within the '+esc(p.level)+' band ✓';col='#2E9D52';}el.innerHTML=msg?('<span style="color:'+col+';font-weight:700;font-size:12px">'+msg+'</span>'):'';}
+function saveScreening(){
+  const g=id=>($(id)?$(id).value.trim():'');const num=id=>{var v=parseFloat(($(id)||{}).value);return isNaN(v)?null:v;};const chk=id=>!!($(id)&&$(id).checked);
+  const name=g('sc_name');if(!name){toast('Add the candidate name');return;}
+  const phone=g('sc_phone');if(!phone){toast('Phone number is required — a list nobody can call is not a deliverable');return;}
+  const today=new Date().toISOString().slice(0,10);
+  DB.candidates=DB.candidates||[];
+  DB.candidates.unshift({id:'C'+Date.now(),positionId:g('sc_pos')||null,name:name,phone:phone,email:g('sc_email'),stage:'Screened',appliedOn:today,screeningDate:today,recruiter:(SES&&SES.userName)||(SES&&SES.label)||'',source:g('sc_source'),currentCtc:num('sc_cctc'),expectedCtc:num('sc_ectc'),noticeDays:num('sc_notice'),noticeNeg:chk('sc_neg'),callDone:chk('sc_call'),waDone:chk('sc_wa'),reasonForChange:g('sc_reason'),cvLink:g('sc_cv'),notes:g('sc_notes'),decision:null,rejectionReason:null});
+  if(LIVE&&sb)liveCandSave();else save();
+  audit('Screened candidate '+name);toast('Candidate screened');vPipeline();
+}
+function scrShortlist(id){const c=(DB.candidates||[]).find(x=>x.id===id);if(!c)return;c.decision='Shortlist';if(LIVE&&sb)liveCandSave();else save();audit(c.name+' shortlisted for next round');toast('Shortlisted');vPipeline();}
+function scrHold(id){const c=(DB.candidates||[]).find(x=>x.id===id);if(!c)return;c.decision='Hold';if(LIVE&&sb)liveCandSave();else save();toast('Marked on hold');vPipeline();}
+function scrReject(id){const c=(DB.candidates||[]).find(x=>x.id===id);if(!c)return;const r=prompt('Rejection reason ('+REJECT_REASONS.join(' / ')+')','Over budget');if(!r)return;c.decision='Reject';c.rejectionReason=r.trim();c.stage='Rejected';if(LIVE&&sb)liveCandSave();else save();audit(c.name+' rejected — '+r.trim());toast('Rejected');vPipeline();}
+function addCandidate(pid){screeningForm(pid);}
 function advanceCandidate(id){const c=(DB.candidates||[]).find(x=>x.id===id);if(!c)return;const i=PIPE_STAGES.indexOf(c.stage);if(i<0||i>=PIPE_STAGES.length-1)return;c.stage=PIPE_STAGES[i+1];if(c.stage==='Hired')c.hiredOn=new Date().toISOString().slice(0,10);save();if(LIVE&&sb)liveCandSave();audit(c.name+' advanced to '+c.stage);toast('Moved to '+c.stage);vPipeline();}
 function rejectCandidate(id){const c=(DB.candidates||[]).find(x=>x.id===id);if(!c)return;c.stage='Rejected';save();if(LIVE&&sb)liveCandSave();audit(c.name+' rejected');toast('Candidate rejected');vPipeline();}
-function exportPipeline(){const rows=[];(DB.candidates||[]).forEach(c=>{const p=DB.positions.find(x=>x.id===c.positionId);rows.push([c.name,c.phone,c.email,p?p.title:'',c.stage,c.appliedOn]);});exportCSV('pipeline.csv',['Candidate','Phone','Email','Position','Stage','Applied'],rows);}
+function exportPipeline(){const rows=[];(DB.candidates||[]).forEach(c=>{const p=DB.positions.find(x=>x.id===c.positionId);rows.push([c.name,c.phone,c.email,p?p.title:'',c.source||'',c.currentCtc!=null?c.currentCtc:'',c.expectedCtc!=null?c.expectedCtc:'',c.noticeDays!=null?c.noticeDays:'',c.noticeNeg?'Yes':'',c.stage,c.decision||'',c.rejectionReason||'',c.recruiter||'',c.screeningDate||c.appliedOn,c.cvLink||'']);});exportCSV('pipeline.csv',['Candidate','Phone','Email','Position','Source','Current CTC (LPA)','Expected CTC (LPA)','Notice (days)','Notice nego','Stage','Decision','Rejection reason','Recruiter','Screened on','CV link'],rows);}
 /* ----- payroll / salary sheet ----- */
 function payrollRows(){
   return DB.employees.filter(e=>['active','onboarding','offboarding'].indexOf(e.status)>-1).map(e=>{
