@@ -524,14 +524,15 @@ function dfmt(s){if(!s)return'—';return new Date(s).toLocaleDateString('en-IN'
 
 /* ---------- session & portals ---------- */
 let SES=null; // {role(viewset), label, employeeId}
-const ROLEMETA={employee:{title:'My Portal'},manager:{title:'Manager'},hr:{title:'HR Admin'},recruiter:{title:'Recruitment'},accountant:{title:'Accounts'}};
+const ROLEMETA={employee:{title:'My Portal'},manager:{title:'Manager'},hr:{title:'HR Admin'},recruiter:{title:'Recruitment'},accountant:{title:'Accounts'},ceo:{title:'Leadership'}};
 // The four sign-in portals on the starter page — role-based, no personal names.
 const PORTALS=[
   {key:'employee',label:'Employee',          viewset:'employee', employeeId:'E5',  desc:'Full employee view — pay, leave, advances, growth & team'},
   {key:'employeeSales',label:'Employee · Sales / Support', viewset:'employee', employeeId:'E3', desc:'Roster role — attendance-only (no leave), onboarding, advances'},
   {key:'hrbp',    label:'HRBP',              viewset:'hr',       employeeId:null, desc:'Day-to-day lifecycle · approvals · documents'},
   {key:'gm',      label:'General Manager',   viewset:'hr',       employeeId:null, desc:'Full HR oversight · all records'},
-  {key:'ta',      label:'TA — Talent Acquisition', viewset:'recruiter', employeeId:null, desc:'Positions · candidates · offers'}
+  {key:'ta',      label:'TA — Talent Acquisition', viewset:'recruiter', employeeId:null, desc:'Positions · candidates · offers'},
+  {key:'ceo',     label:'CEO — Leadership',   viewset:'ceo',      employeeId:'E1',  desc:'Read-only company overview · statuses · stats'}
 ];
 
 // establish a session from an hrms_session response + remember it so a refresh stays logged in
@@ -539,9 +540,9 @@ function _establishSession(data,code,pass){
   _saveCreds={code:code,pass:pass};
   try{localStorage.setItem('hrms_sess',JSON.stringify(_saveCreds));}catch(e){}
   hydrateFromSession(data);
-  var me=data.me||{}; var role=data.role,isHr=(role==='super-admin'||role==='hr'||role==='gm'),isRec=(role==='recruiter'),isAcct=(role==='accountant');
-  var vs=isHr?'hr':(isRec?'recruiter':(isAcct?'accountant':'employee'));
-  var label=isHr?('HR Admin · '+(me.name||'')):(isRec?('Recruitment · '+(me.name||'')):(isAcct?('Accounts · '+(me.name||'')):(me.name||'Employee')));
+  var me=data.me||{}; var role=data.role,isHr=(role==='super-admin'||role==='hr'||role==='gm'),isRec=(role==='recruiter'),isAcct=(role==='accountant'),isCeo=(role==='ceo');
+  var vs=isHr?'hr':(isRec?'recruiter':(isAcct?'accountant':(isCeo?'ceo':'employee')));
+  var label=isHr?('HR Admin · '+(me.name||'')):(isRec?('Recruitment · '+(me.name||'')):(isAcct?('Accounts · '+(me.name||'')):(isCeo?('Leadership · '+(me.name||'')):(me.name||'Employee'))));
   startSession({viewset:vs,label:label,employeeId:me.id,realRole:role,name:me.name||'',title:me.desig||''});
 }
 // boot: if a remembered session exists, sign back in automatically (so refresh doesn't log you out)
@@ -609,7 +610,8 @@ const NAVS={
   hr:[['dashboard','Dashboard'],['approvals','Joiners'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['reimburse','Reimbursements'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['addemp','Add employee'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['recanalytics','Recruitment Analytics'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['pipeline','Screening & Pipeline'],['newoffer','New Candidate / Offer'],['recanalytics','Analytics'],['addemp','Add employee'],['offers','My Offers']],
   manager:[['mteam','My Team']],
-  accountant:[['reimburse','Reimbursements']]
+  accountant:[['reimburse','Reimbursements']],
+  ceo:[['overview','Company Overview']]
 };
 const ICONS={
   home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
@@ -633,6 +635,7 @@ const ICONS={
   approvals:'<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>',
   hronboard:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M15 11l2 2 4-4"/>',
   dashboard:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+  overview:'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
   org:'<rect x="9" y="3" width="6" height="5" rx="1"/><rect x="2" y="16" width="6" height="5" rx="1"/><rect x="16" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M5 16v-2h14v2"/>',
   offboarding:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>',
   probation:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
@@ -671,7 +674,7 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&needsOnboarding(emp)&&!emp.onboardingSubmitted)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Screening & Pipeline',recanalytics:'Recruitment Analytics',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',reimburse:'Reimbursements',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'Org Structure',dashboard:'Dashboard',approvals:'Joiners',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Screening & Pipeline',recanalytics:'Recruitment Analytics',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',reimburse:'Reimbursements',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'Org Structure',dashboard:'Dashboard',approvals:'Joiners',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers',overview:'Company Overview'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 /* ===== Analytics — privacy-safe interaction tracking (PostHog) =====
@@ -708,7 +711,7 @@ function go(page,el){
   document.querySelectorAll('.nav-item[data-pg]').forEach(n=>n.classList.toggle('active',n.dataset.pg===page));
   $('topTitle').textContent=TITLES[page]||'';
   const fn={home:vHome,mteam:vMTeam,mydocs:vMyDocs,reports:vReports,attendme:vAttendanceMe,notify:vNotify,holidays:vHolidays,attendance:vAttendanceHR,leaverequests:vLeaveRequests,advances:vAdvances,payroll:vPayroll,roster:vRoster,pipeline:vPipeline,audit:vAudit,onboard:vOnboard,pay:vPay,payslips:vPayslips,reimburse:vReimburse,leave:vLeave,growth:vGrowth,ladder:vLadder,team:vTeam,
-    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,addemp:vAddEmployee,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers,recanalytics:vRecruitAnalytics}[page];
+    dashboard:vDashboard,approvals:vApprovals,hronboard:vHrOnboard,board:vBoard,directory:vDirectory,addemp:vAddEmployee,org:vOrg,probation:vProbation,offboarding:vOffboarding,assets:vAssets,warnings:vWarnings,settings:vSettings,hrdocs:vHrDocs,positions:vPositions,newoffer:vNewOffer,offers:vOffers,recanalytics:vRecruitAnalytics,overview:vCeoOverview}[page];
   if(fn)fn();window.scrollTo(0,0);
   track('page_view',{page:page});
 }
@@ -720,9 +723,12 @@ function vHome(){
   const emp=empById(SES.employeeId),t=tenure(emp.doj);
   const off=offerForEmp(emp.id),mgr=emp.managerId?empById(emp.managerId):null;
   const docsLeft=docsForEmp(emp.id).filter(d=>d.status!=='verified').length;
+  // Exit is a sensitive topic — keep an employee's own exit/transition details hidden unless they opt to view (a private, on-device choice).
+  const inExit=(emp.status==='offboarding'||emp.status==='exited');
+  const exitPref=(function(){try{return localStorage.getItem('exitView_'+emp.id)==='1';}catch(e){return false;}})();
   $('view').innerHTML=`
    <div><h1 class="page">Welcome back, ${esc(emp.name.split(' ')[0])} 👋</h1><p class="page-sub">${esc(emp.desig)} · ${esc(emp.dept)} · ${esc(emp.code)}</p></div>
-   ${attnStrip([(needsOnboarding(emp)&&!emp.onboardingSubmitted)?'Complete your onboarding form':null,(needsOnboarding(emp)&&emp.onboardingSubmitted)?'Onboarding submitted — awaiting HR verification':null,onProbation(emp)?'You are on probation — check your objectives':null,emp.status==='offboarding'?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
+   ${attnStrip([(needsOnboarding(emp)&&!emp.onboardingSubmitted)?'Complete your onboarding form':null,(needsOnboarding(emp)&&emp.onboardingSubmitted)?'Onboarding submitted — awaiting HR verification':null,onProbation(emp)?'You are on probation — check your objectives':null,(emp.status==='offboarding'&&exitPref)?'You are serving your notice period':null,warningsForEmp(emp.id).length?'You have a disciplinary letter on record — see My Documents':null])}
    <div class="stats">
      <div class="stat"><div class="k">Time at IncrediPets</div><div class="v">${t.y}<small>y</small> ${t.mo}<small>m</small> ${t.d}<small>d</small></div><div class="sub">Joined ${dfmt(emp.doj)}</div></div>
      <div class="stat"><div class="k">Current level</div><div class="v">${esc(emp.level)}</div><div class="sub">${esc(emp.desig)}</div></div>
@@ -741,10 +747,13 @@ function vHome(){
        ${(emp.probationGoals&&emp.probationGoals.length)?emp.probationGoals.map(g=>`<div class="req"><span class="ck ${g.done?'ok':'no'}">${g.done?'✓':'•'}</span>${esc(g.text)}</div>`).join(''):'<div class="small muted">Your manager will set your objectives shortly.</div>'}
      </div>
    </div>`;})():''}
-   ${emp.status==='offboarding'?(function(){const ob=emp.offboarding||{},nd=ob.lastDay?Math.ceil((new Date(ob.lastDay)-new Date())/86400000):null;return `<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)">
-     <div class="sec-h"><div class="si">!</div><h2>You're serving notice</h2></div>
-     <p class="small muted">Your exit (${esc(ob.reason||'—')}) is in progress. Last working day: <b>${dfmt(ob.lastDay)}</b>${nd!=null&&nd>0?` · ${nd} day${nd===1?'':'s'} left`:''}. If this is a mistake, contact HR to withdraw it.</p>
-   </div>`;})():''}
+   ${inExit?(function(){const ob=emp.offboarding||{},nd=ob.lastDay?Math.ceil((new Date(ob.lastDay)-new Date())/86400000):null;
+     const toggle=`<div class="card card-pad"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div class="small muted">Private — your ${emp.status==='exited'?'exit':'transition'} details are ${exitPref?'shown below':'hidden'}. Only you can see this.</div><button class="btn btn-ghost btn-sm" onclick="toggleExitView('${emp.id}')">${exitPref?'Hide':'Show'}</button></div></div>`;
+     const detail=exitPref?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)">
+       <div class="sec-h"><div class="si">!</div><h2>${emp.status==='exited'?'Your exit record':"You're serving notice"}</h2></div>
+       <p class="small muted">Your exit (${esc(ob.reason||'—')}) ${emp.status==='exited'?'is complete':'is in progress'}. Last working day: <b>${dfmt(ob.lastDay)}</b>${(emp.status==='offboarding'&&nd!=null&&nd>0)?` · ${nd} day${nd===1?'':'s'} left`:''}. If anything looks wrong, please contact HR.</p>
+     </div>`:'';
+     return toggle+detail;})():''}
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.home}</svg></div><h2>Quick view</h2></div>
      <div class="info-grid">
@@ -753,7 +762,7 @@ function vHome(){
        <div class="info-cell"><div class="k">Location</div><div class="v">${esc(emp.location)}</div></div>
        <div class="info-cell"><div class="k">Work email</div><div class="v" style="font-size:13px">${esc(emp.email)}</div></div>
        ${(function(){var cp=compForEmp(emp);return `<div class="info-cell"><div class="k">Annual CTC</div><div class="v num">${cp?fmt(cp.ctc):'—'}</div></div>`;})()}
-       <div class="info-cell"><div class="k">Status</div><div class="v"><span class="pill ${emp.status}">${esc(emp.status)}</span></div></div>
+       <div class="info-cell"><div class="k">Status</div><div class="v">${(inExit&&!exitPref)?'<span class="small muted">Private</span>':`<span class="pill ${emp.status}">${esc(emp.status)}</span>`}</div></div>
      </div>
    </div>
    ${(emp.tempPassword&&!emp.passwordSet)?`<div class="card card-pad" style="border-color:var(--amber-rule);background:var(--amber-bg)"><div class="sec-h"><div class="si">!</div><h2>Set your password</h2></div><p class="small muted" style="margin-bottom:10px">You're using a temporary password — please set your own.</p><button class="btn btn-primary btn-sm" onclick="setNewPassword()">Set new password</button></div>`:''}
@@ -1747,12 +1756,17 @@ function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){if(LI
 const EXIT_TASKS=[['handover','Knowledge transfer / handover'],['assets','Company assets returned'],['exitInterview','Exit interview completed'],['access','System access revoked'],['fnf','Full & final settlement'],['relieving','Relieving & experience letter issued']];
 function offboardCardHTML(e,id){
   if(e.status==='active'){
+    const d30=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
     return `<div class="card card-pad">
       <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.offboarding}</svg></div><h2>Offboarding &amp; Exit</h2></div>
       <div class="grid2">
+        <div class="field"><label>Exit type</label><select id="off_type" onchange="offType('${id}')"><option value="notice">Notice period</option><option value="immediate">Immediate termination</option><option value="custom">Custom arrangement</option></select></div>
         <div class="field"><label>Reason</label><select id="off_reason"><option>Resignation</option><option>Termination</option><option>End of contract</option><option>Retirement</option></select></div>
-        <div class="field"><label>Last working day</label><input id="off_lastday" type="date"></div>
+        <div class="field" id="off_daysWrap"><label>Notice (days)</label><input id="off_days" type="number" min="0" value="30" oninput="offType('${id}')"></div>
+        <div class="field"><label>Last working day</label><input id="off_lastday" type="date" value="${d30}"></div>
       </div>
+      <div class="field" id="off_noteWrap" style="display:none"><label>Arrangement note (optional)</label><input id="off_note" placeholder="e.g. serving 2 weeks · garden leave · payment in lieu"></div>
+      <p class="small muted" style="margin:2px 0 0">Notice fills the last working day automatically (default 30 days); immediate sets today; custom lets you set any period. The last working day can always be edited.</p>
       <div style="margin-top:14px"><button class="btn btn-ghost" onclick="initiateOffboard('${id}')">Start offboarding</button></div>
     </div>`;
   }
@@ -1760,7 +1774,7 @@ function offboardCardHTML(e,id){
     const ob=e.offboarding||{tasks:{}},done=EXIT_TASKS.filter(t=>ob.tasks&&ob.tasks[t[0]]).length,pct=Math.round(done/EXIT_TASKS.length*100),ndays=ob.lastDay?Math.ceil((new Date(ob.lastDay)-new Date())/86400000):null;
     return `<div class="card card-pad">
       <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.offboarding}</svg></div><h2>Offboarding &amp; Exit</h2><span class="pill offboarding" style="margin-left:auto">On notice</span></div>
-      <p class="small muted" style="margin-bottom:10px">Reason: <b>${esc(ob.reason||'—')}</b> · Last working day: <b>${dfmt(ob.lastDay)}</b>${ndays!=null?` · <b>${ndays>0?ndays+' day'+(ndays===1?'':'s')+' left on notice':(ndays===0?'last day is today':'past last day')}</b>`:''}</p>
+      <p class="small muted" style="margin-bottom:10px">Type: <b>${exitTypeLabel(ob.exitType)}</b> · Reason: <b>${esc(ob.reason||'—')}</b> · Last working day: <b>${dfmt(ob.lastDay)}</b>${ndays!=null?` · <b>${ndays>0?ndays+' day'+(ndays===1?'':'s')+' left on notice':(ndays===0?'last day is today':'past last day')}</b>`:''}${ob.note?` · <span class="muted">${esc(ob.note)}</span>`:''}</p>
       <div class="bar" style="margin-bottom:14px"><i style="width:${pct}%"></i></div>
       ${exitClearanceHTML(id)}
       ${EXIT_TASKS.map(t=>`<label style="display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--rule);cursor:pointer"><input type="checkbox" ${ob.tasks&&ob.tasks[t[0]]?'checked':''} onchange="toggleExitTask('${id}','${t[0]}')"><span class="small">${esc(t[1])}</span></label>`).join('')}
@@ -1773,7 +1787,30 @@ function offboardCardHTML(e,id){
   }
   return '';
 }
-function initiateOffboard(id){const e=empById(id),reason=($('off_reason')||{}).value||'Resignation',lastDay=($('off_lastday')||{}).value;if(!lastDay){toast('Set a last working day');return;}e.status='offboarding';e.offboarding={reason:reason,lastDay:lastDay,initiatedAt:new Date().toISOString().slice(0,10),tasks:{}};save();toast('Offboarding started for '+e.name);buildNav&&0;renderEmp360(id);}
+const EXIT_TYPE_LABELS={notice:'Notice period',immediate:'Immediate termination',custom:'Custom arrangement'};
+function exitTypeLabel(t){return EXIT_TYPE_LABELS[t]||'Notice period';}
+// Live-recompute the last working day as the exit type / notice days change in the offboard form
+function offType(id){
+  var t=($('off_type')||{}).value||'notice',dw=$('off_daysWrap'),nw=$('off_noteWrap'),days=$('off_days'),ld=$('off_lastday');
+  if(t==='immediate'){ if(dw)dw.style.display='none'; if(nw)nw.style.display='none'; if(ld)ld.value=new Date().toISOString().slice(0,10); return; }
+  if(dw)dw.style.display=''; if(nw)nw.style.display=(t==='custom'?'':'none');
+  var n=parseInt((days||{}).value,10); if(isNaN(n)||n<0)n=30;
+  if(ld)ld.value=new Date(Date.now()+n*86400000).toISOString().slice(0,10);
+}
+function initiateOffboard(id){
+  const e=empById(id);
+  const type=($('off_type')||{}).value||'notice';
+  const reason=($('off_reason')||{}).value||'Resignation';
+  const days=parseInt(($('off_days')||{}).value,10);
+  const note=(($('off_note')||{}).value||'').trim();
+  let lastDay=($('off_lastday')||{}).value;
+  if(type==='immediate')lastDay=new Date().toISOString().slice(0,10);
+  if(!lastDay){toast('Set a last working day');return;}
+  e.status='offboarding';
+  e.offboarding={reason:reason,lastDay:lastDay,exitType:type,noticeDays:(type==='immediate'?0:(isNaN(days)?null:days)),note:note||null,initiatedAt:new Date().toISOString().slice(0,10),tasks:{}};
+  save();audit('Offboarding initiated for '+e.name+' — '+exitTypeLabel(type)+', last day '+lastDay);
+  toast('Offboarding started for '+e.name);renderEmp360(id);
+}
 function toggleExitTask(id,key){const e=empById(id);if(!e.offboarding)return;e.offboarding.tasks=e.offboarding.tasks||{};e.offboarding.tasks[key]=!e.offboarding.tasks[key];save();renderEmp360(id);}
 function completeExit(id){const e=empById(id);if(!confirm('Mark '+e.name+' as exited? This closes their lifecycle.'))return;e.status='exited';save();toast(e.name+' marked as exited');renderEmp360(id);}
 function withdrawExit(id){const e=empById(id);if(!confirm("Withdraw "+e.name+"'s exit and restore them as active?"))return;e.status='active';e.offboarding=null;save();toast(e.name+"'s exit withdrawn — back to active");renderEmp360(id);}
@@ -2144,6 +2181,8 @@ function editMyDetails(){
    <div class="lock-row" style="margin-top:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:14px;height:14px"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Updates are visible to your HR team.</div></div>`;
 }
 function saveMyDetails(){const emp=empById(SES.employeeId),g=id=>($(id)&&$(id).value||'').trim();emp.phone=g('md_phone');const d=emp.onboardingData=emp.onboardingData||{};d.personalMail=g('md_pmail');d.officialMail=g('md_omail');d.address=g('md_addr');d.emergencyName=g('md_ecn');d.emergencyPhone=g('md_ecp');d.nominee=g('md_nom');d.bloodGroup=g('md_blood');if(g('md_omail'))emp.email=g('md_omail');save();toast('Details updated');go('home',document.querySelector('[data-pg=home]'));}
+// Employee's private, on-device choice to reveal/hide their own exit details (sensitive — off by default, never persisted to the server).
+function toggleExitView(id){try{var k='exitView_'+id;if(localStorage.getItem(k)==='1')localStorage.removeItem(k);else localStorage.setItem(k,'1');}catch(e){}vHome();}
 function employeeResign(){const emp=empById(SES.employeeId);const reason=prompt('Reason for leaving','Resignation');if(!reason)return;const lastDay=prompt('Your intended last working day (YYYY-MM-DD)','');if(!lastDay)return;emp.status='offboarding';emp.offboarding={reason:reason.trim(),lastDay:lastDay.trim(),initiatedAt:new Date().toISOString().slice(0,10),tasks:{},selfInitiated:true};save();toast('Resignation submitted — HR has been notified');buildNav();go('home');}
 function vReports(){
   const emps=DB.employees;
@@ -2181,6 +2220,7 @@ function vReports(){
        <div class="stat"><div class="k">Left ≤ 3 months</div><div class="v num">${bk.q}</div></div>
      </div>
    </div>
+   ${exitStatsHTML()}
    <div class="grid2">
      <div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.offboarding}</svg></div><h2>Attrition — reasons for leaving</h2></div>
        ${exited.length?distRows(exitReasons)+`<p class="small muted" style="margin-top:8px">${exited.length} exit(s) on record · ${rejoinYes} would consider rejoining.</p>`:'<div class="empty">No exits recorded yet.</div>'}</div>
@@ -2546,6 +2586,98 @@ function recMonthly(n){
 }
 function setRecPeriod(k){_recPeriod=k;vRecruitAnalytics();}
 function dlRecActivity(){exportCSV('recruitment-activity-monthly.csv',['Month','Vacancies opened','Offer letters issued','Onboarded','Drop-offs','Drop-off %'],recMonthly(12).map(function(r){return [r.label,r.vac,r.issued,r.onboarded,r.dropped,r.rate==null?'':r.rate];}));}
+/* ----- exit / attrition activity over time (how many exited per month / year / chosen period) ----- */
+let _exitPeriod='year';
+function exitDate(e){return (e.offboarding&&(e.offboarding.lastDay||e.offboarding.initiatedAt))||null;}
+function exitActivity(r){
+  var ex=(DB.employees||[]).filter(function(e){return e.status==='exited'&&_inRange(exitDate(e),r);});
+  var invol=ex.filter(function(e){return /termination/i.test((e.offboarding&&e.offboarding.reason)||'')||((e.offboarding&&e.offboarding.exitType)==='immediate');}).length;
+  var reasons={},depts={};
+  ex.forEach(function(e){var rs=(e.exitInterview&&e.exitInterview.primaryReason)||(e.offboarding&&e.offboarding.reason)||'Unspecified';reasons[rs]=(reasons[rs]||0)+1;depts[e.dept||'—']=(depts[e.dept||'—']||0)+1;});
+  return {count:ex.length,vol:ex.length-invol,invol:invol,reasons:reasons,depts:depts,list:ex};
+}
+function exitMonthly(n){
+  var now=new Date(),out=[];
+  for(var i=n-1;i>=0;i--){var dt=new Date(now.getFullYear(),now.getMonth()-i,1),ym=ymOf(dt);
+    var c=(DB.employees||[]).filter(function(e){return e.status==='exited'&&(exitDate(e)||'').slice(0,7)===ym;}).length;
+    out.push({label:dt.toLocaleDateString('en-IN',{month:'short',year:'2-digit'}),exits:c});}
+  return out;
+}
+function setExitPeriod(k){_exitPeriod=k;(SES&&SES.role==='ceo'?vCeoOverview:vReports)();}
+function dlExitStats(){exportCSV('exit-stats-monthly.csv',['Month','Exits'],exitMonthly(12).map(function(r){return [r.label,r.exits];}));}
+function exitStatsHTML(){
+  var r=recRange(_exitPeriod),a=exitActivity(r),mon=exitMonthly(6),onNotice=(DB.employees||[]).filter(function(e){return e.status==='offboarding';}).length;
+  var pb=function(k,l){return '<button class="btn '+(_exitPeriod===k?'btn-primary':'btn-ghost')+' btn-sm" onclick="setExitPeriod(\''+k+'\')">'+l+'</button>';};
+  var card=function(k,v,sub,col){return '<div class="stat"><div class="k">'+k+'</div><div class="v num"'+(col?' style="color:'+col+'"':'')+'>'+v+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';};
+  return '<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.offboarding+'</svg></div><h2>Exits over time</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="dlExitStats()">Download (CSV)</button></div>'
+   +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">'+pb('month','This month')+pb('lastmonth','Last month')+pb('quarter','This quarter')+pb('year','This year')+pb('all','All time')+'</div>'
+   +'<div class="row" style="gap:12px;flex-wrap:wrap">'+card('Exits',a.count,r.label)+card('Voluntary',a.vol,'resignation etc.')+card('Involuntary',a.invol,'termination',a.invol?'#E24B4A':'inherit')+card('On notice now',onNotice,'in progress',onNotice?'#BA7517':'inherit')+'</div>'
+   +'<table class="list" style="margin-top:14px"><tr><th>Month</th><th class="num">Exits</th></tr>'+mon.map(function(m){return '<tr><td>'+m.label+'</td><td class="num">'+m.exits+'</td></tr>';}).join('')+'</table>'
+   +(Object.keys(a.reasons).length?'<div style="margin-top:14px"><b class="small" style="display:block;margin-bottom:6px">By reason ('+r.label+')</b>'+distRows(a.reasons)+'</div>':'')
+   +'<p class="small muted" style="margin:8px 0 0">Exits counted by last working day in the selected period. Voluntary = anything other than a termination / immediate exit.</p></div>';
+}
+/* ===== CEO / Leadership — read-only company overview + employee lookup (no comp shown) ===== */
+function ceoEmpCard(id){
+  var e=empById(id);if(!e)return '';
+  var mgr=e.managerId?empById(e.managerId):null,t=tenure(e.doj),ob=e.offboarding||{};
+  var extra='';
+  if(e.status==='offboarding')extra='<div class="small" style="margin-top:8px;color:#BA7517">Serving notice — '+exitTypeLabel(ob.exitType).toLowerCase()+', last day '+dfmt(ob.lastDay)+(ob.reason?' · '+esc(ob.reason):'')+'</div>';
+  else if(e.status==='exited')extra='<div class="small muted" style="margin-top:8px">Exited '+dfmt(ob.lastDay)+(ob.reason?' · '+esc(ob.reason):'')+'</div>';
+  else if(needsOnboarding(e))extra='<div class="small" style="margin-top:8px;color:#2E9D52">Onboarding in progress</div>';
+  else if(onProbation(e))extra='<div class="small muted" style="margin-top:8px">On probation — confirmation review due '+dfmt(probationInfo(e).due)+'</div>';
+  return '<div class="card card-pad" style="margin-top:10px"><div style="display:flex;align-items:center;gap:11px"><div class="avatar sm">'+initials(e.name)+'</div><div><b style="font-size:15px">'+esc(e.name)+'</b> <span class="pill '+e.status+'">'+esc(e.status)+'</span><div class="small muted">'+esc(e.desig)+' · '+esc(e.dept)+' · '+esc(e.code)+'</div></div></div>'
+   +'<div class="info-grid" style="margin-top:12px"><div class="info-cell"><div class="k">Level</div><div class="v">'+esc(e.level||'—')+'</div></div><div class="info-cell"><div class="k">Location</div><div class="v">'+esc(e.location||'—')+'</div></div><div class="info-cell"><div class="k">Reporting to</div><div class="v">'+esc(mgr?mgr.name:'—')+'</div></div><div class="info-cell"><div class="k">Tenure</div><div class="v">'+t.y+'y '+t.mo+'m</div></div><div class="info-cell"><div class="k">Joined</div><div class="v">'+dfmt(e.doj)+'</div></div></div>'+extra+'</div>';
+}
+function ceoLookup(){
+  var box=$('ceoResult');if(!box)return;
+  var q=(($('ceoSearch')||{}).value||'').trim().toLowerCase();
+  if(!q){box.innerHTML='<div class="small muted" style="padding:10px 2px 2px">Type a name or employee number to view that person and what’s happening with them.</div>';return;}
+  var m=(DB.employees||[]).filter(function(e){return (e.name||'').toLowerCase().indexOf(q)>-1||(e.code||'').toLowerCase().indexOf(q)>-1;}).slice(0,8);
+  if(!m.length){box.innerHTML='<div class="empty" style="margin-top:8px">No match for “'+esc(q)+'”.</div>';return;}
+  if(m.length===1){box.innerHTML=ceoEmpCard(m[0].id);return;}
+  box.innerHTML='<div class="card" style="margin-top:8px"><table class="list">'+m.map(function(e){return '<tr class="click" onclick="ceoOpen(\''+e.id+'\')"><td><b>'+esc(e.name)+'</b><div class="small muted">'+esc(e.code)+' · '+esc(e.desig)+'</div></td><td><span class="pill '+e.status+'">'+esc(e.status)+'</span></td></tr>';}).join('')+'</table></div>';
+}
+function ceoOpen(id){var box=$('ceoResult');if(box)box.innerHTML='<div style="margin-top:8px"><button class="btn btn-ghost btn-sm" onclick="ceoLookup()">← Back to results</button></div>'+ceoEmpCard(id);}
+function ceoFind(code){var s=$('ceoSearch');if(s)s.value=code;ceoLookup();window.scrollTo(0,0);}
+function vCeoOverview(){
+  var emps=DB.employees||[];
+  var active=emps.filter(function(e){return e.status==='active';}).length;
+  var onboarding=emps.filter(function(e){return e.status==='onboarding'||e.status==='offered';}).length;
+  var onNotice=emps.filter(function(e){return e.status==='offboarding';}).length;
+  var exited=emps.filter(function(e){return e.status==='exited';}).length;
+  var depts={},levels={};emps.filter(function(e){return e.status==='active'||e.status==='offboarding';}).forEach(function(e){depts[e.dept||'—']=(depts[e.dept||'—']||0)+1;levels[e.level||'—']=(levels[e.level||'—']||0)+1;});
+  var leaving=emps.filter(function(e){return e.status==='offboarding';});
+  var _ra=recActivity(recRange('month')),_rmon=recMonthly(6);
+  $('view').innerHTML=
+   '<div><h1 class="page">Company Overview</h1><p class="page-sub">Live snapshot of the team — who’s here, joining and leaving. Read-only.</p></div>'
+   +'<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.directory+'</svg></div><h2>Look up an employee</h2></div>'
+     +'<input id="ceoSearch" oninput="ceoLookup()" placeholder="Type a name or employee number…" style="width:100%;padding:10px 12px;border:1px solid var(--rule);border-radius:10px;font-size:14px">'
+     +'<div id="ceoResult"></div></div>'
+   +'<div class="stats" style="margin-top:14px">'
+     +'<div class="stat"><div class="k">Active</div><div class="v num">'+active+'</div></div>'
+     +'<div class="stat"><div class="k">Onboarding</div><div class="v num">'+onboarding+'</div><div class="sub">joining / in progress</div></div>'
+     +'<div class="stat"><div class="k">Exiting (on notice)</div><div class="v num"'+(onNotice?' style="color:#BA7517"':'')+'>'+onNotice+'</div></div>'
+     +'<div class="stat"><div class="k">Exited (total)</div><div class="v num">'+exited+'</div></div>'
+   +'</div>'
+   +'<div class="card card-pad" style="margin-top:14px"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.offboarding+'</svg></div><h2>Currently exiting</h2></div>'
+     +(leaving.length?leaving.map(function(e){var ob=e.offboarding||{};return '<div class="bl click" onclick="ceoFind(\''+e.code+'\')"><span><b>'+esc(e.name)+'</b> <span class="muted">'+esc(e.dept||'')+'</span></span><span class="small muted">'+exitTypeLabel(ob.exitType).toLowerCase()+' · last day '+dfmt(ob.lastDay)+'</span></div>';}).join(''):'<div class="empty">No one is on notice right now.</div>')
+   +'</div>'
+   +'<div class="grid2" style="margin-top:14px">'
+     +'<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.directory+'</svg></div><h2>By department</h2></div>'+distRows(depts)+'</div>'
+     +'<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.ladder+'</svg></div><h2>By level</h2></div>'+distRows(levels)+'</div>'
+   +'</div>'
+   +'<div style="margin-top:14px">'+exitStatsHTML()+'</div>'
+   +'<div class="card card-pad" style="margin-top:14px"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.growth+'</svg></div><h2>Recruitment activity</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="dlRecActivity()">Download (CSV)</button></div>'
+     +'<div class="row" style="gap:12px;flex-wrap:wrap">'
+       +'<div class="stat"><div class="k">Vacancies opened</div><div class="v num">'+_ra.vac+'</div><div class="sub">this month</div></div>'
+       +'<div class="stat"><div class="k">Offers issued</div><div class="v num">'+_ra.issued+'</div><div class="sub">this month</div></div>'
+       +'<div class="stat"><div class="k">Onboarded</div><div class="v num">'+_ra.onboarded+'</div><div class="sub">this month</div></div>'
+       +'<div class="stat"><div class="k">Drop-offs</div><div class="v num">'+_ra.dropped+'</div><div class="sub">this month</div></div>'
+     +'</div>'
+     +'<table class="list" style="margin-top:14px"><tr><th>Month</th><th class="num">Vacancies</th><th class="num">Offers</th><th class="num">Onboarded</th><th class="num">Drop-offs</th></tr>'+_rmon.map(function(r){return '<tr><td>'+r.label+'</td><td class="num">'+r.vac+'</td><td class="num">'+r.issued+'</td><td class="num">'+r.onboarded+'</td><td class="num">'+r.dropped+'</td></tr>';}).join('')+'</table>'
+     +'<p class="small muted" style="margin:8px 0 0">More leadership reports will be added here as we build them out.</p></div>';
+  ceoLookup();
+}
 function vRecruitAnalytics(){
   var m=recruitMetrics();
   var _rr=recRange(_recPeriod), _ra=recActivity(_rr), _rmon=recMonthly(6);
