@@ -1153,7 +1153,7 @@ function offerTDS(annualGross){
 // i.e. PF is mandatory when basic<=15000 (statutory), otherwise driven by the Yes/No choice.
 function offerPfApplies(basic,pfHistory,pfPref){ if(basic<=15000) return true; if(pfHistory==='Yes') return true; if(pfPref==='Opt-in') return true; return false; }
 function calcOffer(gross,pfHistory,pfPref){
-  gross=Math.round(+gross||0);
+  gross=(+gross||0); // use the gross exactly as entered (the sheet uses the raw $B$3 everywhere — no pre-rounding)
   var basic=Math.round(gross*0.62), hra=Math.round(basic*0.5), spl=gross-basic-hra;
   var pfYes=offerPfApplies(basic,pfHistory,pfPref); var pfBasic=Math.min(basic,15000);
   var empPf=pfYes?Math.round(pfBasic*0.12):0; var esiYes=gross>0&&gross<=21000;
