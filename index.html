@@ -1563,16 +1563,44 @@ function vApprovals(){
    ${dropped.length?`<div class="small muted" style="margin-top:16px">Drop-offs (no-shows) saved for analytics: <b>${dropped.length}</b></div>`:''}`;
 }
 function genPassword(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let p='';for(let i=0;i<8;i++)p+=c.charAt(Math.floor(Math.random()*c.length));return p;}
-function approveOffer(id){
+async function liveCreateLogin(e,pass){
+  // Ensure the Supabase login exists with this temp password. Try create (insert+temp); if the row
+  // already exists (persisted at Accept), fall back to setting the temp password on the existing row.
+  try{
+    const payload={id:e.id,code:e.code,name:e.name,desig:e.desig,dept:e.dept,level:e.level,location:e.location||null,doj:e.doj||null,manager_id:e.managerId||null,manager_name:(e.managerId?((empById(e.managerId)||{}).name||null):null),phone:e.phone||null,email:e.email||null,personal_email:e.personalEmail||null,status:e.status,onboarded:false};
+    const cr=await sb.rpc('hrms_admin_create_employee',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_emp:payload,p_temp:pass});
+    if(cr.error||!(cr.data&&cr.data.ok)){
+      const st=await sb.rpc('hrms_admin_set_temp',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_target:e.code,p_temp:pass});
+      if(st.error||!(st.data&&st.data.ok)) toast('Profile saved, but setting the live password failed — use “Re-issue password” in their profile');
+    }
+  }catch(err){ toast('Could not set the live login password — use “Re-issue password” in their profile'); }
+}
+async function reissuePassword(id){
+  const e=empById(id);if(!e)return;
+  if(!confirm('Generate a new temporary password for '+e.name+'?\nAny existing password stops working. You will get the new one to pass on.'))return;
+  const pass=genPassword();
+  if(LIVE&&sb){
+    try{ const st=await sb.rpc('hrms_admin_set_temp',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_target:e.code,p_temp:pass});
+      if(st.error||!(st.data&&st.data.ok)){ toast('Could not set the password — check connection and try again'); return; } }
+    catch(err){ toast('Could not set the password — check connection and try again'); return; }
+  }
+  const u=DB.users.find(x=>x.employeeId===e.id); if(u)u.pass=pass;
+  e.tempPassword=pass;e.passwordSet=false;e.mustChange=true;
+  save(); audit('Re-issued temporary password for '+e.name+' ('+e.code+')');
+  showCredsModal(e.name,e.code,pass,false);
+  renderEmp360(id);
+}
+async function approveOffer(id){
   const o=DB.offers.find(x=>x.id===id);if(!o)return;
   o.status='accepted';o.approvedBy=(SES&&SES.label)||'HR';
   const e=empById(o.employeeId);if(e){e.status='onboarding';
-    const pass=genPassword();e.loginCode=e.code;e.tempPassword=pass;
+    const pass=genPassword();e.loginCode=e.code;e.tempPassword=pass;e.passwordSet=false;e.mustChange=true;
     if(!DB.users.find(u=>u.email===e.email)&&e.email){DB.users.push({email:e.email.toLowerCase(),pass:pass,role:'employee',employeeId:e.id});}
     if(!docsForEmp(e.id).length){DB.docTypes.forEach((t,i)=>DB.documents.push({id:'D'+e.id+'_'+i,employeeId:e.id,type:t,status:'requested',fileName:null,uploadedAt:null}));}
     _acceptCred={name:e.name,login:e.code,password:pass};
+    if(LIVE&&sb){ await liveCreateLogin(e,pass); }  // persist the login + temp password to Supabase so the joiner can actually sign in
   }
-  save();if(LIVE&&sb)liveOfferSave();toast('Accepted — login created for '+(e?e.name:''));buildNav();vApprovals();
+  save();if(LIVE&&sb)liveOfferSave();toast('Onboarding started — login created for '+(e?e.name:''));buildNav();vApprovals();
 }
 function acceptOffer(id){const o=DB.offers.find(x=>x.id===id);if(!o)return;o.status='awaiting_joining';o.approvedBy=(SES&&SES.label)||'HR';save();if(LIVE&&sb)liveOfferSave();audit('Accepted offer — '+((empById(o.employeeId)||{}).name||''));toast('Accepted — moved to “Awaiting joining”');buildNav();vApprovals();}
 function dropOffer(id){const o=DB.offers.find(x=>x.id===id);if(!o)return;const e=empById(o.employeeId);if(!confirm('Mark '+((e&&e.name)||'this candidate')+' as a no-show / drop-off?\n\nThis is saved for analytics. They won’t be onboarded unless you re-add them.'))return;o.status='dropped';if(e)e.status='dropped';save();if(LIVE&&sb)liveOfferSave();audit('Drop-off (no-show) — '+((e&&e.name)||''));toast('Marked drop-off — saved for analytics');buildNav();vApprovals();}
@@ -1670,6 +1698,16 @@ async function renderEmp360(id){
      <div class="info-cell"><div class="k">Reporting to</div><div class="v" style="font-size:13px">${mgr?esc(mgr.name):'—'}</div></div>
      <div class="info-cell"><div class="k">Phone</div><div class="v" style="font-size:13px">${esc(e.phone||'—')}</div></div>
      <div class="info-cell"><div class="k">Work email</div><div class="v" style="font-size:13px">${esc(e.email||'—')}</div></div>
+   </div>
+   <div class="card card-pad">
+     <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><h2>Login &amp; access</h2></div>
+     <div class="info-grid">
+       <div class="info-cell"><div class="k">Login (employee number)</div><div class="v">${esc(e.code)}</div></div>
+       <div class="info-cell"><div class="k">Work email</div><div class="v" style="font-size:13px">${esc(e.email||'—')}</div></div>
+       ${(e.tempPassword&&!e.passwordSet)?`<div class="info-cell"><div class="k">Temporary password</div><div class="v" style="font-family:ui-monospace,Menlo,Consolas,monospace">${esc(e.tempPassword)}</div></div>`:`<div class="info-cell"><div class="k">Password</div><div class="v" style="font-size:13px">${e.passwordSet?'Set by employee':'Use “Re-issue” to share'}</div></div>`}
+     </div>
+     <p class="small muted" style="margin-top:8px">${e.passwordSet?'The employee has set their own password — re-issue only if they are locked out.':'Share the login number + temporary password with the employee. They set their own on first sign-in.'}</p>
+     <div style="margin-top:10px"><button class="btn btn-green btn-sm" onclick="reissuePassword('${id}')">Re-issue temporary password</button></div>
    </div>
    <div class="card card-pad">
      <div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">${ICONS.pay}</svg></div><h2>Compensation</h2></div>
