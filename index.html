@@ -1411,8 +1411,7 @@ function vNewOffer(){
        <p class="small muted" style="margin:0 0 10px">Enter the <b>monthly gross</b> — basic, HRA, deductions, net in-hand and the annual CTC are all calculated from it.</p>
        <div class="grid2">
          <div class="field"><label>Monthly Gross (₹)</label><input id="f_gross" type="number" placeholder="35000" oninput="liveBreakup()"></div>
-         <div class="field"><label>Previous PF history?</label><select id="f_pfhist" onchange="liveBreakup()"><option>Yes</option><option>No</option></select></div>
-         <div class="field"><label>If no PF history — preference</label><select id="f_pfpref" onchange="liveBreakup()"><option>Opt-out</option><option>Opt-in</option></select></div>
+         <div class="field"><label>PF deduction</label><select id="f_pf" onchange="liveBreakup()"><option value="Yes">Yes — deduct PF</option><option value="No">No — no PF deduction</option></select></div>
        </div>
      </div>
      <div id="intComp" style="display:none;margin-top:10px">
@@ -1470,8 +1469,10 @@ function liveBreakup(){
   }
   const gross=+(($('f_gross')||{}).value)||0;
   if(!gross){b.innerHTML='<h4>Salary break-up</h4><div class="small muted">Enter monthly gross to see the full split.</div>';return;}
-  const hist=(($('f_pfhist')||{}).value)||'Yes',pref=(($('f_pfpref')||{}).value)||'Opt-out';
+  const pfChoice=(($('f_pf')||{}).value)||'Yes';
+  const hist=pfChoice==='Yes'?'Yes':'No',pref=pfChoice==='Yes'?'Opt-in':'Opt-out';
   const c=calcOffer(gross,hist,pref);
+  const pfNote=(pfChoice==='No'&&c.empPf>0)?'<div class="bl"><span class="small muted">PF is statutory at this salary (basic ≤ ₹15,000) — it applies even with PF deduction set to No.</span></div>':'';
   let bandNote='';
   if(_offerBand){const mn=_offerBand[0],mx=_offerBand[1],a=c.ctcA;if(mn&&a<mn)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">CTC below the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else if(mx&&a>mx)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">CTC above the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else bandNote='<div class="bl"><span class="small" style="color:var(--green);font-weight:700">CTC within the level band ✓</span></div>';}
   b.innerHTML=`<h4>Salary break-up (from monthly gross)</h4>
@@ -1485,7 +1486,7 @@ function liveBreakup(){
    <div class="bl"><span>− TDS (est.)</span><span class="num">${c.tds?fmt(c.tds):'—'}</span></div>
    <div class="bl tot"><span>Net in-hand</span><span class="num">${fmt(c.net)}</span></div>
    <div class="bl"><span>Employer PF + ESI + Gratuity</span><span class="num">${fmt(c.erPf+c.erEsi+c.grat)}</span></div>
-   <div class="bl tot"><span>Total CTC (annual)</span><span class="num">${fmt(c.ctcA)}</span></div>${bandNote}`;
+   <div class="bl tot"><span>Total CTC (annual)</span><span class="num">${fmt(c.ctcA)}</span></div>${bandNote}${pfNote}`;
 }
 function genOffer(){
   const g=id=>$(id).value;
@@ -1493,7 +1494,7 @@ function genOffer(){
   _letterEmp={name:g('f_name')||'[Candidate Name]',desig:g('f_desig')||'[Designation]',dept:g('f_dept')||'[Department]',location:g('f_loc')||'[Location]',doj:g('f_doj')||null,managerId:null,_mgrName:g('f_mgr'),phone:g('f_phone'),email:g('f_email'),positionId:$('f_pos').value};
   if(type==='internship'){ const st=+g('f_stipend')||0, dur=Math.max(1,Math.round(+g('f_dur')||3)); _letterOff={type:'internship',stipend:st,durMonths:dur,start:g('f_doj')||null,ctc:st*dur,createdAt:new Date().toISOString().slice(0,10),positionId:$('f_pos').value}; }
   else if(type==='contract'){ const cm=+g('f_cmonthly')||0; _letterOff={type:'contract',monthly:cm,address:g('f_caddr')||'',acceptBy:g('f_caccept')||null,ctc:cm*12,createdAt:new Date().toISOString().slice(0,10),positionId:$('f_pos').value}; }
-  else { const gross=+g('f_gross')||0, hist=g('f_pfhist')||'Yes', pref=g('f_pfpref')||'Opt-out', cc=calcOffer(gross,hist,pref); _letterOff={type:'employment',gross:gross,pfHistory:hist,pfPref:pref,ctc:cc.ctcA,createdAt:new Date().toISOString().slice(0,10),positionId:$('f_pos').value}; }
+  else { const gross=+g('f_gross')||0, pf=g('f_pf')||'Yes', hist=pf==='Yes'?'Yes':'No', pref=pf==='Yes'?'Opt-in':'Opt-out', cc=calcOffer(gross,hist,pref); _letterOff={type:'employment',gross:gross,pfHistory:hist,pfPref:pref,ctc:cc.ctcA,createdAt:new Date().toISOString().slice(0,10),positionId:$('f_pos').value}; }
   // render letter (manager shown from typed name)
   const tmpEmp={..._letterEmp};const origEmpById=empById;
   $('letterWrap').innerHTML=`<div class="card card-pad" style="margin-top:4px">
