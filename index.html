@@ -605,7 +605,7 @@ function logout(){ try{ track('logout'); if(window.posthog&&posthog.reset) posth
 /* ---------- nav ---------- */
 const NAVS={
   employee:[['home','Home'],['onboard','Onboarding'],['pay','My Pay'],['payslips','Salary Slips'],['reimburse','Reimbursements'],['ladder','Career Ladder'],['mydocs','My Documents'],['notify','Notifications'],['team','Org Structure']],
-  hr:[['dashboard','Dashboard'],['approvals','Approvals'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['reimburse','Reimbursements'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['addemp','Add employee'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['recanalytics','Recruitment Analytics'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
+  hr:[['dashboard','Dashboard'],['approvals','Joiners'],['hronboard','Onboarding'],['attendance','Attendance'],['roster','Roster'],['leaverequests','Leave'],['advances','Advances'],['reimburse','Reimbursements'],['payroll','Payroll'],['board','Lifecycle Board'],['directory','Directory'],['addemp','Add employee'],['org','Org Chart'],['probation','Probation'],['offboarding','Offboarding'],['assets','Assets'],['warnings','Warnings'],['reports','Reports'],['recanalytics','Recruitment Analytics'],['audit','Audit'],['settings','Settings'],['hrdocs','Documents']],
   recruiter:[['positions','Positions'],['pipeline','Screening & Pipeline'],['newoffer','New Candidate / Offer'],['recanalytics','Analytics'],['addemp','Add employee'],['offers','My Offers']],
   manager:[['mteam','My Team']],
   accountant:[['reimburse','Reimbursements']]
@@ -670,7 +670,7 @@ function buildNav(){
   if(SES.role==='employee'){const emp=empById(SES.employeeId);if(emp&&needsOnboarding(emp)&&!emp.onboardingSubmitted)landing='onboard';}
   go(landing);
 }
-const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Screening & Pipeline',recanalytics:'Recruitment Analytics',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',reimburse:'Reimbursements',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'Org Structure',dashboard:'Dashboard',approvals:'Approvals',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
+const TITLES={home:'Home',mteam:'My Team',mydocs:'My Documents',reports:'Reports',attendme:'Attendance',notify:'Notifications',holidays:'Holidays',attendance:'Attendance',leaverequests:'Leave Requests',advances:'Salary Advances',payroll:'Payroll',roster:'Weekly-Off Roster',pipeline:'Screening & Pipeline',recanalytics:'Recruitment Analytics',audit:'Audit Trail',onboard:'Onboarding',pay:'My Pay',payslips:'Salary Slips',reimburse:'Reimbursements',leave:'Leave & Attendance',growth:'My Growth',ladder:'Career Ladder',team:'Org Structure',dashboard:'Dashboard',approvals:'Joiners',hronboard:'Onboarding',board:'Lifecycle Board',directory:'Directory',org:'Org Chart',probation:'Probation',offboarding:'Offboarding & Exit',assets:'Assets',warnings:'Disciplinary & Warnings',settings:'Settings',hrdocs:'Documents',positions:'Positions',newoffer:'New Candidate / Offer',offers:'My Offers'};
 function toggleSidebar(){document.querySelector('.side').classList.toggle('open');document.getElementById('sideBackdrop').classList.toggle('show');}
 function closeSidebar(){const s=document.querySelector('.side');if(s)s.classList.remove('open');const b=document.getElementById('sideBackdrop');if(b)b.classList.remove('show');}
 /* ===== Analytics — privacy-safe interaction tracking (PostHog) =====
@@ -1161,10 +1161,8 @@ function calcOffer(gross,pfHistory,pfPref){
 }
 // Signatory on generated letters = the logged-in sender (name + their designation). Falls back to Priya Perral / Manager – HR in demo/offline.
 function letterSigner(){
-  var n=(SES&&SES.userName)?SES.userName:'';
-  var t=(SES&&SES.userTitle)?SES.userTitle:'';
-  if(!n){ n='Priya Perral'; t=t||'Manager – HR'; }
-  return {name:n,title:t};
+  // All candidate-facing letters are signed by Anushka (TA-HR); the stamp carries her signature.
+  return {name:'Anushka Mishra', title:'Talent Acquisition – HR'};
 }
 function offerLetterDoc(emp,off){
   var grossIn=(off&&off.gross!=null)?off.gross:Math.round((off&&off.ctc||0)/12);
@@ -1546,16 +1544,23 @@ function vOffers(){
    HR VIEWS
    ============================================================ */
 function vApprovals(){
-  const pend=DB.offers.filter(o=>o.status==='pending_approval');
-  $('view').innerHTML=`<div><h1 class="page">Approvals</h1><p class="page-sub">Offers raised by recruitment — accept to create the candidate's login.</p></div>
-   ${_acceptCred?`<div class="card card-pad" style="border-color:#7fe0a6;background:#f1fcf5"><div class="sec-h"><div class="si" style="background:var(--aqua);color:#0c5a2e">✓</div><h2>Login created for ${esc(_acceptCred.name)}</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="_acceptCred=null;vApprovals()">Dismiss</button></div><p class="small">Share these with the candidate so they can log in and onboard:</p><div class="breakup" style="margin-top:8px"><div class="bl"><span>Login (employee ID)</span><span class="num">${esc(_acceptCred.login)}</span></div><div class="bl"><span>Temporary password</span><span class="num">${esc(_acceptCred.password)}</span></div></div><p class="small muted" style="margin-top:8px">They'll be prompted to change it on first login.</p></div>`:''}
-   ${pend.length?pend.map(o=>{const e=empById(o.employeeId),c=calc(o.ctc);return `<div class="card card-pad">
+  const issued=DB.offers.filter(o=>o.status==='pending_approval');
+  const awaiting=DB.offers.filter(o=>o.status==='awaiting_joining');
+  const dropped=DB.offers.filter(o=>o.status==='dropped');
+  const card=(o,actions)=>{const e=empById(o.employeeId);if(!e)return'';const c=calc(o.ctc);return `<div class="card card-pad">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
         <div><div style="display:flex;align-items:center;gap:11px"><div class="avatar sm">${initials(e.name)}</div><div><b style="font-size:15px">${esc(e.name)}</b><div class="small muted">${esc(e.desig)} · ${esc(e.dept)} · ${esc(e.code)}</div></div></div>
-          <div class="row" style="margin-top:12px;gap:24px"><div><div class="small muted">Annual CTC</div><b class="num">${fmt(o.ctc)}</b></div><div><div class="small muted">Monthly gross</div><b class="num">${fmt(c.m)}</b></div><div><div class="small muted">Joining</div><b>${dfmt(e.doj)}</b></div><div><div class="small muted">Raised by</div><b>${esc(o.releasedBy)}</b></div></div>
+          <div class="row" style="margin-top:12px;gap:24px"><div><div class="small muted">Annual CTC</div><b class="num">${fmt(o.ctc)}</b></div><div><div class="small muted">Monthly gross</div><b class="num">${fmt(c.m)}</b></div><div><div class="small muted">Joining</div><b>${dfmt(e.doj)}</b></div><div><div class="small muted">Offer by</div><b>${esc(o.releasedBy)}</b></div></div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px"><button class="btn btn-green btn-sm" onclick="approveOffer('${o.id}')">Accept &amp; create login</button><button class="btn btn-ghost btn-sm" onclick="rejectOffer('${o.id}')">Reject</button></div>
-      </div></div>`;}).join(''):'<div class="card"><div class="empty">No offers waiting for approval. 🎉</div></div>'}`;
+        <div style="display:flex;flex-direction:column;gap:8px">${actions}</div>
+      </div></div>`;};
+  $('view').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Joiners</h1><p class="page-sub">New offers arrive here. <b>Accept</b> to begin; on the joining day mark each person <b>Onboard</b> or <b>Drop-off</b>.</p></div><button class="btn btn-ghost btn-sm" onclick="go('addemp',document.querySelector('[data-pg=addemp]'))">+ Add joiner manually</button></div>
+   ${_acceptCred?`<div class="card card-pad" style="border-color:#7fe0a6;background:#f1fcf5"><div class="sec-h"><div class="si" style="background:var(--aqua);color:#0c5a2e">✓</div><h2>Login created for ${esc(_acceptCred.name)}</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="_acceptCred=null;vApprovals()">Dismiss</button></div><p class="small">Share these with the joiner so they can log in and onboard:</p><div class="breakup" style="margin-top:8px"><div class="bl"><span>Login (employee ID)</span><span class="num">${esc(_acceptCred.login)}</span></div><div class="bl"><span>Temporary password</span><span class="num">${esc(_acceptCred.password)}</span></div></div><p class="small muted" style="margin-top:8px">They'll be prompted to change it on first login.</p></div>`:''}
+   <div class="sec-h" style="margin-top:8px"><div class="si">📨</div><h2>New offers — accept to begin <span class="pill pending_approval">${issued.length}</span></h2></div>
+   ${issued.length?issued.map(o=>card(o,`<button class="btn btn-green btn-sm" onclick="acceptOffer('${o.id}')">Accept</button><button class="btn btn-ghost btn-sm" onclick="rejectOffer('${o.id}')">Reject</button>`)).join(''):'<div class="card"><div class="empty">No new offers right now.</div></div>'}
+   <div class="sec-h" style="margin-top:20px"><div class="si">🚪</div><h2>Awaiting joining — mark when they arrive <span class="pill accepted">${awaiting.length}</span></h2></div>
+   ${awaiting.length?awaiting.map(o=>card(o,`<button class="btn btn-green btn-sm" onclick="approveOffer('${o.id}')">Onboard</button><button class="btn btn-ghost btn-sm" style="color:#b00050;border-color:#f0c2d4" onclick="dropOffer('${o.id}')">Drop-off</button>`)).join(''):'<div class="card"><div class="empty">Nobody awaiting joining.</div></div>'}
+   ${dropped.length?`<div class="small muted" style="margin-top:16px">Drop-offs (no-shows) saved for analytics: <b>${dropped.length}</b></div>`:''}`;
 }
 function genPassword(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let p='';for(let i=0;i<8;i++)p+=c.charAt(Math.floor(Math.random()*c.length));return p;}
 function approveOffer(id){
@@ -1569,6 +1574,8 @@ function approveOffer(id){
   }
   save();if(LIVE&&sb)liveOfferSave();toast('Accepted — login created for '+(e?e.name:''));buildNav();vApprovals();
 }
+function acceptOffer(id){const o=DB.offers.find(x=>x.id===id);if(!o)return;o.status='awaiting_joining';o.approvedBy=(SES&&SES.label)||'HR';save();if(LIVE&&sb)liveOfferSave();audit('Accepted offer — '+((empById(o.employeeId)||{}).name||''));toast('Accepted — moved to “Awaiting joining”');buildNav();vApprovals();}
+function dropOffer(id){const o=DB.offers.find(x=>x.id===id);if(!o)return;const e=empById(o.employeeId);if(!confirm('Mark '+((e&&e.name)||'this candidate')+' as a no-show / drop-off?\n\nThis is saved for analytics. They won’t be onboarded unless you re-add them.'))return;o.status='dropped';if(e)e.status='dropped';save();if(LIVE&&sb)liveOfferSave();audit('Drop-off (no-show) — '+((e&&e.name)||''));toast('Marked drop-off — saved for analytics');buildNav();vApprovals();}
 function rejectOffer(id){const o=DB.offers.find(x=>x.id===id);if(!o)return;o.status='rejected';const e=empById(o.employeeId);if(e)e.status='declined';save();if(LIVE&&sb)liveOfferSave();toast('Offer rejected');buildNav();vApprovals();}
 
 function vBoard(){
