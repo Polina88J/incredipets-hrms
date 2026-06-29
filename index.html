@@ -1148,7 +1148,10 @@ function offerTDS(annualGross){
   var mr=ti-1200000; if(tax>mr) tax=mr; // marginal relief near the 12L threshold
   return Math.round(tax*1.04/12); // +4% cess, per month
 }
-function offerPfApplies(basic,pfHistory,pfPref){ if(pfPref==='Opt-out') return false; /* explicit "No PF deduction" is authoritative */ if(basic<=15000) return true; if(pfHistory==='Yes') return true; if(pfPref==='Opt-in') return true; return false; }
+// Exact mirror of the Recruitment Tracker "Salary Break up" tab, cell B12/B18:
+//   IF(OR(Basic<=15000, PFhistory="Yes", preference="Opt-in"), 12% of MIN(Basic,15000), 0)
+// i.e. PF is mandatory when basic<=15000 (statutory), otherwise driven by the Yes/No choice.
+function offerPfApplies(basic,pfHistory,pfPref){ if(basic<=15000) return true; if(pfHistory==='Yes') return true; if(pfPref==='Opt-in') return true; return false; }
 function calcOffer(gross,pfHistory,pfPref){
   gross=Math.round(+gross||0);
   var basic=Math.round(gross*0.62), hra=Math.round(basic*0.5), spl=gross-basic-hra;
