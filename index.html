@@ -511,6 +511,7 @@ const docsForEmp=id=>DB.documents.filter(d=>d.employeeId===id);
 const calc=ctc=>{const m=ctc/12;return{m,basic:m*.62,hra:m*.31,spl:m*.07};};
 function tenure(doj){
   const a=new Date(doj),b=new Date();
+  if(isNaN(a.getTime()))return{y:0,mo:0,d:0,totalDays:0,totalMonths:0,future:false,unknown:true}; // no / invalid joining date
   if(a>b)return{y:0,mo:0,d:0,totalDays:0,totalMonths:0,future:true}; // not joined yet
   let y=b.getFullYear()-a.getFullYear(),mo=b.getMonth()-a.getMonth(),d=b.getDate()-a.getDate();
   if(d<0){mo--;const pm=new Date(b.getFullYear(),b.getMonth(),0).getDate();d+=pm;}
@@ -1840,7 +1841,7 @@ function previewEmp(id){const e=empById(id);if(!e)return;window._adminSES=SES;SE
 function exitPreview(){if(window._adminSES){SES=window._adminSES;window._adminSES=null;}const b=document.getElementById('previewBanner');if(b)b.remove();buildNav();go('directory');}
 function showPreviewBanner(name){let b=document.getElementById('previewBanner');if(!b){b=document.createElement('div');b.id='previewBanner';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#5b2a91;color:#fff;padding:9px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.2)';document.body.appendChild(b);}b.innerHTML='Previewing '+esc(name)+' — this is exactly what they see &nbsp; <button onclick="exitPreview()" style="background:#fff;color:#5b2a91;border:0;border-radius:6px;padding:4px 12px;font-weight:700;cursor:pointer">Exit preview</button>';}
 function setManager(id,mgrId){const e=empById(id);if(!e)return;e.managerId=mgrId||null;const m=mgrId?empById(mgrId):null;e.managerName=m?m.name:null;save();toast('Reporting manager updated'+(m?(' → '+m.name):''));renderEmp360(id);}
-function probationInfo(e){const months=e.probationMonths||3,due=new Date(e.doj);due.setMonth(due.getMonth()+months);const t=tenure(e.doj);const pastWindow=((t.totalMonths||0)>=months)&&!t.future;const confirmed=!!e.confirmedOn||pastWindow;const overdue=false;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
+function probationInfo(e){const months=e.probationMonths||3,due=new Date(e.doj);if(isNaN(due.getTime()))return{months,due:null,confirmed:!!e.confirmedOn,overdue:false};due.setMonth(due.getMonth()+months);const t=tenure(e.doj);const pastWindow=((t.totalMonths||0)>=months)&&!t.future;const confirmed=!!e.confirmedOn||pastWindow;const overdue=false;return{months,due:due.toISOString().slice(0,10),confirmed,overdue};}
 function onProbation(e){ if(!e||e.status!=='active'||e.confirmedOn)return false; const t=tenure(e.doj); if(t.future)return false; return (t.totalMonths||0) < (e.probationMonths||3); }
 function probationCardHTML(e,id){
   if(e.status!=='active')return '';
@@ -2506,14 +2507,64 @@ function recruitInsights(m){
   return ins;
 }
 function rag(ok,warn){return ok?'#2E9D52':(warn?'#BA7517':'#E24B4A');}
+/* ----- recruitment activity over time (GM stats: vacancies opened / offers issued / drop-offs vs onboarded, with time cuts) ----- */
+let _recPeriod='month';
+function ymOf(dt){return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');}
+function recRange(key){
+  var now=new Date(),y=now.getFullYear(),m=now.getMonth(),D=function(a,b,c){return new Date(a,b,c);};
+  if(key==='lastmonth'){var s=D(y,m-1,1),e=D(y,m,0);return {start:s,end:e,label:s.toLocaleDateString('en-IN',{month:'long',year:'numeric'})};}
+  if(key==='quarter'){var q=Math.floor(m/3);return {start:D(y,q*3,1),end:now,label:'Q'+(q+1)+' '+y+' (to date)'};}
+  if(key==='year'){return {start:D(y,0,1),end:now,label:y+' (year to date)'};}
+  if(key==='all'){return {start:D(2000,0,1),end:now,label:'All time'};}
+  return {start:D(y,m,1),end:now,label:now.toLocaleDateString('en-IN',{month:'long',year:'numeric'})};
+}
+function _inRange(dstr,r){if(!dstr)return false;var t=new Date(dstr);if(isNaN(t.getTime()))return false;var lo=new Date(r.start.getFullYear(),r.start.getMonth(),r.start.getDate());var hi=new Date(r.end.getFullYear(),r.end.getMonth(),r.end.getDate(),23,59,59);return t>=lo&&t<=hi;}
+function recActivity(r){
+  var vac=(DB.positions||[]).filter(function(p){return _inRange(p.openedOn,r);}).length;
+  var offs=(DB.offers||[]).filter(function(o){return _inRange(o.createdAt,r);});
+  var dropped=offs.filter(function(o){return o.status==='dropped';}).length;
+  var onboarded=offs.filter(function(o){return o.status==='accepted';}).length;
+  var dec=dropped+onboarded;
+  return {vac:vac,issued:offs.length,dropped:dropped,onboarded:onboarded,rate:dec?Math.round(dropped/dec*100):null};
+}
+function recMonthly(n){
+  var now=new Date(),out=[];
+  for(var i=n-1;i>=0;i--){
+    var dt=new Date(now.getFullYear(),now.getMonth()-i,1),ym=ymOf(dt);
+    var vac=(DB.positions||[]).filter(function(p){return (p.openedOn||'').slice(0,7)===ym;}).length;
+    var offs=(DB.offers||[]).filter(function(o){return (o.createdAt||'').slice(0,7)===ym;});
+    var dropped=offs.filter(function(o){return o.status==='dropped';}).length;
+    var onboarded=offs.filter(function(o){return o.status==='accepted';}).length;
+    var dec=dropped+onboarded;
+    out.push({label:dt.toLocaleDateString('en-IN',{month:'short',year:'2-digit'}),vac:vac,issued:offs.length,onboarded:onboarded,dropped:dropped,rate:dec?Math.round(dropped/dec*100):null});
+  }
+  return out;
+}
+function setRecPeriod(k){_recPeriod=k;vRecruitAnalytics();}
+function dlRecActivity(){exportCSV('recruitment-activity-monthly.csv',['Month','Vacancies opened','Offer letters issued','Onboarded','Drop-offs','Drop-off %'],recMonthly(12).map(function(r){return [r.label,r.vac,r.issued,r.onboarded,r.dropped,r.rate==null?'':r.rate];}));}
 function vRecruitAnalytics(){
   var m=recruitMetrics();
+  var _rr=recRange(_recPeriod), _ra=recActivity(_rr), _rmon=recMonthly(6);
   var card=function(k,v,sub,col){return '<div class="stat"><div class="k">'+k+'</div><div class="v num" style="color:'+(col||'inherit')+'">'+v+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';};
   var accCol=m.acceptRate==null?'inherit':rag(m.acceptRate>=85,m.acceptRate>=80);
   var ttfCol=m.avgTtf==null?'inherit':rag(m.avgTtf<=42,m.avgTtf<=45);
   var s2iCol=m.screened<20?'inherit':rag(m.scrToInt>=15,m.scrToInt>=10);
   var insRows=recruitInsights(m).map(function(x){var c=x[0]==='risk'?'#E24B4A':(x[0]==='warn'?'#BA7517':'#2E9D52');return '<div class="bl"><span style="color:'+c+';font-weight:700">'+(x[0]==='ok'?'✓':'•')+'</span> <span class="small">'+x[1]+'</span></div>';}).join('');
+  var _pb=function(k,l){return '<button class="btn '+(_recPeriod===k?'btn-primary':'btn-ghost')+' btn-sm" onclick="setRecPeriod(\''+k+'\')">'+l+'</button>';};
+  var _dropCol=_ra.rate==null?'inherit':rag(_ra.rate<=10,_ra.rate<=20);
+  var activityHTML='<div class="card card-pad" style="margin:12px 0"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor">'+ICONS.growth+'</svg></div><h2>Recruitment activity</h2><button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="dlRecActivity()">Download (CSV)</button></div>'
+   +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px">'+_pb('month','This month')+_pb('lastmonth','Last month')+_pb('quarter','This quarter')+_pb('year','This year')+_pb('all','All time')+'</div>'
+   +'<div class="row" style="gap:12px;flex-wrap:wrap">'
+     +card('Vacancies opened',_ra.vac,_rr.label)
+     +card('Offer letters issued',_ra.issued,_rr.label)
+     +card('Onboarded',_ra.onboarded,_rr.label,_ra.onboarded?'#2E9D52':'inherit')
+     +card('Drop-offs (no-shows)',_ra.dropped,_rr.label,_ra.dropped?'#E24B4A':'inherit')
+     +card('Drop-off rate',_ra.rate==null?'—':_ra.rate+'%','of decided offers',_dropCol)
+   +'</div>'
+   +'<table class="list" style="margin-top:14px"><tr><th>Month</th><th class="num">Vacancies opened</th><th class="num">Offers issued</th><th class="num">Onboarded</th><th class="num">Drop-offs</th><th class="num">Drop-off %</th></tr>'+_rmon.map(function(r){return '<tr><td>'+r.label+'</td><td class="num">'+r.vac+'</td><td class="num">'+r.issued+'</td><td class="num">'+r.onboarded+'</td><td class="num">'+r.dropped+'</td><td class="num">'+(r.rate==null?'—':r.rate+'%')+'</td></tr>';}).join('')+'</table>'
+   +'<p class="small muted" style="margin:8px 0 0">Drop-off rate = no-shows ÷ (no-shows + onboarded), for offers issued in the period. Vacancies counted by their opened date; offers by issue date. Items without a date don\'t appear in the monthly cut.</p></div>';
   $('view').innerHTML='<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px"><div><h1 class="page">Recruitment Analytics</h1><p class="page-sub">Funnel, sources, time-to-fill &amp; offer health vs 2025–26 benchmarks. Download the report for each view.</p></div><button class="btn btn-primary btn-sm" onclick="printRecExec()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>Exec report (PDF)</button></div>'
+   +activityHTML
    +'<div class="row" style="gap:12px;margin:12px 0;flex-wrap:wrap">'
      +card('Screened',m.screened)+card('Shortlist rate',m.shortRate+'%')
      +card('Screen→Interview',m.scrToInt+'%','benchmark ~15%',s2iCol)
