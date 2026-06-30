@@ -1157,10 +1157,11 @@ function offerTDS(annualGross){
   var mr=ti-1200000; if(tax>mr) tax=mr; // marginal relief near the 12L threshold
   return Math.round(tax*1.04/12); // +4% cess, per month
 }
-// Exact mirror of the Recruitment Tracker "Salary Break up" tab, cell B12/B18:
-//   IF(OR(Basic<=15000, PFhistory="Yes", preference="Opt-in"), 12% of MIN(Basic,15000), 0)
-// i.e. PF is mandatory when basic<=15000 (statutory), otherwise driven by the Yes/No choice.
-function offerPfApplies(basic,pfHistory,pfPref){ if(basic<=15000) return true; if(pfHistory==='Yes') return true; if(pfPref==='Opt-in') return true; return false; }
+// PF for the OFFER LETTER — the recruiter's Yes/No toggle is honoured literally so it always changes the numbers:
+//   No  (Opt-out) -> no PF at ANY salary (many IncrediPets roles run PF=0 in practice).
+//   Yes (Opt-in)  -> PF applies; the statutory floor (basic<=15000) keeps PF on unless explicitly set to No.
+// Offer calculator only — does NOT touch the payroll engine.
+function offerPfApplies(basic,pfHistory,pfPref){ if(pfPref==='Opt-out'||pfHistory==='No') return false; if(basic<=15000) return true; if(pfHistory==='Yes') return true; if(pfPref==='Opt-in') return true; return false; }
 function calcOffer(gross,pfHistory,pfPref){
   gross=(+gross||0); // use the gross exactly as entered (the sheet uses the raw $B$3 everywhere — no pre-rounding)
   var basic=Math.round(gross*0.62), hra=Math.round(basic*0.5), spl=gross-basic-hra;
@@ -1230,7 +1231,7 @@ function offerLetterDoc(emp,off){
    +'<tr><td>Employer ESI (3.25%)</td><td class="num">'+(c.erEsi?fmt(c.erEsi):'—')+'</td><td class="num">'+(c.erEsi?fmt(c.erEsi*12):'—')+'</td></tr>'
    +'<tr><td>Gratuity (4.81% of Basic)</td><td class="num">'+fmt(c.grat)+'</td><td class="num">'+fmt(c.grat*12)+'</td></tr>'
    +'<tr><th style="background:#2E9D52;color:#fff">Total CTC</th><th class="num" style="background:#2E9D52;color:#fff">'+fmt(c.ctcM)+'</th><th class="num" style="background:#2E9D52;color:#fff">'+fmt(c.ctcA)+'</th></tr></table>'
-   +'<p class="muted">Net in-hand is indicative; TDS is a new-regime estimate (₹75,000 standard deduction, applicable slabs, s.87A rebate, marginal relief, 4% cess) and the final figure will be confirmed by payroll. ESI applies only where monthly gross is ₹21,000 or below. '+(c.pfYes?'Provident Fund is deducted as above and the employer contributes an equal share over and above your gross.':'No Provident Fund deduction applies, per your PF preference (basic exceeds ₹15,000).')+' Professional Tax is shown at ₹200/month and varies by state. The Company may revise or restructure compensation at its discretion.</p></div>'
+   +'<p class="muted">Net in-hand is indicative; TDS is a new-regime estimate (₹75,000 standard deduction, applicable slabs, s.87A rebate, marginal relief, 4% cess) and the final figure will be confirmed by payroll. ESI applies only where monthly gross is ₹21,000 or below. '+(c.pfYes?'Provident Fund is deducted as above and the employer contributes an equal share over and above your gross.':'No Provident Fund deduction applies to this offer, per the PF preference selected.')+' Professional Tax is shown at ₹200/month and varies by state. The Company may revise or restructure compensation at its discretion.</p></div>'
    +'<div class="sb"><img class="stamp" src="'+ST+'" alt="IncrediPets authorised stamp"><b>Authorised Signatory</b><br>'+esc(sg.name)+(sg.title?('<br>'+esc(sg.title)):'')+'<br>IncrediPets</div>'
    +'<div class="acc">Accepted and signed by &ndash;<br><br>Signature: ____________________<br>Name: '+esc(emp.name)+'<br>Date: __________</div>';
   var bar='<div class="no-print" style="position:sticky;top:0;z-index:9;background:#8A003E;color:#fff;padding:11px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap"><button onclick="window.print()" style="background:#fff;color:#8A003E;border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:14px;cursor:pointer">⬇ Save as PDF</button><span style="font-size:12.5px;line-height:1.4">In the box that opens, set <b>Destination = “Save as PDF”</b>, then click <b>Save</b>. This bar won’t appear in the saved file.</span></div>';
@@ -1484,7 +1485,7 @@ function liveBreakup(){
   const pfChoice=(($('f_pf')||{}).value)||'Yes';
   const hist=pfChoice==='Yes'?'Yes':'No',pref=pfChoice==='Yes'?'Opt-in':'Opt-out';
   const c=calcOffer(gross,hist,pref);
-  const pfNote=(pfChoice==='No'&&c.empPf>0)?'<div class="bl"><span class="small muted">PF is statutory at this salary (basic ≤ ₹15,000) — it applies even with PF deduction set to No.</span></div>':'';
+  const pfNote=(pfChoice==='No'&&c.basic<=15000)?'<div class="bl"><span class="small" style="color:var(--amber)">PF deduction set to <b>No</b> — removed from this offer. Note (for you, not on the letter): at this salary basic ≤ ₹15,000, where PF is normally statutory — you are opting it out for this candidate.</span></div>':'';
   let bandNote='';
   if(_offerBand){const mn=_offerBand[0],mx=_offerBand[1],a=c.ctcA;if(mn&&a<mn)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">CTC below the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else if(mx&&a>mx)bandNote=`<div class="bl"><span class="small" style="color:var(--amber);font-weight:700">CTC above the level band (${fmt(mn)}–${fmt(mx)})</span></div>`;else bandNote='<div class="bl"><span class="small" style="color:var(--green);font-weight:700">CTC within the level band ✓</span></div>';}
   b.innerHTML=`<h4>Salary break-up (from monthly gross)</h4>
