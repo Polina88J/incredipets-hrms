@@ -1599,7 +1599,7 @@ async function reissuePassword(id){
     catch(err){ toast('Could not set the password — check connection and try again'); return; }
   }
   const u=DB.users.find(x=>x.employeeId===e.id); if(u)u.pass=pass;
-  e.tempPassword=pass;e.passwordSet=false;e.mustChange=true;
+  e.tempPassword=pass;e.passwordSet=false;e.mustChange=false;
   save(); audit('Re-issued temporary password for '+e.name+' ('+e.code+')');
   showCredsModal(e.name,e.code,pass,false);
   renderEmp360(id);
@@ -1608,7 +1608,7 @@ async function approveOffer(id){
   const o=DB.offers.find(x=>x.id===id);if(!o)return;
   o.status='accepted';o.approvedBy=(SES&&SES.label)||'HR';
   const e=empById(o.employeeId);if(e){e.status='onboarding';
-    const pass=genPassword();e.loginCode=e.code;e.tempPassword=pass;e.passwordSet=false;e.mustChange=true;
+    const pass=genPassword();e.loginCode=e.code;e.tempPassword=pass;e.passwordSet=false;e.mustChange=false;
     if(!DB.users.find(u=>u.email===e.email)&&e.email){DB.users.push({email:e.email.toLowerCase(),pass:pass,role:'employee',employeeId:e.id});}
     if(!docsForEmp(e.id).length){DB.docTypes.forEach((t,i)=>DB.documents.push({id:'D'+e.id+'_'+i,employeeId:e.id,type:t,status:'requested',fileName:null,uploadedAt:null}));}
     _acceptCred={name:e.name,login:e.code,password:pass};
@@ -1701,7 +1701,7 @@ async function renderEmp360(id){
   const mgr=e.managerId?empById(e.managerId):null;
   let _payRow=null,_payMonths=[]; if(LIVE&&sb&&canSeeComp(e)){ try{ const _all=await ensurePayAll(); const _mine=_all.filter(x=>x.employee_id===id); _payRow=_mine.filter(x=>x.month==='May 2026')[0]||_mine.filter(x=>x.month==='June 2026')[0]||_mine[0]||null; _payMonths=_mine.filter(x=>x.paid).map(function(x){return x.month;}); }catch(_e){} }
   $('view').innerHTML=`
-   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="vDirectory()">← Directory</button>${DB.employees.some(x=>x.managerId===id&&x.status!=='exited')?`<button class="btn btn-ghost btn-sm" onclick="downloadTeamTree('${id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download team tree</button>`:''}</div>
+   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="vDirectory()">← Directory</button>${_canEditProfile()?`<button class="btn btn-primary btn-sm" onclick="hrEditProfile('${id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Edit profile</button>`:''}${DB.employees.some(x=>x.managerId===id&&x.status!=='exited')?`<button class="btn btn-ghost btn-sm" onclick="downloadTeamTree('${id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" style="width:15px;height:15px"><path d="M12 3v12M7 11l5 4 5-4"/><path d="M5 21h14"/></svg>Download team tree</button>`:''}</div>
    <div class="card card-pad"><div style="display:flex;align-items:center;gap:16px"><div class="avatar lg">${initials(e.name)}</div>
      <div><h1 class="page" style="font-size:21px">${esc(e.name)}</h1><p class="page-sub">${esc(e.desig)} · ${esc(e.dept)} · ${esc(e.code)} · <span class="pill ${e.status}">${esc(e.status)}</span></p></div></div>
    </div>
@@ -1751,6 +1751,48 @@ async function renderEmp360(id){
    </div>
    ${assetCardHTML(e,id)}${warningCardHTML(e,id)}${probationCardHTML(e,id)}${offboardCardHTML(e,id)}${gmTeamCardHTML(e,id)}`;
   $('topTitle').textContent=e.name;
+}
+// Management (super-admin / HR / GM) can correct ANY field on an existing profile. Persists via save()→hrms_save.
+function _canEditProfile(){var r=(SES&&(SES.realRole||SES.role))||'';return r==='super-admin'||r==='hr'||r==='gm';}
+function hrEditProfile(id){
+  var e=empById(id); if(!e) return;
+  if(!_canEditProfile()){ toast('Only HR / management can edit profiles'); return; }
+  var STAT=['active','onboarding','offered','offboarding','exited','declined'];
+  var mgrs=(DB.employees||[]).filter(function(x){return x.id!==id;}).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');});
+  var f=function(label,fid,val,type){return '<div class="field"><label>'+label+'</label><input id="'+fid+'" '+(type?'type="'+type+'" ':'')+'value="'+esc(val==null?'':val)+'"></div>';};
+  $('view').innerHTML=
+    '<div><button class="btn btn-ghost btn-sm" onclick="renderEmp360(\''+id+'\')">← Back to '+esc(e.name)+'</button></div>'
+   +'<div class="card card-pad"><div class="sec-h"><div class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div><h2>Edit profile — '+esc(e.name)+'</h2></div>'
+   +'<div class="grid2">'
+     + f('Full name','ep_name',e.name)
+     + '<div class="field"><label>Employee code (login — fixed)</label><input value="'+esc(e.code)+'" disabled></div>'
+     + f('Designation','ep_desig',e.desig)
+     + f('Department','ep_dept',e.dept)
+     + f('Level','ep_level',e.level)
+     + f('Location','ep_loc',e.location)
+     + f('Date of joining','ep_doj',e.doj,'date')
+     + '<div class="field"><label>Reporting manager</label><select id="ep_mgr"><option value="">— None —</option>'+mgrs.map(function(m){return '<option value="'+m.id+'"'+(e.managerId===m.id?' selected':'')+'>'+esc(m.name)+' ('+esc(m.code)+')</option>';}).join('')+'</select></div>'
+     + f('Phone','ep_phone',e.phone,'tel')
+     + f('Work email','ep_email',e.email,'email')
+     + f('Personal email','ep_pmail',e.personalEmail,'email')
+     + '<div class="field"><label>Status</label><select id="ep_status">'+STAT.map(function(s){return '<option'+(e.status===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div>'
+   +'</div>'
+   +'<p class="small muted" style="margin:6px 0 0">Pay is managed in Payroll, not here. To start an exit, prefer the Offboarding card so the exit checklist is created.</p>'
+   +'<div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" onclick="saveEmpProfile(\''+id+'\')">Save changes</button><button class="btn btn-ghost" onclick="renderEmp360(\''+id+'\')">Cancel</button></div></div>';
+  $('topTitle').textContent='Edit — '+e.name;
+}
+function saveEmpProfile(id){
+  var e=empById(id); if(!e) return;
+  if(!_canEditProfile()){ toast('Only HR / management can edit profiles'); return; }
+  var g=function(i){return ($(i)&&$(i).value||'').trim();};
+  if(!g('ep_name')){ toast('Name cannot be empty'); return; }
+  e.name=g('ep_name'); e.desig=g('ep_desig'); e.dept=g('ep_dept'); e.level=g('ep_level'); e.location=g('ep_loc');
+  e.doj=g('ep_doj')||e.doj;
+  e.managerId=g('ep_mgr')||null; e.managerName=e.managerId?((empById(e.managerId)||{}).name||null):null;
+  e.phone=g('ep_phone'); e.email=g('ep_email'); e.personalEmail=g('ep_pmail');
+  e.status=g('ep_status')||e.status;
+  save(); audit('Edited profile — '+e.name+' ('+e.code+')'); toast('Profile saved');
+  renderEmp360(id);
 }
 function verifyDoc(did,eid){const d=DB.documents.find(x=>x.id===did);if(d){if(LIVE&&sb&&d.fileId){sb.rpc('hrms_doc_verify',{p_code:_saveCreds.code,p_pass:_saveCreds.pass,p_id:d.fileId}).then(function(){},function(){});}d.status='verified';if(!LIVE)save();toast('Document verified');}renderEmp360(eid);}
 const EXIT_TASKS=[['handover','Knowledge transfer / handover'],['assets','Company assets returned'],['exitInterview','Exit interview completed'],['access','System access revoked'],['fnf','Full & final settlement'],['relieving','Relieving & experience letter issued']];
@@ -2888,7 +2930,7 @@ async function createEmployee(){
   const id=code; // keep id == employee code (IN-###), consistent with the rest of the org
   const email=(g('ne_email')||(code.toLowerCase().replace(/[^a-z0-9]/g,'')+'@incredipets.in')).toLowerCase();
   const status=g('ne_status')||'active';
-  const emp={id:id,code:code,name:name,desig:g('ne_desig'),dept:g('ne_dept'),level:g('ne_level'),location:g('ne_loc'),doj:g('ne_doj'),managerId:g('ne_mgr')||null,phone:g('ne_phone'),email:email,personalEmail:g('ne_pmail')||null,status:status,onboarded:status!=='onboarding',mustChange:true,createdManually:true};
+  const emp={id:id,code:code,name:name,desig:g('ne_desig'),dept:g('ne_dept'),level:g('ne_level'),location:g('ne_loc'),doj:g('ne_doj'),managerId:g('ne_mgr')||null,phone:g('ne_phone'),email:email,personalEmail:g('ne_pmail')||null,status:status,onboarded:status!=='onboarding',mustChange:false,createdManually:true};
   DB.employees.push(emp);
   const pass=genPassword();
   if(!DB.users.find(u=>u.email===email))DB.users.push({email:email,pass:pass,role:'employee',employeeId:id});
